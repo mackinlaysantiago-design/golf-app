@@ -58,7 +58,7 @@ export default async function ResumenPage({
     hcpHoyo: h.hcpHoyo,
   }));
   const standings = round.players.map((rp) => {
-    const hcp = Math.round(rp.hcpIndex ?? 0);
+    const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
     const strokes = strokesPerHole(hcp, courseHcpMap);
     let bruto = 0, neto = 0, stbl = 0;
     for (const h of round.course.holes) {

@@ -39,8 +39,10 @@ export default function NuevaRondaClient({
   const [courseId, setCourseId] = useState<string>(courses[0]?.id ?? "");
   const [date, setDate] = useState(today);
   const [mode, setMode] = useState<Mode>("SOLO");
-  const [selectedPlayers, setSelectedPlayers] = useState<{ id: string; hcp: string }[]>(
-    me ? [{ id: me.id, hcp: me.hcpIndex?.toString() ?? "" }] : [],
+  const [modality, setModality] = useState("MEDAL");
+  const [tee, setTee] = useState("BLANCO");
+  const [selectedPlayers, setSelectedPlayers] = useState<{ id: string; hcp: string; courseHcp: string }[]>(
+    me ? [{ id: me.id, hcp: me.hcpIndex?.toString() ?? "", courseHcp: "" }] : [],
   );
   const [pairs, setPairs] = useState<string>("solo"); // "solo" | "individual" | "parejas"
   const [enterSzYds, setEnterSzYds] = useState(50);
@@ -54,11 +56,13 @@ export default function NuevaRondaClient({
 
   function setPlayerSlot(idx: number, playerId: string) {
     const player = players.find((p) => p.id === playerId);
+    const newHcp = player?.hcpIndex?.toString() ?? "";
     setSelectedPlayers((prev) => {
       const next = [...prev];
-      next[idx] = { id: playerId, hcp: player?.hcpIndex?.toString() ?? "" };
+      next[idx] = { id: playerId, hcp: newHcp, courseHcp: "" };
       return next;
     });
+    if (newHcp && courseId) lookupCourseHcp(idx, parseFloat(newHcp));
   }
 
   function setPlayerHcp(idx: number, hcp: string) {
@@ -66,6 +70,47 @@ export default function NuevaRondaClient({
       const next = [...prev];
       next[idx] = { ...next[idx], hcp };
       return next;
+    });
+    if (hcp && courseId) {
+      const idxNum = parseFloat(hcp);
+      if (!isNaN(idxNum)) lookupCourseHcp(idx, idxNum);
+    }
+  }
+
+  function setPlayerCourseHcp(idx: number, courseHcp: string) {
+    setSelectedPlayers((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], courseHcp };
+      return next;
+    });
+  }
+
+  async function lookupCourseHcp(idx: number, indexNum: number) {
+    if (!courseId) return;
+    try {
+      const res = await fetch(
+        `/api/canchas/${courseId}/hcp?index=${indexNum}&modality=${modality}&tee=${tee}&category=CAB`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.found && data.courseHcp != null) {
+        setSelectedPlayers((prev) => {
+          const next = [...prev];
+          next[idx] = { ...next[idx], courseHcp: String(data.courseHcp) };
+          return next;
+        });
+      }
+    } catch {}
+  }
+
+  // Re-lookup when modality changes
+  function changeModality(m: string) {
+    setModality(m);
+    selectedPlayers.forEach((p, i) => {
+      if (p.hcp) {
+        const n = parseFloat(p.hcp);
+        if (!isNaN(n)) lookupCourseHcp(i, n);
+      }
     });
   }
 
@@ -75,7 +120,7 @@ export default function NuevaRondaClient({
     setSelectedPlayers((prev) => {
       const next = [...prev];
       while (next.length < target)
-        next.push({ id: "", hcp: "" });
+        next.push({ id: "", hcp: "", courseHcp: "" });
       return next.slice(0, target);
     });
     if (newMode !== "FOUR_P") setPairs("individual");
@@ -90,6 +135,8 @@ export default function NuevaRondaClient({
       courseId,
       date: new Date(date).toISOString(),
       mode,
+      modality,
+      tee,
       enterSzYds,
       downInSzStrokes,
       onePuttCircleFt,
@@ -104,6 +151,7 @@ export default function NuevaRondaClient({
       players: selectedPlayers.map((p, i) => ({
         playerId: p.id,
         hcpIndex: p.hcp ? parseFloat(p.hcp) : null,
+        courseHcp: p.courseHcp ? parseInt(p.courseHcp) : null,
         position: i + 1,
       })),
     };
@@ -265,6 +313,40 @@ export default function NuevaRondaClient({
               </div>
             </Card>
           )}
+          <Card className="space-y-3">
+            <div>
+              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
+                Modalidad de juego
+              </label>
+              <select
+                className="gf-input mt-1"
+                value={modality}
+                onChange={(e) => changeModality(e.target.value)}
+              >
+                <option value="MEDAL">Medal Play</option>
+                <option value="STABLEFORD">Stableford</option>
+                <option value="MEDAL_IDA">Medal Ida</option>
+                <option value="MEDAL_VUELTA">Medal Vuelta</option>
+                <option value="STABLEFORD_IDA">Stableford Ida</option>
+                <option value="STABLEFORD_VUELTA">Stableford Vuelta</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
+                Tee
+              </label>
+              <select
+                className="gf-input mt-1"
+                value={tee}
+                onChange={(e) => setTee(e.target.value)}
+              >
+                <option value="BLANCO">Blanco</option>
+                <option value="AZUL">Azul</option>
+                <option value="NEGRO">Negro</option>
+                <option value="ROJO">Rojo</option>
+              </select>
+            </div>
+          </Card>
           <div className="flex gap-2">
             <button
               onClick={() => setStep(1)}
@@ -311,11 +393,23 @@ export default function NuevaRondaClient({
               </select>
               <input
                 className="gf-input"
-                placeholder="HCP del día (ej 8.9)"
+                placeholder="Handicap Index (ej 8.9)"
                 inputMode="decimal"
                 value={selectedPlayers[i]?.hcp ?? ""}
                 onChange={(e) => setPlayerHcp(i, e.target.value)}
               />
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                  Course Hcp del día (auto si la cancha tiene tabla)
+                </label>
+                <input
+                  className="gf-input mt-0.5"
+                  placeholder="ej 6"
+                  inputMode="numeric"
+                  value={selectedPlayers[i]?.courseHcp ?? ""}
+                  onChange={(e) => setPlayerCourseHcp(i, e.target.value)}
+                />
+              </div>
             </Card>
           ))}
           <div className="flex gap-2">

@@ -6,6 +6,8 @@ const RoundSchema = z.object({
   courseId: z.string().min(1),
   date: z.string(), // ISO
   mode: z.enum(["SOLO", "TWO_P", "THREE_P", "FOUR_P"]),
+  modality: z.string().default("MEDAL"),
+  tee: z.string().default("BLANCO"),
   enterSzYds: z.number().int().min(1).max(300),
   downInSzStrokes: z.number().int().min(1).max(10),
   onePuttCircleFt: z.number().int().min(1).max(30),
@@ -17,6 +19,7 @@ const RoundSchema = z.object({
       z.object({
         playerId: z.string(),
         hcpIndex: z.number().nullable().optional(),
+        courseHcp: z.number().int().nullable().optional(),
         position: z.number().int().min(1).max(4),
       }),
     )
@@ -33,6 +36,8 @@ export async function POST(req: NextRequest) {
       courseId: parsed.courseId,
       date: new Date(parsed.date),
       mode: parsed.mode,
+      modality: parsed.modality,
+      tee: parsed.tee,
       enterSzYds: parsed.enterSzYds,
       downInSzStrokes: parsed.downInSzStrokes,
       onePuttCircleFt: parsed.onePuttCircleFt,
@@ -43,6 +48,7 @@ export async function POST(req: NextRequest) {
         create: parsed.players.map((p) => ({
           playerId: p.playerId,
           hcpIndex: p.hcpIndex ?? null,
+          courseHcp: p.courseHcp ?? null,
           position: p.position,
         })),
       },

@@ -13,11 +13,27 @@ datasource db {
 // ============ CANCHAS ============
 
 model Course {
-  id        String       @id @default(cuid())
-  name      String       @unique
+  id        String           @id @default(cuid())
+  name      String           @unique
   holes     CourseHole[]
   rounds    Round[]
-  createdAt DateTime     @default(now())
+  hcpTable  CourseHcpRange[]
+  createdAt DateTime         @default(now())
+}
+
+// Tabla "Hcp Juego" — index range → course handicap, por modalidad/tee
+model CourseHcpRange {
+  id        String  @id @default(cuid())
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId  String
+  modality  String  // MEDAL | STABLEFORD | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD_IDA | STABLEFORD_VUELTA
+  tee       String  @default("BLANCO") // BLANCO | AZUL | NEGRO | ROJO ...
+  category  String  @default("CAB")    // CAB | DAM
+  indexFrom Float   // ej -8.0
+  indexTo   Float   // ej -7.6
+  courseHcp Int     // ej -11
+
+  @@index([courseId, modality, tee, category])
 }
 
 model CourseHole {
@@ -51,6 +67,8 @@ model Round {
   courseId String
   date   DateTime
   mode   String // SOLO | TWO_P | THREE_P | FOUR_P
+  modality String @default("MEDAL") // MEDAL | STABLEFORD | MATCH
+  tee      String @default("BLANCO")
   // Configs Scoring Method (por ronda — clave de tu planilla)
   enterSzYds       Int @default(50)  // yds que define "Enter SZ"
   downInSzStrokes  Int @default(3)   // golpes desde SZ que define "Down in SZ"
@@ -66,13 +84,14 @@ model Round {
 }
 
 model RoundPlayer {
-  id       String @id @default(cuid())
-  round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  roundId  String
-  player   Player @relation(fields: [playerId], references: [id])
-  playerId String
-  hcpIndex Float? // hcp de ese jugador para esta ronda
-  position Int    // 1..4 orden de display
+  id        String @id @default(cuid())
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId   String
+  player    Player @relation(fields: [playerId], references: [id])
+  playerId  String
+  hcpIndex  Float?  // index del jugador para esa fecha
+  courseHcp Int?    // course handicap del día (calculado de HcpTable o manual)
+  position  Int     // 1..4 orden de display
 
   holes RoundHole[]
 

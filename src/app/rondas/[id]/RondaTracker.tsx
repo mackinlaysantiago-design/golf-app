@@ -31,6 +31,7 @@ type RoundPlayer = {
   id: string;
   position: number;
   hcpIndex: number | null;
+  courseHcp: number | null;
   player: { id: string; name: string; isMe: boolean };
   holes: RoundHoleData[];
 };
@@ -129,7 +130,7 @@ export default function RondaTracker({ round }: { round: Round }) {
   // Leaderboard live
   const courseHcpMap = courseHoles.map((h) => ({ number: h.number, par: h.par, hcpHoyo: h.hcpHoyo }));
   const standings = round.players.map((rp) => {
-    const hcp = Math.round(rp.hcpIndex ?? 0);
+    const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
     const strokes = strokesPerHole(hcp, courseHcpMap);
     let bruto = 0;
     let neto = 0;

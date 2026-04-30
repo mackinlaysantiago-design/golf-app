@@ -1,0 +1,2746 @@
+{
+  "courses": [
+    {
+      "name": "La Lucila",
+      "holes": [
+        {
+          "number": 1,
+          "par": 4,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 2,
+          "par": 4,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 3,
+          "par": 4,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 4,
+          "par": 4,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 5,
+          "par": 3,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 6,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 7,
+          "par": 5,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 8,
+          "par": 3,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 9,
+          "par": 5,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 10,
+          "par": 4,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 11,
+          "par": 3,
+          "hcpHoyo": 4
+        },
+        {
+          "number": 12,
+          "par": 4,
+          "hcpHoyo": 6
+        },
+        {
+          "number": 13,
+          "par": 4,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 14,
+          "par": 3,
+          "hcpHoyo": 10
+        },
+        {
+          "number": 15,
+          "par": 5,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 16,
+          "par": 4,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 17,
+          "par": 3,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 18,
+          "par": 5,
+          "hcpHoyo": 14
+        }
+      ]
+    },
+    {
+      "name": "Media Luna",
+      "holes": [
+        {
+          "number": 1,
+          "par": 5,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 2,
+          "par": 4,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 3,
+          "par": 3,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 4,
+          "par": 5,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 5,
+          "par": 4,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 6,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 7,
+          "par": 3,
+          "hcpHoyo": 14
+        },
+        {
+          "number": 8,
+          "par": 4,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 9,
+          "par": 4,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 10,
+          "par": 4,
+          "hcpHoyo": 4
+        },
+        {
+          "number": 11,
+          "par": 5,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 12,
+          "par": 3,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 13,
+          "par": 4,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 14,
+          "par": 3,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 15,
+          "par": 5,
+          "hcpHoyo": 10
+        },
+        {
+          "number": 16,
+          "par": 3,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 17,
+          "par": 4,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 18,
+          "par": 4,
+          "hcpHoyo": 6
+        }
+      ]
+    },
+    {
+      "name": "Potrerillo",
+      "holes": [
+        {
+          "number": 1,
+          "par": 4,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 2,
+          "par": 4,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 3,
+          "par": 4,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 4,
+          "par": 4,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 5,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 6,
+          "par": 4,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 7,
+          "par": 4,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 8,
+          "par": 4,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 9,
+          "par": 4,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 10,
+          "par": 4,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 11,
+          "par": 4,
+          "hcpHoyo": 6
+        },
+        {
+          "number": 12,
+          "par": 4,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 13,
+          "par": 4,
+          "hcpHoyo": 14
+        },
+        {
+          "number": 14,
+          "par": 4,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 15,
+          "par": 4,
+          "hcpHoyo": 4
+        },
+        {
+          "number": 16,
+          "par": 4,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 17,
+          "par": 4,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 18,
+          "par": 4,
+          "hcpHoyo": 10
+        }
+      ],
+      "incomplete": true
+    },
+    {
+      "name": "Pilar golf A-B",
+      "holes": [
+        {
+          "number": 1,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 2,
+          "par": 5,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 3,
+          "par": 4,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 4,
+          "par": 4,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 5,
+          "par": 4,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 6,
+          "par": 3,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 7,
+          "par": 5,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 8,
+          "par": 3,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 9,
+          "par": 4,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 10,
+          "par": 5,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 11,
+          "par": 3,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 12,
+          "par": 4,
+          "hcpHoyo": 10
+        },
+        {
+          "number": 13,
+          "par": 5,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 14,
+          "par": 4,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 15,
+          "par": 4,
+          "hcpHoyo": 6
+        },
+        {
+          "number": 16,
+          "par": 4,
+          "hcpHoyo": 14
+        },
+        {
+          "number": 17,
+          "par": 3,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 18,
+          "par": 4,
+          "hcpHoyo": 4
+        }
+      ]
+    },
+    {
+      "name": "Lagartos",
+      "holes": [
+        {
+          "number": 1,
+          "par": 4,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 2,
+          "par": 3,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 3,
+          "par": 3,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 4,
+          "par": 4,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 5,
+          "par": 3,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 6,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 7,
+          "par": 5,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 8,
+          "par": 4,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 9,
+          "par": 5,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 10,
+          "par": 3,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 11,
+          "par": 5,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 12,
+          "par": 4,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 13,
+          "par": 4,
+          "hcpHoyo": 4
+        },
+        {
+          "number": 14,
+          "par": 5,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 15,
+          "par": 3,
+          "hcpHoyo": 14
+        },
+        {
+          "number": 16,
+          "par": 5,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 17,
+          "par": 4,
+          "hcpHoyo": 10
+        },
+        {
+          "number": 18,
+          "par": 4,
+          "hcpHoyo": 6
+        }
+      ]
+    },
+    {
+      "name": "San Miguel plaza hotel",
+      "holes": [
+        {
+          "number": 1,
+          "par": 4,
+          "hcpHoyo": 13
+        },
+        {
+          "number": 2,
+          "par": 4,
+          "hcpHoyo": 15
+        },
+        {
+          "number": 3,
+          "par": 4,
+          "hcpHoyo": 7
+        },
+        {
+          "number": 4,
+          "par": 3,
+          "hcpHoyo": 17
+        },
+        {
+          "number": 5,
+          "par": 4,
+          "hcpHoyo": 1
+        },
+        {
+          "number": 6,
+          "par": 5,
+          "hcpHoyo": 3
+        },
+        {
+          "number": 7,
+          "par": 4,
+          "hcpHoyo": 5
+        },
+        {
+          "number": 8,
+          "par": 4,
+          "hcpHoyo": 11
+        },
+        {
+          "number": 9,
+          "par": 3,
+          "hcpHoyo": 9
+        },
+        {
+          "number": 10,
+          "par": 4,
+          "hcpHoyo": 16
+        },
+        {
+          "number": 11,
+          "par": 4,
+          "hcpHoyo": 6
+        },
+        {
+          "number": 12,
+          "par": 3,
+          "hcpHoyo": 18
+        },
+        {
+          "number": 13,
+          "par": 5,
+          "hcpHoyo": 2
+        },
+        {
+          "number": 14,
+          "par": 4,
+          "hcpHoyo": 14
+        },
+        {
+          "number": 15,
+          "par": 4,
+          "hcpHoyo": 10
+        },
+        {
+          "number": 16,
+          "par": 4,
+          "hcpHoyo": 8
+        },
+        {
+          "number": 17,
+          "par": 3,
+          "hcpHoyo": 12
+        },
+        {
+          "number": 18,
+          "par": 5,
+          "hcpHoyo": 4
+        }
+      ]
+    }
+  ],
+  "hcpRanges": [
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -7.6,
+      "courseHcp": -11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -7.5,
+      "indexTo": -6.6,
+      "courseHcp": -10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -6.5,
+      "indexTo": -5.6,
+      "courseHcp": -9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -5.5,
+      "indexTo": -4.6,
+      "courseHcp": -8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -4.5,
+      "indexTo": -3.7,
+      "courseHcp": -7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -3.6,
+      "indexTo": -2.7,
+      "courseHcp": -6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -2.6,
+      "indexTo": -1.7,
+      "courseHcp": -5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -1.6,
+      "indexTo": -0.7,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -0.6,
+      "indexTo": 0.2,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 0.3,
+      "indexTo": 1.2,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 1.3,
+      "indexTo": 2.2,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 2.3,
+      "indexTo": 3.2,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 3.3,
+      "indexTo": 4.1,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 4.2,
+      "indexTo": 5.1,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 5.2,
+      "indexTo": 6.1,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 6.2,
+      "indexTo": 7.1,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 7.2,
+      "indexTo": 8.0,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 8.1,
+      "indexTo": 9.0,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 9.1,
+      "indexTo": 10.0,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 10.1,
+      "indexTo": 11.0,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 11.1,
+      "indexTo": 11.9,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 12.0,
+      "indexTo": 12.9,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 13.0,
+      "indexTo": 13.9,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 14.0,
+      "indexTo": 14.9,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.0,
+      "indexTo": 15.8,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.9,
+      "indexTo": 16.8,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 16.9,
+      "indexTo": 17.8,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 17.9,
+      "indexTo": 18.8,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 18.9,
+      "indexTo": 19.7,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 19.8,
+      "indexTo": 20.7,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 20.8,
+      "indexTo": 21.7,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 21.8,
+      "indexTo": 22.6,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 22.7,
+      "indexTo": 23.6,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 23.7,
+      "indexTo": 24.6,
+      "courseHcp": 22
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 24.7,
+      "indexTo": 25.6,
+      "courseHcp": 23
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 25.7,
+      "indexTo": 26.5,
+      "courseHcp": 24
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 26.6,
+      "indexTo": 27.5,
+      "courseHcp": 25
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.6,
+      "indexTo": 28.5,
+      "courseHcp": 26
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 28.6,
+      "indexTo": 29.5,
+      "courseHcp": 27
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.6,
+      "indexTo": 30.4,
+      "courseHcp": 28
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 30.5,
+      "indexTo": 31.4,
+      "courseHcp": 29
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 31.5,
+      "indexTo": 32.4,
+      "courseHcp": 30
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 32.5,
+      "indexTo": 33.4,
+      "courseHcp": 31
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 33.5,
+      "indexTo": 34.3,
+      "courseHcp": 32
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 34.4,
+      "indexTo": 35.3,
+      "courseHcp": 33
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 35.4,
+      "indexTo": 36.3,
+      "courseHcp": 34
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 36.4,
+      "indexTo": 37.3,
+      "courseHcp": 35
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 37.4,
+      "indexTo": 38.2,
+      "courseHcp": 36
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 38.3,
+      "indexTo": 39.2,
+      "courseHcp": 37
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 39.3,
+      "indexTo": 40.2,
+      "courseHcp": 38
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 40.3,
+      "indexTo": 41.2,
+      "courseHcp": 39
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 41.3,
+      "indexTo": 42.1,
+      "courseHcp": 40
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 42.2,
+      "indexTo": 43.1,
+      "courseHcp": 41
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 43.2,
+      "indexTo": 44.1,
+      "courseHcp": 42
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 44.2,
+      "indexTo": 45.1,
+      "courseHcp": 43
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 45.2,
+      "indexTo": 46.0,
+      "courseHcp": 44
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 46.1,
+      "indexTo": 47.0,
+      "courseHcp": 45
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 47.1,
+      "indexTo": 48.0,
+      "courseHcp": 46
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 48.1,
+      "indexTo": 48.9,
+      "courseHcp": 47
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 49.0,
+      "indexTo": 49.9,
+      "courseHcp": 48
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 50.0,
+      "indexTo": 50.9,
+      "courseHcp": 49
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 51.0,
+      "indexTo": 51.9,
+      "courseHcp": 50
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 52.0,
+      "indexTo": 52.8,
+      "courseHcp": 51
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 52.9,
+      "indexTo": 53.8,
+      "courseHcp": 52
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 53.9,
+      "indexTo": 54.0,
+      "courseHcp": 53
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -7.1,
+      "courseHcp": -9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -7.0,
+      "indexTo": -5.9,
+      "courseHcp": -8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -5.8,
+      "indexTo": -4.8,
+      "courseHcp": -7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -4.7,
+      "indexTo": -3.6,
+      "courseHcp": -6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -3.5,
+      "indexTo": -2.5,
+      "courseHcp": -5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -2.4,
+      "indexTo": -1.3,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -1.2,
+      "indexTo": -0.2,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -0.1,
+      "indexTo": 1.0,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 1.1,
+      "indexTo": 2.1,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 2.2,
+      "indexTo": 3.3,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 3.4,
+      "indexTo": 4.4,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 4.5,
+      "indexTo": 5.5,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 5.6,
+      "indexTo": 6.7,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 6.8,
+      "indexTo": 7.8,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 7.9,
+      "indexTo": 9.0,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 9.1,
+      "indexTo": 10.1,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 10.2,
+      "indexTo": 11.3,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 11.4,
+      "indexTo": 12.4,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 12.5,
+      "indexTo": 13.6,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 13.7,
+      "indexTo": 14.7,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 14.8,
+      "indexTo": 15.9,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 16.0,
+      "indexTo": 17.0,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 17.1,
+      "indexTo": 18.1,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 18.2,
+      "indexTo": 19.3,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 19.4,
+      "indexTo": 20.4,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 20.5,
+      "indexTo": 21.6,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 21.7,
+      "indexTo": 22.7,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 22.8,
+      "indexTo": 23.9,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 24.0,
+      "indexTo": 25.0,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 25.1,
+      "indexTo": 26.2,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 26.3,
+      "indexTo": 27.3,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.4,
+      "indexTo": 28.5,
+      "courseHcp": 22
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 28.6,
+      "indexTo": 29.6,
+      "courseHcp": 23
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.7,
+      "indexTo": 30.8,
+      "courseHcp": 24
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 30.9,
+      "indexTo": 31.9,
+      "courseHcp": 25
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 32.0,
+      "indexTo": 33.0,
+      "courseHcp": 26
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 33.1,
+      "indexTo": 34.2,
+      "courseHcp": 27
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 34.3,
+      "indexTo": 35.3,
+      "courseHcp": 28
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 35.4,
+      "indexTo": 36.5,
+      "courseHcp": 29
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 36.6,
+      "indexTo": 37.6,
+      "courseHcp": 30
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 37.7,
+      "indexTo": 38.8,
+      "courseHcp": 31
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 38.9,
+      "indexTo": 39.9,
+      "courseHcp": 32
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 40.0,
+      "indexTo": 41.1,
+      "courseHcp": 33
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 41.2,
+      "indexTo": 42.2,
+      "courseHcp": 34
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 42.3,
+      "indexTo": 43.4,
+      "courseHcp": 35
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 43.5,
+      "indexTo": 44.5,
+      "courseHcp": 36
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 44.6,
+      "indexTo": 45.7,
+      "courseHcp": 37
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 45.8,
+      "indexTo": 46.8,
+      "courseHcp": 38
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 46.9,
+      "indexTo": 47.9,
+      "courseHcp": 39
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 48.0,
+      "indexTo": 49.1,
+      "courseHcp": 40
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 49.2,
+      "indexTo": 50.2,
+      "courseHcp": 41
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 50.3,
+      "indexTo": 51.4,
+      "courseHcp": 42
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 51.5,
+      "indexTo": 52.5,
+      "courseHcp": 43
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 52.6,
+      "indexTo": 53.7,
+      "courseHcp": 44
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 53.8,
+      "indexTo": 54.0,
+      "courseHcp": 45
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -7.3,
+      "courseHcp": -6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -7.2,
+      "indexTo": -5.4,
+      "courseHcp": -5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -5.3,
+      "indexTo": -3.5,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -3.4,
+      "indexTo": -1.6,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -1.5,
+      "indexTo": 0.3,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 0.4,
+      "indexTo": 2.2,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 2.3,
+      "indexTo": 4.2,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 4.3,
+      "indexTo": 6.1,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 6.2,
+      "indexTo": 8.0,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 8.1,
+      "indexTo": 9.9,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 10.0,
+      "indexTo": 11.8,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 11.9,
+      "indexTo": 13.7,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 13.8,
+      "indexTo": 15.7,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.8,
+      "indexTo": 17.6,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 17.7,
+      "indexTo": 19.5,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 19.6,
+      "indexTo": 21.4,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 21.5,
+      "indexTo": 23.3,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 23.4,
+      "indexTo": 25.2,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 25.3,
+      "indexTo": 27.1,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.2,
+      "indexTo": 29.1,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.2,
+      "indexTo": 31.0,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 31.1,
+      "indexTo": 32.9,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 33.0,
+      "indexTo": 34.8,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 34.9,
+      "indexTo": 36.7,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 36.8,
+      "indexTo": 38.6,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 38.7,
+      "indexTo": 40.6,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 40.7,
+      "indexTo": 42.5,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 42.6,
+      "indexTo": 44.4,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 44.5,
+      "indexTo": 46.3,
+      "courseHcp": 22
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 46.4,
+      "indexTo": 48.2,
+      "courseHcp": 23
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 48.3,
+      "indexTo": 50.1,
+      "courseHcp": 24
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 50.2,
+      "indexTo": 52.0,
+      "courseHcp": 25
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 52.1,
+      "indexTo": 54.0,
+      "courseHcp": 26
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -6.8,
+      "courseHcp": -5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -6.7,
+      "indexTo": -4.8,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -4.7,
+      "indexTo": -2.8,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -2.7,
+      "indexTo": -0.8,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -0.7,
+      "indexTo": 1.2,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 1.3,
+      "indexTo": 3.2,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 3.3,
+      "indexTo": 5.1,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 5.2,
+      "indexTo": 7.1,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 7.2,
+      "indexTo": 9.1,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 9.2,
+      "indexTo": 11.1,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 11.2,
+      "indexTo": 13.1,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 13.2,
+      "indexTo": 15.1,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.2,
+      "indexTo": 17.1,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 17.2,
+      "indexTo": 19.1,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 19.2,
+      "indexTo": 21.1,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 21.2,
+      "indexTo": 23.1,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 23.2,
+      "indexTo": 25.1,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 25.2,
+      "indexTo": 27.1,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.2,
+      "indexTo": 29.1,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.2,
+      "indexTo": 31.1,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 31.2,
+      "indexTo": 33.1,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 33.2,
+      "indexTo": 35.1,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 35.2,
+      "indexTo": 37.1,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 37.2,
+      "indexTo": 39.1,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 39.2,
+      "indexTo": 41.1,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 41.2,
+      "indexTo": 43.1,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 43.2,
+      "indexTo": 45.1,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 45.2,
+      "indexTo": 47.1,
+      "courseHcp": 22
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 47.2,
+      "indexTo": 49.1,
+      "courseHcp": 23
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 49.2,
+      "indexTo": 51.1,
+      "courseHcp": 24
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 51.2,
+      "indexTo": 53.1,
+      "courseHcp": 25
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "MEDAL_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 53.2,
+      "indexTo": 54.0,
+      "courseHcp": 26
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -6.9,
+      "courseHcp": -5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -6.8,
+      "indexTo": -4.7,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -4.6,
+      "indexTo": -2.4,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -2.3,
+      "indexTo": -0.2,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -0.1,
+      "indexTo": 2.1,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 2.2,
+      "indexTo": 4.3,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 4.4,
+      "indexTo": 6.6,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 6.7,
+      "indexTo": 8.8,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 8.9,
+      "indexTo": 11.1,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 11.2,
+      "indexTo": 13.3,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 13.4,
+      "indexTo": 15.6,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.7,
+      "indexTo": 17.9,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 18.0,
+      "indexTo": 20.1,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 20.2,
+      "indexTo": 22.4,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 22.5,
+      "indexTo": 24.6,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 24.7,
+      "indexTo": 26.9,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.0,
+      "indexTo": 29.1,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.2,
+      "indexTo": 31.4,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 31.5,
+      "indexTo": 33.6,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 33.7,
+      "indexTo": 35.9,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 36.0,
+      "indexTo": 38.1,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 38.2,
+      "indexTo": 40.4,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 40.5,
+      "indexTo": 42.6,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 42.7,
+      "indexTo": 44.9,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 45.0,
+      "indexTo": 47.1,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 47.2,
+      "indexTo": 49.4,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 49.5,
+      "indexTo": 51.7,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 51.8,
+      "indexTo": 53.9,
+      "courseHcp": 22
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_IDA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 54.0,
+      "indexTo": 54.0,
+      "courseHcp": 23
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -8.0,
+      "indexTo": -6.1,
+      "courseHcp": -4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -6.0,
+      "indexTo": -3.7,
+      "courseHcp": -3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -3.6,
+      "indexTo": -1.4,
+      "courseHcp": -2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": -1.3,
+      "indexTo": 1.0,
+      "courseHcp": -1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 1.1,
+      "indexTo": 3.3,
+      "courseHcp": 0
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 3.4,
+      "indexTo": 5.7,
+      "courseHcp": 1
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 5.8,
+      "indexTo": 8.0,
+      "courseHcp": 2
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 8.1,
+      "indexTo": 10.4,
+      "courseHcp": 3
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 10.5,
+      "indexTo": 12.7,
+      "courseHcp": 4
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 12.8,
+      "indexTo": 15.1,
+      "courseHcp": 5
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 15.2,
+      "indexTo": 17.4,
+      "courseHcp": 6
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 17.5,
+      "indexTo": 19.8,
+      "courseHcp": 7
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 19.9,
+      "indexTo": 22.1,
+      "courseHcp": 8
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 22.2,
+      "indexTo": 24.5,
+      "courseHcp": 9
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 24.6,
+      "indexTo": 26.9,
+      "courseHcp": 10
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 27.0,
+      "indexTo": 29.2,
+      "courseHcp": 11
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 29.3,
+      "indexTo": 31.6,
+      "courseHcp": 12
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 31.7,
+      "indexTo": 33.9,
+      "courseHcp": 13
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 34.0,
+      "indexTo": 36.3,
+      "courseHcp": 14
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 36.4,
+      "indexTo": 38.6,
+      "courseHcp": 15
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 38.7,
+      "indexTo": 41.0,
+      "courseHcp": 16
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 41.1,
+      "indexTo": 43.3,
+      "courseHcp": 17
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 43.4,
+      "indexTo": 45.7,
+      "courseHcp": 18
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 45.8,
+      "indexTo": 48.0,
+      "courseHcp": 19
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 48.1,
+      "indexTo": 50.4,
+      "courseHcp": 20
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 50.5,
+      "indexTo": 52.7,
+      "courseHcp": 21
+    },
+    {
+      "courseName": "La Lucila",
+      "modality": "STABLEFORD_VUELTA",
+      "tee": "BLANCO",
+      "category": "CAB",
+      "indexFrom": 52.8,
+      "indexTo": 54.0,
+      "courseHcp": 22
+    }
+  ]
+}
