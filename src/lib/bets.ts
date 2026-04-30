@@ -40,28 +40,89 @@ function holesForModality(courseHoles: CourseHole[], mod: BetModality): CourseHo
   return courseHoles;
 }
 
+// Match Play en parejas (4P): por hoyo, 2pts al best ball ganador + 1pt al worst ball ganador.
+function matchPlayPairs(
+  modality: BetModality,
+  players: PlayerScores[],
+  courseHoles: CourseHole[],
+  holes: CourseHole[],
+  pairs: string[][],
+): { winnerIds: string[]; scores: { playerId: string; value: number; display: string }[]; tie: boolean } {
+  // pairs son arrays de playerId. Acá los IDs son RoundPlayer.id (lo que usamos en playerScoresForBets).
+  const [pairA, pairB] = pairs;
+
+  function netForPlayer(playerId: string, holeNum: number): number | null {
+    const p = players.find((pp) => pp.playerId === playerId);
+    if (!p) return null;
+    const score = p.scoresByHole[holeNum];
+    if (score == null || score === 0) return null;
+    const strokes = strokesPerHole(p.hcp, courseHoles)[holeNum] ?? 0;
+    return score - strokes;
+  }
+
+  let ptsA = 0;
+  let ptsB = 0;
+  for (const h of holes) {
+    const netsA = pairA.map((id) => netForPlayer(id, h.number)).filter((n): n is number => n != null);
+    const netsB = pairB.map((id) => netForPlayer(id, h.number)).filter((n): n is number => n != null);
+    if (netsA.length < 2 || netsB.length < 2) continue;
+    const minA = Math.min(...netsA);
+    const maxA = Math.max(...netsA);
+    const minB = Math.min(...netsB);
+    const maxB = Math.max(...netsB);
+    if (minA < minB) ptsA += 2;
+    else if (minB < minA) ptsB += 2;
+    if (maxA < maxB) ptsA += 1;
+    else if (maxB < maxA) ptsB += 1;
+  }
+
+  // Cada jugador de la pareja "tiene" los pts de la pareja para mostrar
+  const scores = players.map((p) => {
+    const isA = pairA.includes(p.playerId);
+    const isB = pairB.includes(p.playerId);
+    const value = isA ? ptsA : isB ? ptsB : 0;
+    return {
+      playerId: p.playerId,
+      value,
+      display: `${value} pts${isA ? " (A)" : isB ? " (B)" : ""}`,
+    };
+  });
+
+  if (ptsA === ptsB) return { winnerIds: [], scores, tie: true };
+  const winnerPair = ptsA > ptsB ? pairA : pairB;
+  return { winnerIds: winnerPair, scores, tie: false };
+}
+
 // Devuelve { winnerIds: string[], scores: { playerId, value }[] }
 // winnerIds.length puede ser 0 (empate sin ganador) o multiple (empate)
+// pairs: si está seteado, dispara modo "Match Play en parejas" (best ball + worst ball)
 export function computeBetWinner(
   modality: BetModality,
   players: PlayerScores[],
   courseHoles: CourseHole[],
+  pairs?: string[][],
 ): { winnerIds: string[]; scores: { playerId: string; value: number; display: string }[]; tie: boolean } {
   const holes = holesForModality(courseHoles, modality);
 
-  // Match Play: gana el que más hoyos ganó. Empate si tiene mismo número.
+  // Match Play: gana el que más hoyos / puntos ganó.
+  // Pairs: 2pts al BestBall ganador + 1pt al WorstBall ganador (regla de Santi).
   if (modality.startsWith("MATCH")) {
+    if (pairs && pairs.length === 2 && pairs[0].length === 2 && pairs[1].length === 2) {
+      // Match Play en parejas (4P)
+      return matchPlayPairs(modality, players, courseHoles, holes, pairs);
+    }
     const wins: Record<string, number> = {};
     for (const p of players) wins[p.playerId] = 0;
 
     for (const h of holes) {
-      // Calcular net de cada jugador
-      const nets = players.map((p) => {
-        const score = p.scoresByHole[h.number];
-        if (score == null || score === 0) return null;
-        const strokes = strokesPerHole(p.hcp, courseHoles)[h.number] ?? 0;
-        return { playerId: p.playerId, net: score - strokes };
-      }).filter((x): x is { playerId: string; net: number } => x !== null);
+      const nets = players
+        .map((p) => {
+          const score = p.scoresByHole[h.number];
+          if (score == null || score === 0) return null;
+          const strokes = strokesPerHole(p.hcp, courseHoles)[h.number] ?? 0;
+          return { playerId: p.playerId, net: score - strokes };
+        })
+        .filter((x): x is { playerId: string; net: number } => x !== null);
       if (nets.length < 2) continue;
       const minNet = Math.min(...nets.map((n) => n.net));
       const winners = nets.filter((n) => n.net === minNet);

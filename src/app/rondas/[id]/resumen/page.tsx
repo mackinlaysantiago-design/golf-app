@@ -85,22 +85,43 @@ export default async function ResumenPage({
     scores: { playerId: string; value: number; display: string }[];
     payouts: Record<string, number>; // playerId -> ±monto
   };
+  const pairsParsed: string[][] | undefined = round.pairs
+    ? (() => {
+        try {
+          // Las parejas guardan player.id (no roundPlayer.id) — convertir
+          const raw: string[][] = JSON.parse(round.pairs);
+          return raw.map((pair) =>
+            pair
+              .map((pid) => round.players.find((rp) => rp.player.id === pid)?.id)
+              .filter((id): id is string => Boolean(id)),
+          );
+        } catch {
+          return undefined;
+        }
+      })()
+    : undefined;
+
   const betResults: BetResult[] = round.bets.map((b) => {
     const result = computeBetWinner(
       b.modality as BetModality,
       playerScoresForBets,
       courseHcpMap,
+      pairsParsed,
     );
     const winnerNames = result.winnerIds.map(
       (id) => playerScoresForBets.find((p) => p.playerId === id)?.name ?? "?",
     );
-    // Payouts: ganador único → cobra (n-1)*amount, otros pagan amount cada uno
+    // Payouts: cada ganador cobra (losers*amount / winners). Cada loser paga amount.
     const payouts: Record<string, number> = {};
-    if (result.winnerIds.length === 1) {
-      const winnerId = result.winnerIds[0];
-      const losers = playerScoresForBets.filter((p) => p.playerId !== winnerId);
-      payouts[winnerId] = losers.length * b.amount;
-      for (const l of losers) payouts[l.playerId] = -b.amount;
+    if (result.winnerIds.length >= 1 && !result.tie) {
+      const winners = result.winnerIds;
+      const losers = playerScoresForBets
+        .filter((p) => !winners.includes(p.playerId))
+        .map((p) => p.playerId);
+      const pot = losers.length * b.amount;
+      const perWinner = pot / winners.length;
+      for (const w of winners) payouts[w] = perWinner;
+      for (const l of losers) payouts[l] = -b.amount;
     }
     return {
       modality: b.modality,
