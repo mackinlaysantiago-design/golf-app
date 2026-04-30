@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAnthropic, VISION_MODEL } from "@/lib/anthropic";
+import { getGemini, VISION_MODEL } from "@/lib/ai";
 
 const EXTRACTION_PROMPT = `Sos un parser experto de tablas FlightScope. Extraé TODOS los shots de esta imagen como JSON.
 
@@ -43,32 +43,24 @@ export async function POST(req: NextRequest) {
 
   const arrayBuffer = await file.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
-  const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+  const mimeType = file.type || "image/jpeg";
 
-  const client = getAnthropic();
-  const message = await client.messages.create({
+  const client = getGemini();
+  const result = await client.models.generateContent({
     model: VISION_MODEL,
-    max_tokens: 4096,
-    messages: [
+    contents: [
       {
         role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: base64 },
-          },
-          { type: "text", text: EXTRACTION_PROMPT },
+        parts: [
+          { inlineData: { mimeType, data: base64 } },
+          { text: EXTRACTION_PROMPT },
         ],
       },
     ],
   });
 
-  const text = message.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("");
+  const text = result.text ?? "";
 
-  // Extraer JSON (por si vino con ```json``` wrapper)
   let jsonStr = text.trim();
   const fence = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
   if (fence) jsonStr = fence[1];
@@ -81,12 +73,11 @@ export async function POST(req: NextRequest) {
     parsed = JSON.parse(jsonStr);
   } catch {
     return NextResponse.json(
-      { error: "Claude no devolvió JSON válido", raw: text },
+      { error: "Gemini no devolvió JSON válido", raw: text },
       { status: 500 },
     );
   }
 
-  // Normalizar al formato del schema
   const shots = (parsed.shots ?? []).map((s) => {
     const rowType = (s.row_type as string) ?? "SHOT";
     return {

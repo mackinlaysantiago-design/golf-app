@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAnthropic, COACH_MODEL } from "@/lib/anthropic";
+import { getGemini, COACH_MODEL } from "@/lib/ai";
 
 const CLUB_LABEL: Record<string, string> = {
   DRIVER: "Driver",
@@ -85,17 +85,12 @@ ${session.notes ? `Notas: ${session.notes}` : ""}
 
 Respondé en markdown, conciso, mobile-friendly. Tono directo de coach argentino.`;
 
-  const client = getAnthropic();
-  const message = await client.messages.create({
+  const client = getGemini();
+  const result = await client.models.generateContent({
     model: COACH_MODEL,
-    max_tokens: 800,
-    messages: [{ role: "user", content: prompt }],
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
-
-  const text = message.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("\n");
+  const text = result.text ?? "";
 
   await prisma.rangeSession.update({
     where: { id: sessionId },
