@@ -35,7 +35,7 @@ export default function NuevaRondaClient({
   const me = players.find((p) => p.isMe);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [courseId, setCourseId] = useState<string>(courses[0]?.id ?? "");
   const [date, setDate] = useState(today);
   const [mode, setMode] = useState<Mode>("SOLO");
@@ -49,7 +49,20 @@ export default function NuevaRondaClient({
   const [downInSzStrokes, setDownInSzStrokes] = useState(3);
   const [onePuttCircleFt, setOnePuttCircleFt] = useState(6);
   const [twoPuttCircleYds, setTwoPuttCircleYds] = useState(20);
+  const [bets, setBets] = useState<Record<string, string>>({}); // modality -> amount string
   const [busy, setBusy] = useState(false);
+
+  function toggleBet(mod: string, defaultAmount: string) {
+    setBets((prev) => {
+      const next = { ...prev };
+      if (mod in next) delete next[mod];
+      else next[mod] = defaultAmount;
+      return next;
+    });
+  }
+  function setBetAmount(mod: string, amount: string) {
+    setBets((prev) => ({ ...prev, [mod]: amount }));
+  }
 
   const requiredCount = MODE_PLAYERS[mode];
   const ready = selectedPlayers.length === requiredCount && selectedPlayers.every((p) => p.id);
@@ -141,6 +154,11 @@ export default function NuevaRondaClient({
       downInSzStrokes,
       onePuttCircleFt,
       twoPuttCircleYds,
+      bets: Object.entries(bets).map(([mod, amt]) => ({
+        modality: mod,
+        amount: amt ? parseFloat(amt) : 0,
+        currency: "ARS",
+      })),
       pairs:
         mode === "FOUR_P" && pairs === "parejas"
           ? [
@@ -207,7 +225,7 @@ export default function NuevaRondaClient({
       <header>
         <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva ronda</h1>
         <div className="flex gap-2 text-xs mt-1">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <span
               key={s}
               className="gf-pill"
@@ -432,6 +450,66 @@ export default function NuevaRondaClient({
 
       {step === 4 && (
         <>
+          <SectionHeader>Apuestas (opcional)</SectionHeader>
+          <Card className="space-y-2">
+            <p className="text-xs text-[var(--muted)]">
+              Marcá las modalidades que jugás y poné el valor en plata por cada una.
+              El ganador se lleva el monto × cantidad de jugadores.
+            </p>
+            {(
+              [
+                ["MATCH", "Match Total"],
+                ["MATCH_IDA", "Match Ida"],
+                ["MATCH_VUELTA", "Match Vuelta"],
+                ["MEDAL", "Medal Total"],
+                ["MEDAL_IDA", "Medal Ida"],
+                ["MEDAL_VUELTA", "Medal Vuelta"],
+                ["STABLEFORD", "Stableford"],
+                ["STABLEFORD_IDA", "Stableford Ida"],
+                ["STABLEFORD_VUELTA", "Stableford Vuelta"],
+              ] as [string, string][]
+            ).map(([mod, label]) => {
+              const checked = mod in bets;
+              return (
+                <div key={mod} className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleBet(mod, "")}
+                    />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                  {checked && (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="$"
+                      className="gf-input !w-32 !p-2 text-right"
+                      value={bets[mod]}
+                      onChange={(e) => setBetAmount(mod, e.target.value)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </Card>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStep(3)}
+              className="gf-btn gf-btn-secondary flex-1"
+            >
+              Volver
+            </button>
+            <button onClick={() => setStep(5)} className="gf-btn flex-1">
+              Siguiente
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 5 && (
+        <>
           <SectionHeader>Niveles Scoring Method</SectionHeader>
           <Card className="space-y-3">
             <div>
@@ -481,7 +559,7 @@ export default function NuevaRondaClient({
           </Card>
           <div className="flex gap-2">
             <button
-              onClick={() => setStep(3)}
+              onClick={() => setStep(4)}
               className="gf-btn gf-btn-secondary flex-1"
             >
               Volver

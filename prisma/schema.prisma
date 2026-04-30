@@ -81,6 +81,19 @@ model Round {
 
   players RoundPlayer[]
   holes   RoundHole[]
+  bets    RoundBet[]
+}
+
+// Apuestas por ronda — Match/Medal/Stableford con plata
+model RoundBet {
+  id        String @id @default(cuid())
+  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId   String
+  modality  String // MATCH | MATCH_IDA | MATCH_VUELTA | MEDAL | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD | STABLEFORD_IDA | STABLEFORD_VUELTA
+  amount    Float  // plata apostada (cada uno) — el ganador se lleva el total
+  currency  String @default("ARS")
+
+  @@unique([roundId, modality])
 }
 
 model RoundPlayer {

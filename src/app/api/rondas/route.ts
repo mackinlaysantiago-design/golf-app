@@ -14,6 +14,15 @@ const RoundSchema = z.object({
   twoPuttCircleYds: z.number().int().min(1).max(50),
   pairs: z.array(z.array(z.string())).optional(),
   notes: z.string().nullable().optional(),
+  bets: z
+    .array(
+      z.object({
+        modality: z.string(),
+        amount: z.number().nonnegative(),
+        currency: z.string().default("ARS"),
+      }),
+    )
+    .optional(),
   players: z
     .array(
       z.object({
@@ -52,8 +61,17 @@ export async function POST(req: NextRequest) {
           position: p.position,
         })),
       },
+      bets: parsed.bets && parsed.bets.length > 0
+        ? {
+            create: parsed.bets.map((b) => ({
+              modality: b.modality,
+              amount: b.amount,
+              currency: b.currency ?? "ARS",
+            })),
+          }
+        : undefined,
     },
-    include: { players: true },
+    include: { players: true, bets: true },
   });
 
   return NextResponse.json(round, { status: 201 });

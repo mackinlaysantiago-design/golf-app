@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { computeRoundKPIs, computePPPlan, type HoleData } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
-import { Card, KPI, SectionHeader } from "@/components/ui/Card";
+import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
+import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
 import Link from "next/link";
 import AnalisisIA from "./AnalisisIA";
 
@@ -22,6 +23,7 @@ export default async function ResumenPage({
         orderBy: { position: "asc" },
         include: { player: true, holes: true },
       },
+      bets: true,
     },
   });
 
@@ -57,6 +59,68 @@ export default async function ResumenPage({
     par: h.par,
     hcpHoyo: h.hcpHoyo,
   }));
+
+  // Calcular apuestas si hay
+  const playerScoresForBets = round.players.map((rp) => {
+    const scoresByHole: Record<number, number | null> = {};
+    for (const h of round.course.holes) {
+      const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+      scoresByHole[h.number] = hd?.score ?? null;
+    }
+    return {
+      playerId: rp.id, // usar RoundPlayer.id como identificador
+      name: rp.player.name,
+      isMe: rp.player.isMe,
+      hcp: rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0),
+      scoresByHole,
+    };
+  });
+
+  type BetResult = {
+    modality: string;
+    label: string;
+    amount: number;
+    winnerNames: string[];
+    tie: boolean;
+    scores: { playerId: string; value: number; display: string }[];
+    payouts: Record<string, number>; // playerId -> ±monto
+  };
+  const betResults: BetResult[] = round.bets.map((b) => {
+    const result = computeBetWinner(
+      b.modality as BetModality,
+      playerScoresForBets,
+      courseHcpMap,
+    );
+    const winnerNames = result.winnerIds.map(
+      (id) => playerScoresForBets.find((p) => p.playerId === id)?.name ?? "?",
+    );
+    // Payouts: ganador único → cobra (n-1)*amount, otros pagan amount cada uno
+    const payouts: Record<string, number> = {};
+    if (result.winnerIds.length === 1) {
+      const winnerId = result.winnerIds[0];
+      const losers = playerScoresForBets.filter((p) => p.playerId !== winnerId);
+      payouts[winnerId] = losers.length * b.amount;
+      for (const l of losers) payouts[l.playerId] = -b.amount;
+    }
+    return {
+      modality: b.modality,
+      label: MODALITY_LABEL[b.modality as BetModality] ?? b.modality,
+      amount: b.amount,
+      winnerNames,
+      tie: result.tie,
+      scores: result.scores,
+      payouts,
+    };
+  });
+
+  // Total por jugador
+  const totalsByPlayer: Record<string, number> = {};
+  for (const rp of round.players) totalsByPlayer[rp.id] = 0;
+  for (const r of betResults) {
+    for (const [pid, amt] of Object.entries(r.payouts)) {
+      totalsByPlayer[pid] = (totalsByPlayer[pid] ?? 0) + amt;
+    }
+  }
   const standings = round.players.map((rp) => {
     const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
     const strokes = strokesPerHole(hcp, courseHcpMap);
@@ -173,6 +237,80 @@ export default async function ResumenPage({
           </Card>
         ))}
       </div>
+
+      {/* Apuestas */}
+      {betResults.length > 0 && (
+        <>
+          <SectionHeader>Apuestas</SectionHeader>
+          <div className="space-y-2">
+            {betResults.map((br) => (
+              <Card key={br.modality} className="!p-3">
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-sm">{br.label}</span>
+                  <span className="gf-mono text-xs text-[var(--muted)]">
+                    ${br.amount.toLocaleString("es-AR")} c/u
+                  </span>
+                </div>
+                <div className="mt-1 text-xs">
+                  {br.tie ? (
+                    <Pill variant="accent">Empate · sin ganador</Pill>
+                  ) : br.winnerNames.length === 1 ? (
+                    <span>
+                      Ganó <strong>{br.winnerNames[0]}</strong> · cobra ${" "}
+                      {(br.amount * (round.players.length - 1)).toLocaleString("es-AR")}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--muted)]">— sin definir</span>
+                  )}
+                </div>
+                <div className="mt-1 text-[10px] gf-mono text-[var(--muted)]">
+                  {br.scores.map((s, i) => {
+                    const rp = round.players.find((rp) => rp.id === s.playerId);
+                    return (
+                      <span key={s.playerId}>
+                        {i > 0 && " · "}
+                        {rp?.player.name}: {s.display}
+                      </span>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+            <Card className="!p-3">
+              <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-2">
+                Saldo final por jugador
+              </div>
+              {round.players.map((rp) => {
+                const total = totalsByPlayer[rp.id] ?? 0;
+                return (
+                  <div
+                    key={rp.id}
+                    className="flex justify-between items-center py-1 border-b border-[var(--green-pale)] last:border-0"
+                  >
+                    <span className="text-sm">
+                      {rp.player.name}
+                      {rp.player.isMe && <span className="ml-1"><Pill variant="accent">YO</Pill></span>}
+                    </span>
+                    <span
+                      className="gf-mono font-bold"
+                      style={{
+                        color:
+                          total > 0
+                            ? "var(--green)"
+                            : total < 0
+                            ? "var(--red)"
+                            : "var(--muted)",
+                      }}
+                    >
+                      {total > 0 ? "+" : ""}${total.toLocaleString("es-AR")}
+                    </span>
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Análisis IA */}
       <AnalisisIA roundId={round.id} />
