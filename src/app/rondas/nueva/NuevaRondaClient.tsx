@@ -57,6 +57,18 @@ export default function NuevaRondaClient({
       const next = { ...prev };
       if (mod in next) delete next[mod];
       else next[mod] = defaultAmount;
+      // Re-elegir modality principal para lookup HCP
+      const priority = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"];
+      const primary = priority.find((p) => p in next) ?? "MEDAL";
+      if (primary !== modality) {
+        setModality(primary);
+        selectedPlayers.forEach((p, i) => {
+          if (p.hcp) {
+            const n = parseFloat(p.hcp);
+            if (!isNaN(n)) lookupCourseHcp(i, n);
+          }
+        });
+      }
       return next;
     });
   }
@@ -114,17 +126,6 @@ export default function NuevaRondaClient({
         });
       }
     } catch {}
-  }
-
-  // Re-lookup when modality changes
-  function changeModality(m: string) {
-    setModality(m);
-    selectedPlayers.forEach((p, i) => {
-      if (p.hcp) {
-        const n = parseFloat(p.hcp);
-        if (!isNaN(n)) lookupCourseHcp(i, n);
-      }
-    });
   }
 
   function changeMode(newMode: Mode) {
@@ -331,39 +332,31 @@ export default function NuevaRondaClient({
               </div>
             </Card>
           )}
-          <Card className="space-y-3">
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Modalidad de juego
-              </label>
-              <select
-                className="gf-input mt-1"
-                value={modality}
-                onChange={(e) => changeModality(e.target.value)}
-              >
-                <option value="MEDAL">Medal Play</option>
-                <option value="STABLEFORD">Stableford</option>
-                <option value="MEDAL_IDA">Medal Ida</option>
-                <option value="MEDAL_VUELTA">Medal Vuelta</option>
-                <option value="STABLEFORD_IDA">Stableford Ida</option>
-                <option value="STABLEFORD_VUELTA">Stableford Vuelta</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Tee
-              </label>
-              <select
-                className="gf-input mt-1"
-                value={tee}
-                onChange={(e) => setTee(e.target.value)}
-              >
-                <option value="BLANCO">Blanco</option>
-                <option value="AZUL">Azul</option>
-                <option value="NEGRO">Negro</option>
-                <option value="ROJO">Rojo</option>
-              </select>
-            </div>
+          <Card>
+            <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
+              Tee (para cálculo de Course Hcp)
+            </label>
+            <select
+              className="gf-input mt-1"
+              value={tee}
+              onChange={(e) => {
+                setTee(e.target.value);
+                selectedPlayers.forEach((p, i) => {
+                  if (p.hcp) {
+                    const n = parseFloat(p.hcp);
+                    if (!isNaN(n)) lookupCourseHcp(i, n);
+                  }
+                });
+              }}
+            >
+              <option value="BLANCO">Blanco</option>
+              <option value="AZUL">Azul</option>
+              <option value="NEGRO">Negro</option>
+              <option value="ROJO">Rojo</option>
+            </select>
+            <p className="text-[10px] text-[var(--muted)] mt-2">
+              La modalidad de juego se elige en el siguiente paso (podés marcar varias).
+            </p>
           </Card>
           <div className="flex gap-2">
             <button
