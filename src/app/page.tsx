@@ -1,101 +1,212 @@
-import Image from "next/image";
+import { prisma } from "@/lib/db";
+import { Card, KPI, Pill, SectionHeader } from "@/components/ui/Card";
+import { computeRoundKPIs, type HoleData } from "@/lib/scoring-method";
+import Link from "next/link";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+async function getDashboardData() {
+  const me = await prisma.player.findFirst({ where: { isMe: true } });
+  if (!me) return { me: null, lastRound: null, recentRounds: [], lastRangeSession: null };
+
+  const recentRounds = await prisma.round.findMany({
+    where: { players: { some: { playerId: me.id } } },
+    orderBy: { date: "desc" },
+    take: 5,
+    include: {
+      course: true,
+      players: { where: { playerId: me.id }, include: { holes: true } },
+    },
+  });
+
+  const lastRound = recentRounds[0] ?? null;
+  const lastRangeSession = await prisma.rangeSession.findFirst({
+    orderBy: { date: "desc" },
+    include: { shots: { where: { rowType: "AVG" } } },
+  });
+
+  return { me, lastRound, recentRounds, lastRangeSession };
+}
+
+function buildHoleData(rp: { holes: { holeNumber: number; strokesToEnterSz: number | null; distanceInRegYds: number | null; strokesInsideSz: number | null; putts: number | null; firstPuttDistanceFt: number | null; puttMadeDistanceFt: number | null; puttsInside1PuttCircle: number | null; score: number | null }[] }, courseHoles: { number: number; par: number }[]): HoleData[] {
+  const parByNumber = new Map(courseHoles.map((h) => [h.number, h.par]));
+  return rp.holes.map((h) => ({
+    holeNumber: h.holeNumber,
+    par: parByNumber.get(h.holeNumber) ?? 4,
+    strokesToEnterSz: h.strokesToEnterSz,
+    distanceInRegYds: h.distanceInRegYds,
+    strokesInsideSz: h.strokesInsideSz,
+    putts: h.putts,
+    firstPuttDistanceFt: h.firstPuttDistanceFt,
+    puttMadeDistanceFt: h.puttMadeDistanceFt,
+    puttsInside1PuttCircle: h.puttsInside1PuttCircle,
+    score: h.score,
+  }));
+}
+
+export default async function HomePage() {
+  const { me, lastRound, recentRounds, lastRangeSession } = await getDashboardData();
+
+  // KPIs de la última ronda
+  let lastKpis = null;
+  let lastCourseHoles: { number: number; par: number }[] = [];
+  if (lastRound && lastRound.players[0]) {
+    lastCourseHoles = await prisma.courseHole.findMany({
+      where: { courseId: lastRound.courseId },
+      orderBy: { number: "asc" },
+      select: { number: true, par: true },
+    });
+    const holes = buildHoleData(lastRound.players[0], lastCourseHoles);
+    lastKpis = computeRoundKPIs(holes, {
+      enterSzYds: lastRound.enterSzYds,
+      downInSzStrokes: lastRound.downInSzStrokes,
+      onePuttCircleFt: lastRound.onePuttCircleFt,
+      twoPuttCircleYds: lastRound.twoPuttCircleYds,
+    });
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="px-4 pt-6 pb-4 space-y-4">
+      {/* Header */}
+      <header className="gf-fadeup">
+        <h1 className="gf-display text-5xl text-[var(--fairway)]">Golf Performance</h1>
+        <p className="text-sm text-[var(--muted)]">
+          {me ? `Hola ${me.name}` : "Configurá tu perfil para arrancar"}
+          {me?.hcpIndex != null && (
+            <>
+              {" · "}
+              <Pill>HCP {me.hcpIndex.toFixed(1)}</Pill>
+            </>
+          )}
+        </p>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+      {/* Quick actions */}
+      <div className="grid grid-cols-2 gap-3 gf-fadeup gf-fadeup-1">
+        <Link href="/range/nueva">
+          <Card className="text-center !p-4">
+            <div className="text-3xl mb-1">🎯</div>
+            <div className="font-semibold text-[var(--fairway)]">Nueva Range</div>
+            <div className="text-xs text-[var(--muted)]">FlightScope</div>
+          </Card>
+        </Link>
+        <Link href="/rondas/nueva">
+          <Card className="text-center !p-4">
+            <div className="text-3xl mb-1">🏌️</div>
+            <div className="font-semibold text-[var(--fairway)]">Nueva Ronda</div>
+            <div className="text-xs text-[var(--muted)]">Solo / 2 / 3 / 4P</div>
+          </Card>
+        </Link>
+      </div>
+
+      {/* KPIs últimos datos cargados */}
+      {lastKpis && lastRound ? (
+        <>
+          <SectionHeader>Última ronda · {lastRound.course.name}</SectionHeader>
+          <div className="grid grid-cols-2 gap-3 gf-fadeup gf-fadeup-2">
+            <KPI
+              label="Score"
+              value={lastKpis.totalScore}
+              hint={`${lastKpis.scoreVsPar >= 0 ? "+" : ""}${lastKpis.scoreVsPar} vs par`}
+              tone={lastKpis.scoreVsPar <= 0 ? "good" : lastKpis.scoreVsPar <= 6 ? "neutral" : "warn"}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <KPI
+              label="Sin doble bogey"
+              value={lastKpis.pctNoDoubleBogey.toFixed(0)}
+              unit="%"
+              tone={lastKpis.pctNoDoubleBogey >= 75 ? "good" : "warn"}
+            />
+            <KPI
+              label="Enter SZ"
+              value={`${lastKpis.enterSzCount}/${lastKpis.holesPlayed}`}
+              hint={`≤ ${lastRound.enterSzYds} yds`}
+            />
+            <KPI
+              label="Down in SZ"
+              value={`${lastKpis.downInSzCount}/${lastKpis.holesPlayed}`}
+              hint={`≤ ${lastRound.downInSzStrokes} golpes`}
+            />
+            <KPI
+              label="Putts totales"
+              value={lastKpis.totalPutts}
+              hint={`avg ${lastKpis.avgPuttsPerHole.toFixed(1)}/hoyo`}
+            />
+            <KPI
+              label="3-putts"
+              value={lastKpis.threePuttsHoles}
+              tone={lastKpis.threePuttsHoles === 0 ? "good" : "bad"}
+            />
+          </div>
+        </>
+      ) : (
+        <Card className="gf-fadeup gf-fadeup-2 text-center">
+          <p className="text-sm text-[var(--muted)] mb-3">
+            No hay rondas cargadas todavía
+          </p>
+          <Link href="/rondas/nueva" className="gf-btn">
+            Cargar primera ronda
+          </Link>
+        </Card>
+      )}
+
+      {/* Última range session */}
+      {lastRangeSession && (
+        <>
+          <SectionHeader>Última range</SectionHeader>
+          <Card className="gf-fadeup gf-fadeup-3">
+            <div className="flex justify-between items-baseline mb-2">
+              <span className="font-semibold">{lastRangeSession.club}</span>
+              <span className="text-xs text-[var(--muted)] gf-mono">
+                {new Date(lastRangeSession.date).toLocaleDateString("es-AR")}
+              </span>
+            </div>
+            {lastRangeSession.shots[0] && (
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[10px] text-[var(--muted)] uppercase">Carry</div>
+                  <div className="gf-display text-2xl">
+                    {lastRangeSession.shots[0].carryYds?.toFixed(0) ?? "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-[var(--muted)] uppercase">Total</div>
+                  <div className="gf-display text-2xl">
+                    {lastRangeSession.shots[0].totalYds?.toFixed(0) ?? "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-[var(--muted)] uppercase">Smash</div>
+                  <div className="gf-display text-2xl">
+                    {lastRangeSession.shots[0].smashFactor?.toFixed(2) ?? "—"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* Lista últimas rondas */}
+      {recentRounds.length > 1 && (
+        <>
+          <SectionHeader>Rondas recientes</SectionHeader>
+          <div className="space-y-2 gf-fadeup gf-fadeup-4">
+            {recentRounds.slice(1).map((r) => (
+              <Link key={r.id} href={`/rondas/${r.id}`}>
+                <Card className="!p-3 flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">{r.course.name}</div>
+                    <div className="text-xs text-[var(--muted)] gf-mono">
+                      {new Date(r.date).toLocaleDateString("es-AR")} · {r.mode.replace("_", " ")}
+                    </div>
+                  </div>
+                  <span className="text-[var(--muted)]">›</span>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
