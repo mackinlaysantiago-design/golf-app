@@ -50,17 +50,28 @@ export default function NuevaRondaClient({
   const [downInSzStrokes, setDownInSzStrokes] = useState(3);
   const [onePuttCircleFt, setOnePuttCircleFt] = useState(6);
   const [twoPuttCircleYds, setTwoPuttCircleYds] = useState(20);
-  const [bets, setBets] = useState<Record<string, string>>({}); // modality -> amount string
+  // Apuestas: por familia (MATCH/MEDAL/STABLEFORD) tenemos enabled + monto Total + monto chico (ida=vuelta)
+  type BetFamily = {
+    enabled: boolean;
+    totalAmount: string;  // valor para MATCH/MEDAL/STABLEFORD (Total)
+    legAmount: string;    // valor para Ida y Vuelta (mismo valor para los dos)
+  };
+  const [betFamilies, setBetFamilies] = useState<Record<"MATCH" | "MEDAL" | "STABLEFORD", BetFamily>>({
+    MATCH: { enabled: false, totalAmount: "", legAmount: "" },
+    MEDAL: { enabled: false, totalAmount: "", legAmount: "" },
+    STABLEFORD: { enabled: false, totalAmount: "", legAmount: "" },
+  });
   const [busy, setBusy] = useState(false);
 
-  function toggleBet(mod: string, defaultAmount: string) {
-    setBets((prev) => {
-      const next = { ...prev };
-      if (mod in next) delete next[mod];
-      else next[mod] = defaultAmount;
+  function toggleFamily(fam: "MATCH" | "MEDAL" | "STABLEFORD") {
+    setBetFamilies((prev) => {
+      const wasEnabled = prev[fam].enabled;
+      const next = { ...prev, [fam]: { ...prev[fam], enabled: !wasEnabled } };
+
       // Re-elegir modality principal para lookup HCP
-      const priority = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"];
-      const primary = priority.find((p) => p in next) ?? "MEDAL";
+      const priority: ("MEDAL" | "STABLEFORD")[] = ["MEDAL", "STABLEFORD"];
+      const primaryFam = priority.find((p) => next[p].enabled) ?? "MEDAL";
+      const primary = primaryFam; // usar el "Total" para lookup
       if (primary !== modality) {
         setModality(primary);
         selectedPlayers.forEach((p, i) => {
@@ -73,8 +84,25 @@ export default function NuevaRondaClient({
       return next;
     });
   }
-  function setBetAmount(mod: string, amount: string) {
-    setBets((prev) => ({ ...prev, [mod]: amount }));
+  function setFamilyAmount(fam: "MATCH" | "MEDAL" | "STABLEFORD", field: "totalAmount" | "legAmount", value: string) {
+    setBetFamilies((prev) => ({ ...prev, [fam]: { ...prev[fam], [field]: value } }));
+  }
+
+  // Expand betFamilies → array de RoundBet entries
+  function expandBets(): { modality: string; amount: number; currency: string }[] {
+    const out: { modality: string; amount: number; currency: string }[] = [];
+    for (const fam of ["MATCH", "MEDAL", "STABLEFORD"] as const) {
+      const f = betFamilies[fam];
+      if (!f.enabled) continue;
+      const total = f.totalAmount ? parseFloat(f.totalAmount) : 0;
+      const leg = f.legAmount ? parseFloat(f.legAmount) : 0;
+      if (total > 0) out.push({ modality: fam, amount: total, currency: "ARS" });
+      if (leg > 0) {
+        out.push({ modality: `${fam}_IDA`, amount: leg, currency: "ARS" });
+        out.push({ modality: `${fam}_VUELTA`, amount: leg, currency: "ARS" });
+      }
+    }
+    return out;
   }
 
   const requiredCount = MODE_PLAYERS[mode];
@@ -156,11 +184,7 @@ export default function NuevaRondaClient({
       downInSzStrokes,
       onePuttCircleFt,
       twoPuttCircleYds,
-      bets: Object.entries(bets).map(([mod, amt]) => ({
-        modality: mod,
-        amount: amt ? parseFloat(amt) : 0,
-        currency: "ARS",
-      })),
+      bets: expandBets(),
       pairs:
         mode === "FOUR_P" && pairs === "parejas"
           ? [
@@ -426,49 +450,64 @@ export default function NuevaRondaClient({
       {step === 4 && (
         <>
           <SectionHeader>Apuestas (opcional)</SectionHeader>
-          <Card className="space-y-2">
+          <Card>
             <p className="text-xs text-[var(--muted)]">
-              Marcá las modalidades que jugás y poné el valor en plata por cada una.
+              Marcá las modalidades que jugás. Total (grande) e Ida/Vuelta (chicos, mismo valor cada uno).
               El ganador se lleva el monto × cantidad de jugadores.
             </p>
-            {(
-              [
-                ["MATCH", "Match Total"],
-                ["MATCH_IDA", "Match Ida"],
-                ["MATCH_VUELTA", "Match Vuelta"],
-                ["MEDAL", "Medal Total"],
-                ["MEDAL_IDA", "Medal Ida"],
-                ["MEDAL_VUELTA", "Medal Vuelta"],
-                ["STABLEFORD", "Stableford"],
-                ["STABLEFORD_IDA", "Stableford Ida"],
-                ["STABLEFORD_VUELTA", "Stableford Vuelta"],
-              ] as [string, string][]
-            ).map(([mod, label]) => {
-              const checked = mod in bets;
-              return (
-                <div key={mod} className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 flex-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleBet(mod, "")}
-                    />
-                    <span className="text-sm">{label}</span>
-                  </label>
-                  {checked && (
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="$"
-                      className="gf-input !w-32 !p-2 text-right"
-                      value={bets[mod]}
-                      onChange={(e) => setBetAmount(mod, e.target.value)}
-                    />
-                  )}
-                </div>
-              );
-            })}
           </Card>
+
+          {(
+            [
+              ["MATCH", "Match"],
+              ["MEDAL", "Medal"],
+              ["STABLEFORD", "Stableford"],
+            ] as ["MATCH" | "MEDAL" | "STABLEFORD", string][]
+          ).map(([fam, label]) => {
+            const f = betFamilies[fam];
+            return (
+              <Card key={fam} className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={f.enabled}
+                    onChange={() => toggleFamily(fam)}
+                  />
+                  <span className="font-semibold">{label}</span>
+                </label>
+                {f.enabled && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                        Total (grande)
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="$"
+                        className="gf-input mt-0.5 text-right"
+                        value={f.totalAmount}
+                        onChange={(e) => setFamilyAmount(fam, "totalAmount", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                        Ida y Vuelta (c/u)
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="$"
+                        className="gf-input mt-0.5 text-right"
+                        value={f.legAmount}
+                        onChange={(e) => setFamilyAmount(fam, "legAmount", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
           <div className="flex gap-2">
             <button
               onClick={() => setStep(3)}
