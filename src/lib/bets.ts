@@ -163,6 +163,38 @@ export function computeBetWinner(
     return { playerId: p.playerId, value: total, played };
   });
 
+  // Si hay parejas → Medal/Stableford también se calculan por equipo (suma de los 2)
+  if (pairs && pairs.length === 2 && pairs[0].length === 2 && pairs[1].length === 2) {
+    const sumForPair = (pair: string[]) => {
+      const ps = pair.map((id) => playerScores.find((p) => p.playerId === id));
+      if (ps.some((p) => !p || p.played === 0)) return null;
+      return ps.reduce((s, p) => s + (p?.value ?? 0), 0);
+    };
+    const sumA = sumForPair(pairs[0]);
+    const sumB = sumForPair(pairs[1]);
+
+    const scoresPair = players.map((p) => {
+      const isA = pairs[0].includes(p.playerId);
+      const isB = pairs[1].includes(p.playerId);
+      const value = isA ? sumA ?? 0 : isB ? sumB ?? 0 : 0;
+      const tag = isA ? " (A)" : isB ? " (B)" : "";
+      return {
+        playerId: p.playerId,
+        value,
+        display: isMedal ? `${value} neto${tag}` : `${value} pts${tag}`,
+      };
+    });
+
+    if (sumA == null || sumB == null) {
+      return { winnerIds: [], scores: scoresPair, tie: false };
+    }
+    if (sumA === sumB) return { winnerIds: [], scores: scoresPair, tie: true };
+    const winnerPair = isMedal
+      ? sumA < sumB ? pairs[0] : pairs[1]
+      : sumA > sumB ? pairs[0] : pairs[1];
+    return { winnerIds: winnerPair, scores: scoresPair, tie: false };
+  }
+
   const allPlayed = playerScores.every((p) => p.played > 0);
 
   const scores = playerScores.map((p) => ({

@@ -339,7 +339,7 @@ export default async function ResumenPage({
       {/* Scorecard tabla full */}
       <SectionHeader>Scorecard</SectionHeader>
       <Card className="!p-2 overflow-x-auto">
-        <table className="gf-table" style={{ minWidth: 500 }}>
+        <table className="gf-table" style={{ minWidth: 320 + standings.length * 70 }}>
           <thead>
             <tr>
               <th>Hoyo</th>
