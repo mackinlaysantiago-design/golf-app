@@ -539,6 +539,17 @@ export default function RondaTracker({ round }: { round: Round }) {
               Siguiente hoyo →
             </button>
           </div>
+
+          <button
+            onClick={async () => {
+              await saveAll();
+              router.push(`/rondas/${round.id}/resumen`);
+            }}
+            className="gf-btn w-full mt-2"
+            style={{ background: "var(--accent)", color: "var(--ink)" }}
+          >
+            🏁 Finalizar ronda y ver resumen
+          </button>
         </>
       )}
     </div>

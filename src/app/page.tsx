@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 async function getDashboardData() {
   const me = await prisma.player.findFirst({ where: { isMe: true } });
-  if (!me) return { me: null, lastRound: null, recentRounds: [], lastRangeSession: null };
+  if (!me) return { me: null, lastRound: null, recentRounds: [], lastRangeSession: null, inProgressRound: null };
 
   const recentRounds = await prisma.round.findMany({
     where: { players: { some: { playerId: me.id } } },
@@ -19,13 +19,28 @@ async function getDashboardData() {
     },
   });
 
-  const lastRound = recentRounds[0] ?? null;
+  // Ronda en curso: la más reciente con < 18 hoyos cargados
+  const inProgressRound = recentRounds.find((r) => {
+    const meRP = r.players[0];
+    if (!meRP) return false;
+    const played = meRP.holes.filter((h) => h.score && h.score > 0).length;
+    return played < 18;
+  }) ?? null;
+
+  // Última ronda completada para los KPIs (saltea las en curso)
+  const lastRound = recentRounds.find((r) => {
+    const meRP = r.players[0];
+    if (!meRP) return false;
+    const played = meRP.holes.filter((h) => h.score && h.score > 0).length;
+    return played > 0;
+  }) ?? null;
+
   const lastRangeSession = await prisma.rangeSession.findFirst({
     orderBy: { date: "desc" },
     include: { shots: { where: { rowType: "AVG" } } },
   });
 
-  return { me, lastRound, recentRounds, lastRangeSession };
+  return { me, lastRound, recentRounds, lastRangeSession, inProgressRound };
 }
 
 function buildHoleData(rp: { holes: { holeNumber: number; strokesToEnterSz: number | null; distanceInRegYds: number | null; strokesInsideSz: number | null; putts: number | null; firstPuttDistanceFt: number | null; puttMadeDistanceFt: number | null; puttsInside1PuttCircle: number | null; score: number | null }[] }, courseHoles: { number: number; par: number }[]): HoleData[] {
@@ -45,7 +60,7 @@ function buildHoleData(rp: { holes: { holeNumber: number; strokesToEnterSz: numb
 }
 
 export default async function HomePage() {
-  const { me, lastRound, recentRounds, lastRangeSession } = await getDashboardData();
+  const { me, lastRound, recentRounds, lastRangeSession, inProgressRound } = await getDashboardData();
 
   // KPIs de la última ronda
   let lastKpis = null;
@@ -80,6 +95,29 @@ export default async function HomePage() {
           )}
         </p>
       </header>
+
+      {/* Banner Ronda en curso */}
+      {inProgressRound && (
+        <Link href={`/rondas/${inProgressRound.id}`} className="block gf-fadeup">
+          <Card
+            variant="fairway"
+            className="!p-4 flex justify-between items-center"
+          >
+            <div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80">
+                Ronda en curso
+              </div>
+              <div className="font-bold text-lg">{inProgressRound.course.name}</div>
+              <div className="text-xs opacity-90 gf-mono">
+                {inProgressRound.players[0]?.holes.filter(
+                  (h) => h.score && h.score > 0,
+                ).length}/18 hoyos · seguir cargando
+              </div>
+            </div>
+            <span className="text-2xl">›</span>
+          </Card>
+        </Link>
+      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 gf-fadeup gf-fadeup-1">
