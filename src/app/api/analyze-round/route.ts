@@ -68,14 +68,14 @@ Configuración de la ronda:
 - Down in SZ: ${config.downInSzStrokes} golpes
 - 1-putt circle: ${config.onePuttCircleFt} ft
 
-Resultado:
+Resultado (basado en ${kpis.holesPlayed} hoyos jugados — IMPORTANTE: cada métrica abajo dice cuántos hoyos tienen ese dato cargado, NO asumas valores faltantes):
 - Score: ${kpis.totalScore} (${kpis.scoreVsPar >= 0 ? "+" : ""}${kpis.scoreVsPar} vs par)
 - % sin doble bogey: ${kpis.pctNoDoubleBogey.toFixed(1)}%
-- Enter SZ: ${kpis.enterSzCount}/${kpis.holesPlayed} hoyos
-- Down in SZ: ${kpis.downInSzCount}/${kpis.holesPlayed} hoyos
-- Total putts: ${kpis.totalPutts} (avg ${kpis.avgPuttsPerHole.toFixed(1)}/hoyo)
-- 3-puttea hoyos: ${kpis.threePuttsHoles}
-- Putts errados dentro de 1-putt circle: ${kpis.missedIn1PuttCircleHoles}
+- Enter SZ: ${kpis.enterSzCount}/${kpis.enterSzDataHoles} hoyos con dato cargado
+- Down in SZ: ${kpis.downInSzCount}/${kpis.downInSzDataHoles} hoyos con dato cargado
+- Total putts: ${kpis.totalPutts} en ${kpis.puttsDataHoles} hoyos con putts cargados (avg ${kpis.avgPuttsPerHole.toFixed(1)}/hoyo)
+- 3-puttea hoyos: ${kpis.threePuttsHoles} de ${kpis.puttsDataHoles} con putts
+- Putts errados dentro de 1-putt circle: ${kpis.missedIn1PuttCircleHoles} de ${kpis.onePuttCircleDataHoles} con dato
 
 Distribución Distancia REG cuando entró a SZ: >100=${kpis.enterSzBuckets.over100}, ≤100=${kpis.enterSzBuckets.under100}, ≤50=${kpis.enterSzBuckets.under50}, ≤25=${kpis.enterSzBuckets.under25}, GIR=${kpis.enterSzBuckets.gir}
 

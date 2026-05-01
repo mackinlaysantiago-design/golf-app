@@ -156,23 +156,23 @@ export default async function HomePage() {
             />
             <KPI
               label="Enter SZ"
-              value={`${lastKpis.enterSzCount}/${lastKpis.holesPlayed}`}
+              value={`${lastKpis.enterSzCount}/${lastKpis.enterSzDataHoles || "—"}`}
               hint={`≤ ${lastRound.enterSzYds} yds`}
             />
             <KPI
               label="Down in SZ"
-              value={`${lastKpis.downInSzCount}/${lastKpis.holesPlayed}`}
+              value={`${lastKpis.downInSzCount}/${lastKpis.downInSzDataHoles || "—"}`}
               hint={`≤ ${lastRound.downInSzStrokes} golpes`}
             />
             <KPI
               label="Putts totales"
               value={lastKpis.totalPutts}
-              hint={`avg ${lastKpis.avgPuttsPerHole.toFixed(1)}/hoyo`}
+              hint={lastKpis.puttsDataHoles > 0 ? `avg ${lastKpis.avgPuttsPerHole.toFixed(1)}/hoyo` : "sin datos"}
             />
             <KPI
               label="3-putts"
-              value={lastKpis.threePuttsHoles}
-              tone={lastKpis.threePuttsHoles === 0 ? "good" : "bad"}
+              value={`${lastKpis.threePuttsHoles}/${lastKpis.puttsDataHoles || "—"}`}
+              tone={lastKpis.threePuttsHoles === 0 && lastKpis.puttsDataHoles > 0 ? "good" : "bad"}
             />
           </div>
         </>

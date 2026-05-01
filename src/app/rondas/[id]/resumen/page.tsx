@@ -188,23 +188,23 @@ export default async function ResumenPage({
         />
         <KPI
           label="Enter SZ"
-          value={`${kpis.enterSzCount}/${kpis.holesPlayed}`}
-          hint={`≤ ${round.enterSzYds} yds`}
+          value={`${kpis.enterSzCount}/${kpis.enterSzDataHoles || "—"}`}
+          hint={kpis.enterSzDataHoles > 0 ? `≤ ${round.enterSzYds} yds` : "sin datos cargados"}
         />
         <KPI
           label="Down in SZ"
-          value={`${kpis.downInSzCount}/${kpis.holesPlayed}`}
-          hint={`≤ ${round.downInSzStrokes} golpes`}
+          value={`${kpis.downInSzCount}/${kpis.downInSzDataHoles || "—"}`}
+          hint={kpis.downInSzDataHoles > 0 ? `≤ ${round.downInSzStrokes} golpes` : "sin datos cargados"}
         />
         <KPI
           label="Putts totales"
           value={kpis.totalPutts}
-          hint={`${kpis.avgPuttsPerHole.toFixed(1)}/hoyo`}
+          hint={kpis.puttsDataHoles > 0 ? `${kpis.avgPuttsPerHole.toFixed(1)}/hoyo (${kpis.puttsDataHoles}h)` : "sin datos"}
         />
         <KPI
           label="3-putts"
-          value={kpis.threePuttsHoles}
-          tone={kpis.threePuttsHoles === 0 ? "good" : "bad"}
+          value={`${kpis.threePuttsHoles}/${kpis.puttsDataHoles || "—"}`}
+          tone={kpis.threePuttsHoles === 0 && kpis.puttsDataHoles > 0 ? "good" : "bad"}
         />
       </div>
 

@@ -101,12 +101,18 @@ export type RoundKPIs = {
   // % de hoyos sin doble bogey (KPI #1 Scoring Method)
   pctNoDoubleBogey: number;
   holesWithDoubleOrWorse: number;
-  // Counts de flags
+  // Counts de flags (numerador = cumplen criterio)
   enterSzCount: number;
   downInSzCount: number;
   threePuttsHoles: number; // hoyos con 3+ putts
   missedIn1PuttCircleHoles: number;
-  holesPlayed: number;
+  // Denominadores por métrica (hoyos con datos cargados — distintos por métrica)
+  enterSzDataHoles: number;       // hoyos con distanceInRegYds cargado
+  downInSzDataHoles: number;      // hoyos con strokesInsideSz cargado
+  puttsDataHoles: number;         // hoyos con putts cargado
+  firstPuttDataHoles: number;     // hoyos con firstPuttDistanceFt cargado
+  onePuttCircleDataHoles: number; // hoyos con puttsInside1PuttCircle cargado
+  holesPlayed: number;            // hoyos con score > 0
 };
 
 export function computeRoundKPIs(
@@ -153,6 +159,11 @@ export function computeRoundKPIs(
   let threePuttsHoles = 0;
   let missedIn1PuttCircleHoles = 0;
   let holesWithDoubleOrWorse = 0;
+  let enterSzDataHoles = 0;
+  let downInSzDataHoles = 0;
+  let puttsDataHoles = 0;
+  let firstPuttDataHoles = 0;
+  let onePuttCircleDataHoles = 0;
 
   for (const h of holes) {
     if (h.score == null || h.score === 0) continue;
@@ -162,6 +173,7 @@ export function computeRoundKPIs(
 
     // Enter SZ buckets
     if (h.distanceInRegYds != null) {
+      enterSzDataHoles++;
       const d = h.distanceInRegYds;
       if (d > 100) enterSzBuckets.over100++;
       else if (d > 50) enterSzBuckets.under100++;
@@ -174,6 +186,7 @@ export function computeRoundKPIs(
 
     // Down in SZ buckets
     if (h.strokesInsideSz != null) {
+      downInSzDataHoles++;
       const s = h.strokesInsideSz;
       if (s >= 5) downInSzBuckets.over5++;
       else if (s === 4) downInSzBuckets.s4++;
@@ -187,6 +200,7 @@ export function computeRoundKPIs(
 
     // 1st putt buckets (en ft)
     if (h.firstPuttDistanceFt != null) {
+      firstPuttDataHoles++;
       const d = h.firstPuttDistanceFt;
       // Cada bucket es excluyente — el shot cae en UN bucket
       if (d > 20) firstPuttBuckets.over20++;
@@ -210,9 +224,14 @@ export function computeRoundKPIs(
       }
     }
 
-    if (h.putts != null && h.putts >= 3) threePuttsHoles++;
-    if (h.puttsInside1PuttCircle != null && h.puttsInside1PuttCircle > 1)
-      missedIn1PuttCircleHoles++;
+    if (h.putts != null) {
+      puttsDataHoles++;
+      if (h.putts >= 3) threePuttsHoles++;
+    }
+    if (h.puttsInside1PuttCircle != null) {
+      onePuttCircleDataHoles++;
+      if (h.puttsInside1PuttCircle > 1) missedIn1PuttCircleHoles++;
+    }
   }
 
   const pctNoDoubleBogey =
@@ -236,6 +255,11 @@ export function computeRoundKPIs(
     downInSzCount,
     threePuttsHoles,
     missedIn1PuttCircleHoles,
+    enterSzDataHoles,
+    downInSzDataHoles,
+    puttsDataHoles,
+    firstPuttDataHoles,
+    onePuttCircleDataHoles,
     holesPlayed: played.length,
   };
 }
@@ -255,10 +279,11 @@ export function computePPPlan(
   config: RoundConfig,
   kpis: RoundKPIs,
 ): PPPlan {
+  // Cuenta solo los hoyos donde efectivamente se cargó el dato
   const aNotInSz =
-    kpis.holesPlayed > 0 ? kpis.holesPlayed - kpis.enterSzCount : 0;
+    kpis.enterSzDataHoles > 0 ? kpis.enterSzDataHoles - kpis.enterSzCount : 0;
   const bNotDownIn3 =
-    kpis.holesPlayed > 0 ? kpis.holesPlayed - kpis.downInSzCount : 0;
+    kpis.downInSzDataHoles > 0 ? kpis.downInSzDataHoles - kpis.downInSzCount : 0;
 
   // Putts missed inside 6ft (1-putt circle) — hoyos con puttsInside1PuttCircle > 1
   const puttsMissed6 = kpis.missedIn1PuttCircleHoles;
