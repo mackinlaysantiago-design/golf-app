@@ -167,6 +167,100 @@ export default function RondaTracker({ round }: { round: Round }) {
     };
   });
 
+  // Parsing de parejas (4P 2v2)
+  type PairStanding = {
+    label: string;
+    playerNames: string[];
+    matchPoints: number; // BB+WB acumulados
+    medalSum: number;    // suma de netos de los dos
+    stbl: number;        // stableford acumulado
+    holesPlayed: number;
+  };
+  let pairsStandings: [PairStanding, PairStanding] | null = null;
+  if (round.mode === "FOUR_P" && round.pairs) {
+    try {
+      const pairsJSON: string[][] = JSON.parse(round.pairs);
+      if (pairsJSON.length === 2 && pairsJSON.every((p) => p.length === 2)) {
+        // Map player.id -> RoundPlayer
+        const rpByPlayerId = new Map(round.players.map((rp) => [rp.player.id, rp]));
+        const pairAR = pairsJSON[0].map((pid) => rpByPlayerId.get(pid)!).filter(Boolean);
+        const pairBR = pairsJSON[1].map((pid) => rpByPlayerId.get(pid)!).filter(Boolean);
+
+        if (pairAR.length === 2 && pairBR.length === 2) {
+          let matchA = 0;
+          let matchB = 0;
+          let medalA = 0;
+          let medalB = 0;
+          let stblA = 0;
+          let stblB = 0;
+          let played = 0;
+
+          for (const h of courseHoles) {
+            const netsForPair = (rps: typeof pairAR) =>
+              rps
+                .map((rp) => {
+                  const sc = data[rp.id]?.[h.number]?.score;
+                  if (sc == null || sc === 0) return null;
+                  const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+                  const strokes = strokesPerHole(hcp, courseHcpMap)[h.number] ?? 0;
+                  return sc - strokes;
+                })
+                .filter((n): n is number => n != null);
+            const stblForPair = (rps: typeof pairAR) =>
+              rps
+                .map((rp) => {
+                  const sc = data[rp.id]?.[h.number]?.score;
+                  if (sc == null || sc === 0) return 0;
+                  const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+                  const strokes = strokesPerHole(hcp, courseHcpMap)[h.number] ?? 0;
+                  return stablefordPoints(h.par, sc, strokes);
+                })
+                .reduce((s, v) => s + v, 0);
+
+            const netsA = netsForPair(pairAR);
+            const netsB = netsForPair(pairBR);
+
+            stblA += stblForPair(pairAR);
+            stblB += stblForPair(pairBR);
+
+            if (netsA.length === 2 && netsB.length === 2) {
+              played++;
+              medalA += netsA[0] + netsA[1];
+              medalB += netsB[0] + netsB[1];
+              const minA = Math.min(...netsA);
+              const maxA = Math.max(...netsA);
+              const minB = Math.min(...netsB);
+              const maxB = Math.max(...netsB);
+              if (minA < minB) matchA += 2;
+              else if (minB < minA) matchB += 2;
+              if (maxA < maxB) matchA += 1;
+              else if (maxB < maxA) matchB += 1;
+            }
+          }
+
+          pairsStandings = [
+            {
+              label: "Pareja A",
+              playerNames: pairAR.map((rp) => rp.player.name),
+              matchPoints: matchA,
+              medalSum: medalA,
+              stbl: stblA,
+              holesPlayed: played,
+            },
+            {
+              label: "Pareja B",
+              playerNames: pairBR.map((rp) => rp.player.name),
+              matchPoints: matchB,
+              medalSum: medalB,
+              stbl: stblB,
+              holesPlayed: played,
+            },
+          ];
+        }
+      }
+    } catch {}
+  }
+
   // Match Play 1v1 (solo si TWO_P)
   let matchScore: { a: number; b: number } | null = null;
   if (round.mode === "TWO_P" && round.players.length === 2) {
@@ -246,35 +340,79 @@ export default function RondaTracker({ round }: { round: Round }) {
             <span className="text-xs uppercase tracking-wider text-[var(--muted)]">
               Leaderboard
             </span>
-            {matchScore && (
+            {pairsStandings ? (
+              <span className="gf-mono text-sm">
+                {pairMatchDisplay(pairsStandings)}
+              </span>
+            ) : matchScore ? (
               <span className="gf-mono text-sm">
                 Match: {matchScore.a}–{matchScore.b}
               </span>
-            )}
+            ) : null}
           </div>
-          <table className="gf-table">
-            <thead>
-              <tr>
-                <th>Jugador</th>
-                <th className="text-right">Bruto</th>
-                <th className="text-right">Neto</th>
-                <th className="text-right">Stbl</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((s) => (
-                <tr key={s.rp.id}>
-                  <td>
-                    {s.rp.player.name}{" "}
-                    {s.rp.player.isMe && <Pill variant="accent">YO</Pill>}
-                  </td>
-                  <td className="text-right gf-mono">{s.bruto || "—"}</td>
-                  <td className="text-right gf-mono">{s.neto || "—"}</td>
-                  <td className="text-right gf-mono">{s.stableford}</td>
+
+          {pairsStandings ? (
+            <table className="gf-table">
+              <thead>
+                <tr>
+                  <th>Pareja</th>
+                  <th className="text-right">Match</th>
+                  <th className="text-right">Medal</th>
+                  <th className="text-right">Stbl</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pairsStandings.map((p, i) => {
+                  const other = pairsStandings![1 - i];
+                  const diff = p.matchPoints - other.matchPoints;
+                  return (
+                    <tr key={p.label}>
+                      <td>
+                        <div className="font-semibold">{p.label}</div>
+                        <div className="text-[10px] text-[var(--muted)]">
+                          {p.playerNames.join(" · ")}
+                        </div>
+                      </td>
+                      <td className="text-right gf-mono">
+                        {p.matchPoints}
+                        {diff > 0 && (
+                          <span className="text-[var(--green)] text-[10px] ml-1">
+                            +{diff}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-right gf-mono">{p.medalSum || "—"}</td>
+                      <td className="text-right gf-mono">{p.stbl}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <table className="gf-table">
+              <thead>
+                <tr>
+                  <th>Jugador</th>
+                  <th className="text-right">Bruto</th>
+                  <th className="text-right">Neto</th>
+                  <th className="text-right">Stbl</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((s) => (
+                  <tr key={s.rp.id}>
+                    <td>
+                      {s.rp.player.name}{" "}
+                      {s.rp.player.isMe && <Pill variant="accent">YO</Pill>}
+                    </td>
+                    <td className="text-right gf-mono">{s.bruto || "—"}</td>
+                    <td className="text-right gf-mono">{s.neto || "—"}</td>
+                    <td className="text-right gf-mono">{s.stableford}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Card>
       )}
 
@@ -405,6 +543,16 @@ export default function RondaTracker({ round }: { round: Round }) {
       )}
     </div>
   );
+}
+
+function pairMatchDisplay(
+  pairs: { label: string; matchPoints: number; holesPlayed: number }[],
+): string {
+  const [a, b] = pairs;
+  const diff = a.matchPoints - b.matchPoints;
+  if (diff === 0) return "All Square";
+  const winner = diff > 0 ? a.label : b.label;
+  return `${winner} ${Math.abs(diff)} arriba`;
 }
 
 function NumField({
