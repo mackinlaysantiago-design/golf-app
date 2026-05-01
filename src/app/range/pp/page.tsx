@@ -1,17 +1,100 @@
 import { prisma } from "@/lib/db";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
-import { DRILL_BY_TYPE, type DrillType } from "@/lib/pp-drills";
+import { DRILL_BY_TYPE, DRILLS, CLUB_LABEL, type DrillType } from "@/lib/pp-drills";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function PPListPage() {
+async function getLevels() {
+  // Mismo cálculo que /api/pp/levels — replicado server-side
   const sessions = await prisma.practiceSession.findMany({
-    orderBy: { date: "desc" },
+    orderBy: { date: "asc" },
     include: { drills: true },
   });
+  const { GO_TO_CLUB_LADDER, bestHistoricalScore } = await import("@/lib/pp-drills");
 
-  // Sugerencia: traer las últimas rondas para mostrar PP plan pendiente
+  type LvlInfo = {
+    currentDistance?: number;
+    currentClub?: string;
+    bestAtCurrent: number | null;
+    achievementsCount: number;
+    sessionsAtCurrent: number;
+  };
+  const result: Record<string, LvlInfo> = {};
+
+  for (const drill of DRILLS) {
+    const drillSessions = sessions.flatMap((s) =>
+      s.drills
+        .filter((d) => d.drillType === drill.type)
+        .map((d) => ({
+          distance: d.distance,
+          club: d.club,
+          attempts: (d.attemptsJson as number[]) ?? [],
+          leveledUp: d.leveledUp,
+        })),
+    );
+    const achievementsCount = drillSessions.filter((s) => s.leveledUp).length;
+
+    if (drill.type === "GO_TO_CLUB") {
+      let bestRank = -1;
+      for (const s of drillSessions) {
+        if (!s.club) continue;
+        const score = s.attempts.length > 0 ? Math.max(...s.attempts) : 0;
+        if (score === drill.scoreOf) {
+          const rank = GO_TO_CLUB_LADDER.indexOf(s.club);
+          if (rank > bestRank) bestRank = rank;
+        }
+      }
+      const currentClub = bestRank === -1
+        ? GO_TO_CLUB_LADDER[0]
+        : GO_TO_CLUB_LADDER[Math.min(bestRank + 1, GO_TO_CLUB_LADDER.length - 1)];
+      result[drill.type] = {
+        currentClub,
+        bestAtCurrent: null,
+        achievementsCount,
+        sessionsAtCurrent: drillSessions.filter((s) => s.club === currentClub).length,
+      };
+      continue;
+    }
+    if (drill.scoring === "PCT_HITS_PERFECT" && drill.distanceStep) {
+      let bestDistance = -Infinity;
+      for (const s of drillSessions) {
+        if (s.distance == null) continue;
+        const score = s.attempts.length > 0 ? Math.max(...s.attempts) : 0;
+        if (score === drill.scoreOf && s.distance > bestDistance) bestDistance = s.distance;
+      }
+      const currentDistance = bestDistance === -Infinity
+        ? drill.defaultDistance
+        : bestDistance + drill.distanceStep;
+      const atCurrent = drillSessions.filter((s) => s.distance === currentDistance);
+      result[drill.type] = {
+        currentDistance,
+        bestAtCurrent: bestHistoricalScore(drill, atCurrent.map((s) => s.attempts)),
+        achievementsCount,
+        sessionsAtCurrent: atCurrent.length,
+      };
+      continue;
+    }
+    result[drill.type] = {
+      currentDistance: drill.defaultDistance,
+      bestAtCurrent: bestHistoricalScore(drill, drillSessions.map((s) => s.attempts)),
+      achievementsCount,
+      sessionsAtCurrent: drillSessions.length,
+    };
+  }
+  return result;
+}
+
+export default async function PPListPage() {
+  const [sessions, levels] = await Promise.all([
+    prisma.practiceSession.findMany({
+      orderBy: { date: "desc" },
+      include: { drills: true },
+    }),
+    getLevels(),
+  ]);
+
+  // PP sugerido de la última ronda
   const me = await prisma.player.findFirst({ where: { isMe: true } });
   let pendingPP: { code: string; label: string; count: number; reason: string }[] = [];
   if (me) {
@@ -59,12 +142,8 @@ export default async function PPListPage() {
         <h1 className="gf-display text-3xl text-[var(--fairway)] mt-1">
           Purposeful Practice
         </h1>
-        <p className="text-sm text-[var(--muted)]">
-          Drills basados en Will Robins method
-        </p>
       </header>
 
-      {/* Pendientes de la última ronda */}
       {pendingPP.length > 0 && (
         <>
           <SectionHeader>Sugerido (de tu última ronda)</SectionHeader>
@@ -82,6 +161,46 @@ export default async function PPListPage() {
         </>
       )}
 
+      <SectionHeader>Tu nivel actual por drill</SectionHeader>
+      <div className="space-y-2">
+        {DRILLS.map((d) => {
+          const lvl = levels[d.type];
+          if (!lvl) return null;
+          return (
+            <Card key={d.type} className="!p-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-semibold text-sm">{d.shortLabel}</div>
+                  <div className="text-[10px] text-[var(--muted)] gf-mono">
+                    PP {d.ppCode} · {lvl.sessionsAtCurrent} sesion{lvl.sessionsAtCurrent === 1 ? "" : "es"}
+                  </div>
+                </div>
+                <div className="text-right">
+                  {d.type === "GO_TO_CLUB" ? (
+                    <span className="gf-display text-xl text-[var(--fairway)]">
+                      {lvl.currentClub ? CLUB_LABEL[lvl.currentClub] : "—"}
+                    </span>
+                  ) : (
+                    <div>
+                      <span className="gf-display text-xl text-[var(--fairway)]">
+                        {lvl.currentDistance ?? "—"}
+                        <span className="text-xs ml-0.5">{d.distanceUnit}</span>
+                      </span>
+                      {lvl.bestAtCurrent != null && (
+                        <div className="text-[10px] text-[var(--muted)] gf-mono">
+                          mejor: {lvl.bestAtCurrent}
+                          {d.scoring !== "BEAT_BEST_LOWER_BY_1" && `/${d.scoreOf}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
       <Link href="/range/pp/nueva" className="gf-btn w-full">
         + Nueva sesión PP
       </Link>
@@ -89,7 +208,7 @@ export default async function PPListPage() {
       <SectionHeader>Sesiones</SectionHeader>
       {sessions.length === 0 && (
         <Card className="text-center text-sm text-[var(--muted)]">
-          Todavía no cargaste ninguna sesión PP
+          Sin sesiones todavía
         </Card>
       )}
       <div className="space-y-2">
@@ -107,21 +226,23 @@ export default async function PPListPage() {
                   const def = DRILL_BY_TYPE[d.drillType as DrillType];
                   if (!def) return null;
                   const attempts = (d.attemptsJson as number[] | null) ?? [];
-                  const best = attempts.length === 0
+                  const score = attempts.length === 0
                     ? "—"
-                    : def.scoring === "SUM_LOWEST"
+                    : def.scoring === "BEAT_BEST_LOWER_BY_1"
                     ? attempts.reduce((a, b) => a + b, 0)
                     : Math.max(...attempts);
                   return (
-                    <span key={d.id} className="text-[10px] gf-pill">
-                      {def.shortLabel}: {best} ({attempts.length}x)
+                    <span
+                      key={d.id}
+                      className="text-[10px] gf-pill"
+                      style={d.leveledUp ? { background: "#d4f4dd", color: "var(--green)" } : undefined}
+                    >
+                      {def.shortLabel}{d.club ? ` ${CLUB_LABEL[d.club] ?? d.club}` : d.distance ? ` ${d.distance}${def.distanceUnit}` : ""}: {score}
+                      {d.leveledUp && " 🎯"}
                     </span>
                   );
                 })}
               </div>
-              {s.notes && (
-                <div className="text-xs text-[var(--muted)] mt-1">{s.notes}</div>
-              )}
             </Card>
           </Link>
         ))}

@@ -170,9 +170,11 @@ model PracticeDrill {
   sessionId  String
   drillType  String          // ONE_PUTT_CIRCLE | TWO_PUTT_CIRCLE | CHIPPING | WEDGES_50 | WEDGES_70 | WEDGES_100 | GO_TO_CLUB
   distance   Int?            // ft o yds según drill
+  club       String?         // Para GO_TO_CLUB: IRON_7 | IRON_6 | DRIVER | etc
   ppCode     String?         // A | B | 1 | 2 — qué PP plan code ataca
-  target     Float?          // valor objetivo a superar (de mejor marca anterior o config)
-  attemptsJson Json?         // array de scores: [8, 6, 9] o para chipping suma [3,4,2,3,3,2,3,3,2]
+  target     Float?          // referencia (mejor marca o config)
+  attemptsJson Json?         // array de scores: [8, 6, 9] o para chipping [3,4,2,3,3,2,3,3,2]
+  leveledUp  Boolean         @default(false) // true si en esta sesión cumplió target
   notes      String?
 }
 

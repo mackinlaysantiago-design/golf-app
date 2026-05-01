@@ -3,14 +3,29 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, SectionHeader } from "@/components/ui/Card";
-import { DRILLS, meetsTarget, type DrillType } from "@/lib/pp-drills";
+import {
+  DRILLS,
+  GO_TO_CLUB_LADDER,
+  CLUB_LABEL,
+  meetsTarget,
+  setScore,
+  type DrillType,
+} from "@/lib/pp-drills";
 
 type DrillEntry = {
   enabled: boolean;
   distance: string;
-  target: string;
-  attempts: string[]; // strings para permitir vacíos al editar
+  club: string;
+  attempts: string[];
   notes: string;
+};
+
+type LevelInfo = {
+  drillType: DrillType;
+  currentDistance?: number;
+  currentClub?: string;
+  bestAtCurrent: number | null;
+  bestEver: number | null;
 };
 
 export default function NuevaPPPage() {
@@ -18,7 +33,7 @@ export default function NuevaPPPage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
-  const [bestMarks, setBestMarks] = useState<Record<string, { best: number | null; lastDate: string | null }>>({});
+  const [levels, setLevels] = useState<Record<string, LevelInfo>>({});
 
   const initial: Record<DrillType, DrillEntry> = Object.fromEntries(
     DRILLS.map((d) => [
@@ -26,7 +41,7 @@ export default function NuevaPPPage() {
       {
         enabled: false,
         distance: String(d.defaultDistance),
-        target: String(d.defaultTarget),
+        club: d.type === "GO_TO_CLUB" ? GO_TO_CLUB_LADDER[0] : "",
         attempts: [""],
         notes: "",
       },
@@ -35,11 +50,28 @@ export default function NuevaPPPage() {
 
   const [drills, setDrills] = useState(initial);
 
-  // Cargar mejores marcas históricas
+  // Cargar niveles actuales
   useEffect(() => {
-    fetch("/api/pp/best-marks")
+    fetch("/api/pp/levels")
       .then((r) => r.json())
-      .then(setBestMarks)
+      .then((data) => {
+        setLevels(data);
+        // Pre-llenar distancias / palos con nivel actual
+        setDrills((prev) => {
+          const next = { ...prev };
+          for (const drill of DRILLS) {
+            const lvl = data[drill.type];
+            if (!lvl) continue;
+            if (lvl.currentDistance != null) {
+              next[drill.type] = { ...next[drill.type], distance: String(lvl.currentDistance) };
+            }
+            if (lvl.currentClub) {
+              next[drill.type] = { ...next[drill.type], club: lvl.currentClub };
+            }
+          }
+          return next;
+        });
+      })
       .catch(() => {});
   }, []);
 
@@ -55,11 +87,9 @@ export default function NuevaPPPage() {
     next[idx] = value;
     update(type, "attempts", next);
   }
-
   function addAttempt(type: DrillType) {
     update(type, "attempts", [...drills[type].attempts, ""]);
   }
-
   function removeAttempt(type: DrillType, idx: number) {
     const next = drills[type].attempts.filter((_, i) => i !== idx);
     update(type, "attempts", next.length > 0 ? next : [""]);
@@ -75,8 +105,8 @@ export default function NuevaPPPage() {
       return {
         drillType: d.type,
         distance: e.distance ? parseInt(e.distance) : null,
+        club: d.type === "GO_TO_CLUB" ? e.club : null,
         ppCode: d.ppCode,
-        target: e.target ? parseFloat(e.target) : null,
         attempts,
         notes: e.notes || null,
       };
@@ -113,15 +143,13 @@ export default function NuevaPPPage() {
           Nueva sesión PP
         </h1>
         <p className="text-sm text-[var(--muted)]">
-          Marcá los drills que hiciste, agregá tantos intentos como quieras.
+          Marcá los drills, agregá tantos intentos como hagas. La app detecta si subiste de nivel.
         </p>
       </header>
 
       <Card className="space-y-2">
         <div>
-          <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-            Fecha
-          </label>
+          <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Fecha</label>
           <input
             type="date"
             className="gf-input mt-1"
@@ -130,9 +158,7 @@ export default function NuevaPPPage() {
           />
         </div>
         <div>
-          <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-            Notas (opcional)
-          </label>
+          <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Notas</label>
           <textarea
             className="gf-input mt-1"
             rows={2}
@@ -145,22 +171,18 @@ export default function NuevaPPPage() {
       <SectionHeader>Drills</SectionHeader>
       {DRILLS.map((d) => {
         const e = drills[d.type];
-        const best = bestMarks[d.type]?.best;
-        const validAttempts = e.attempts
-          .map((a) => parseFloat(a))
-          .filter((n) => !isNaN(n));
-        const targetNum = parseFloat(e.target);
-        const cumple = !isNaN(targetNum) && validAttempts.length > 0
-          ? meetsTarget(d, validAttempts, targetNum)
-          : false;
-        const bestThisSession = validAttempts.length > 0
-          ? d.scoring === "SUM_LOWEST"
-            ? validAttempts.reduce((a, b) => a + b, 0)
-            : Math.max(...validAttempts)
-          : null;
+        const lvl = levels[d.type];
+        const validAttempts = e.attempts.map((a) => parseFloat(a)).filter((n) => !isNaN(n));
+        const bestPrevious = lvl?.bestAtCurrent ?? null;
+        const score = setScore(d.scoring, validAttempts);
+        const willLevelUp = validAttempts.length > 0 && meetsTarget(d, validAttempts, bestPrevious);
 
         return (
-          <Card key={d.type} className="space-y-2">
+          <Card
+            key={d.type}
+            className="space-y-2"
+            style={willLevelUp ? { borderLeft: "4px solid var(--green)" } : undefined}
+          >
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -174,10 +196,37 @@ export default function NuevaPPPage() {
                   <span className="gf-pill text-[10px]">PP {d.ppCode}</span>
                 </div>
                 <div className="text-[11px] text-[var(--muted)]">{d.description}</div>
-                {best != null && (
-                  <div className="text-[10px] text-[var(--accent)] gf-mono mt-0.5">
-                    Mejor marca histórica: {best}
-                    {d.scoring === "PCT_HITS" && `/${d.scoreOf}`}
+                {lvl && (
+                  <div className="text-[10px] mt-1 gf-mono">
+                    {d.type === "GO_TO_CLUB" ? (
+                      <span>
+                        Practicar con: <strong>{CLUB_LABEL[e.club] ?? e.club}</strong>
+                        {lvl.currentClub && (
+                          <span className="text-[var(--muted)] ml-1">
+                            (nivel actual: {CLUB_LABEL[lvl.currentClub]})
+                          </span>
+                        )}
+                      </span>
+                    ) : d.distanceStep ? (
+                      <span>
+                        Nivel actual: <strong>{lvl.currentDistance}{d.distanceUnit}</strong>
+                        {bestPrevious != null && (
+                          <span className="text-[var(--muted)] ml-1">
+                            · mejor a esta dist: {bestPrevious}/{d.scoreOf}
+                          </span>
+                        )}
+                      </span>
+                    ) : bestPrevious != null ? (
+                      <span>
+                        Mejor marca histórica:{" "}
+                        <strong>
+                          {bestPrevious}
+                          {d.scoring === "BEAT_BEST_HIGHER" && `/${d.scoreOf}`}
+                        </strong>
+                      </span>
+                    ) : (
+                      <span className="text-[var(--muted)]">Sin marca anterior</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -186,32 +235,39 @@ export default function NuevaPPPage() {
             {e.enabled && (
               <div className="space-y-2 pl-6">
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                      Distancia ({d.distanceUnit})
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className="gf-input mt-0.5 text-center"
-                      value={e.distance}
-                      onChange={(ev) => update(d.type, "distance", ev.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                      Target {d.scoring === "PCT_HITS" ? "(% acierto)" : "(suma máx)"}
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      className="gf-input mt-0.5 text-center"
-                      value={e.target}
-                      onChange={(ev) => update(d.type, "target", ev.target.value)}
-                    />
-                  </div>
+                  {d.type === "GO_TO_CLUB" ? (
+                    <div className="col-span-2">
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                        Palo a practicar
+                      </label>
+                      <select
+                        className="gf-input mt-0.5"
+                        value={e.club}
+                        onChange={(ev) => update(d.type, "club", ev.target.value)}
+                      >
+                        {GO_TO_CLUB_LADDER.map((c) => (
+                          <option key={c} value={c}>
+                            {CLUB_LABEL[c] ?? c}
+                            {lvl?.currentClub === c ? " · nivel actual" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                        Distancia ({d.distanceUnit})
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className="gf-input mt-0.5 text-center"
+                        value={e.distance}
+                        onChange={(ev) => update(d.type, "distance", ev.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -219,24 +275,28 @@ export default function NuevaPPPage() {
                     <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
                       Intentos · {d.scoreLabel}
                     </label>
-                    {bestThisSession != null && (
+                    {score != null && (
                       <span className="text-[10px] gf-mono">
-                        {d.scoring === "SUM_LOWEST" ? "Suma" : "Mejor"}: {bestThisSession}
-                        {cumple && " 🎯"}
+                        {d.scoring === "BEAT_BEST_LOWER_BY_1" ? "Suma" : "Mejor"}: {score}
+                        {willLevelUp && " 🎯 ¡Sube nivel!"}
                       </span>
                     )}
                   </div>
                   {e.attempts.map((a, i) => (
                     <div key={i} className="flex gap-2 mb-1">
                       <span className="text-[10px] text-[var(--muted)] gf-mono w-6 self-center text-right">
-                        #{i + 1}
+                        {d.scoring === "BEAT_BEST_LOWER_BY_1" ? `B${i + 1}` : `#${i + 1}`}
                       </span>
                       <input
                         type="number"
                         inputMode="numeric"
                         pattern="[0-9]*"
                         className="gf-input !p-2 text-center flex-1"
-                        placeholder={d.scoring === "PCT_HITS" ? `0-${d.scoreOf}` : "golpes"}
+                        placeholder={
+                          d.scoring === "BEAT_BEST_LOWER_BY_1"
+                            ? "golpes"
+                            : `0-${d.scoreOf}`
+                        }
                         value={a}
                         onChange={(ev) => setAttempt(d.type, i, ev.target.value)}
                       />
