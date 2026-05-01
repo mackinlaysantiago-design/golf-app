@@ -96,16 +96,28 @@ export default function RondaTracker({ round }: { round: Round }) {
 
   function setCell(rpId: string, hole: number, field: FieldKey, value: string) {
     const num = value === "" ? null : parseInt(value);
-    setData((prev) => ({
-      ...prev,
-      [rpId]: {
-        ...prev[rpId],
-        [hole]: {
-          ...(prev[rpId]?.[hole] ?? {}),
-          [field]: num,
-        },
-      },
-    }));
+    setData((prev) => {
+      const cur = prev[rpId]?.[hole] ?? {};
+      const updated = { ...cur, [field]: num };
+
+      // Auto-cálculo del score para el jugador main: strokesToEnterSz + strokesInsideSz
+      const isMainPlayer = rpId === meRP.id;
+      if (
+        isMainPlayer &&
+        (field === "strokesToEnterSz" || field === "strokesInsideSz")
+      ) {
+        const a = field === "strokesToEnterSz" ? num : updated.strokesToEnterSz;
+        const b = field === "strokesInsideSz" ? num : updated.strokesInsideSz;
+        if (a != null && b != null) {
+          updated.score = a + b;
+        }
+      }
+
+      return {
+        ...prev,
+        [rpId]: { ...prev[rpId], [hole]: updated },
+      };
+    });
   }
 
   async function saveAll() {
@@ -307,6 +319,7 @@ export default function RondaTracker({ round }: { round: Round }) {
                       label="Distancia REG (yds)"
                       value={cells.distanceInRegYds ?? null}
                       onChange={(v) => setCell(rp.id, currentHole, "distanceInRegYds", v)}
+                      showGir
                     />
                     <NumField
                       label="Strokes inside SZ"
@@ -340,10 +353,11 @@ export default function RondaTracker({ round }: { round: Round }) {
                       }
                     />
                     <NumField
-                      label="Score total"
+                      label="Score total (auto = enter + inside)"
                       value={cells.score ?? null}
                       onChange={(v) => setCell(rp.id, currentHole, "score", v)}
                       big
+                      isLast
                     />
                   </div>
                 ) : (
@@ -352,6 +366,7 @@ export default function RondaTracker({ round }: { round: Round }) {
                     value={cells.score ?? null}
                     onChange={(v) => setCell(rp.id, currentHole, "score", v)}
                     big
+                    isLast
                   />
                 )}
 
@@ -397,23 +412,54 @@ function NumField({
   value,
   onChange,
   big = false,
+  showGir = false,
+  isLast = false,
 }: {
   label: string;
   value: number | null;
   onChange: (v: string) => void;
   big?: boolean;
+  showGir?: boolean;
+  isLast?: boolean;
 }) {
+  function focusNext(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const inputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>("input.gf-numfield"),
+    );
+    const cur = inputs.indexOf(e.currentTarget);
+    if (cur === -1) return;
+    const next = inputs[cur + 1];
+    if (next) {
+      next.focus();
+      next.select();
+    } else {
+      e.currentTarget.blur();
+    }
+  }
+
+  const isGir = showGir && value === 0;
+
   return (
     <div className={big ? "col-span-2" : ""}>
-      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)] flex items-center gap-1">
         {label}
+        {isGir && (
+          <span className="gf-pill gf-pill-accent !py-0 !px-1.5 text-[9px]">
+            GIR ✅
+          </span>
+        )}
       </label>
       <input
         type="number"
         inputMode="numeric"
-        className={`gf-input mt-0.5 ${big ? "text-2xl text-center font-bold" : ""}`}
+        pattern="[0-9]*"
+        enterKeyHint={isLast ? "done" : "next"}
+        className={`gf-input gf-numfield mt-0.5 ${big ? "text-2xl text-center font-bold" : ""}`}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={focusNext}
       />
     </div>
   );
