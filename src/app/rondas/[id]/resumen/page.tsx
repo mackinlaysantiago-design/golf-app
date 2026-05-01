@@ -5,7 +5,6 @@ import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
 import Link from "next/link";
-import AnalisisIA from "./AnalisisIA";
 
 export const dynamic = "force-dynamic";
 
@@ -258,6 +257,9 @@ export default async function ResumenPage({
             <div className="text-xs text-[var(--muted)] mt-1">{p.reason}</div>
           </Card>
         ))}
+        <Link href="/range/pp/nueva" className="gf-btn w-full !py-2 mt-2">
+          🎯 Cargar sesión de práctica
+        </Link>
       </div>
 
       {/* Apuestas */}
@@ -334,8 +336,6 @@ export default async function ResumenPage({
         </>
       )}
 
-      {/* Análisis IA */}
-      <AnalisisIA roundId={round.id} holesPlayed={kpis.holesPlayed} />
 
       {/* Scorecard tabla full — compacto para mostrar todos los jugadores en mobile */}
       <SectionHeader>Scorecard</SectionHeader>
