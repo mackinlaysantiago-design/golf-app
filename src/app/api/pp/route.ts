@@ -5,9 +5,9 @@ import { z } from "zod";
 const DrillSchema = z.object({
   drillType: z.string(),
   distance: z.number().int().nullable().optional(),
-  attempts: z.number().int().nullable().optional(),
-  successes: z.number().int().nullable().optional(),
-  bestScore: z.number().nullable().optional(),
+  ppCode: z.string().nullable().optional(),
+  target: z.number().nullable().optional(),
+  attempts: z.array(z.number()).default([]),
   notes: z.string().nullable().optional(),
 });
 
@@ -32,7 +32,16 @@ export async function POST(req: NextRequest) {
     data: {
       date: new Date(parsed.date),
       notes: parsed.notes ?? null,
-      drills: { create: parsed.drills },
+      drills: {
+        create: parsed.drills.map((d) => ({
+          drillType: d.drillType,
+          distance: d.distance ?? null,
+          ppCode: d.ppCode ?? null,
+          target: d.target ?? null,
+          attemptsJson: d.attempts ?? [],
+          notes: d.notes ?? null,
+        })),
+      },
     },
     include: { drills: true },
   });

@@ -106,14 +106,15 @@ export default async function PPListPage() {
                 {s.drills.map((d) => {
                   const def = DRILL_BY_TYPE[d.drillType as DrillType];
                   if (!def) return null;
-                  const score = d.successes != null && d.attempts != null
-                    ? `${d.successes}/${d.attempts}`
-                    : d.bestScore != null
-                    ? `${d.bestScore}`
-                    : "—";
+                  const attempts = (d.attemptsJson as number[] | null) ?? [];
+                  const best = attempts.length === 0
+                    ? "—"
+                    : def.scoring === "SUM_LOWEST"
+                    ? attempts.reduce((a, b) => a + b, 0)
+                    : Math.max(...attempts);
                   return (
                     <span key={d.id} className="text-[10px] gf-pill">
-                      {def.label.split("(")[0].trim()}: {score}
+                      {def.shortLabel}: {best} ({attempts.length}x)
                     </span>
                   );
                 })}
