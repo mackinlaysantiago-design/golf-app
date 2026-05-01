@@ -35,11 +35,16 @@ export default async function RangePage() {
         <p className="text-sm text-[var(--muted)]">FlightScope sessions</p>
       </header>
 
-      <Link href="/range/nueva" className="gf-btn w-full">
-        + Nueva sesión
-      </Link>
+      <div className="grid grid-cols-2 gap-2">
+        <Link href="/range/nueva" className="gf-btn">
+          + FlightScope
+        </Link>
+        <Link href="/range/pp" className="gf-btn gf-btn-secondary">
+          🎯 Purposeful Practice
+        </Link>
+      </div>
 
-      <SectionHeader>Sesiones</SectionHeader>
+      <SectionHeader>Sesiones FlightScope</SectionHeader>
       <div className="space-y-2">
         {sessions.length === 0 && (
           <Card className="text-center text-sm text-[var(--muted)]">

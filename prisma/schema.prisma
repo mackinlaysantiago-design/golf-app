@@ -148,6 +148,34 @@ model RangeSession {
   shots RangeShot[]
 }
 
+// Sesión de Purposeful Practice (PP) — Will Robins method
+model PracticeSession {
+  id        String   @id @default(cuid())
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  drills    PracticeDrill[]
+}
+
+// Cada drill tiene: tipo, distancia (ft o yds), target alcanzado, intentos, mejor score
+// types:
+//   ONE_PUTT_CIRCLE   — 10 putts cortos desde N ft, # embocados
+//   TWO_PUTT_CIRCLE   — 10 putts largos desde N ft, # quedados dentro 2-putt circle
+//   CHIPPING          — N hoyos chipping desde N yds, suma de golpes
+//   WEDGES_50 / WEDGES_70 / WEDGES_100 — 10 wedges desde N yds, # dentro 2-putt circle
+//   GO_TO_CLUB        — N tiros con palo target a fairway, # en fairway
+model PracticeDrill {
+  id         String          @id @default(cuid())
+  session    PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  drillType  String          // ONE_PUTT_CIRCLE | TWO_PUTT_CIRCLE | CHIPPING | WEDGES_50 | WEDGES_70 | WEDGES_100 | GO_TO_CLUB
+  distance   Int?            // ft o yds según drill
+  attempts   Int?            // intentos hechos
+  successes  Int?            // # exitosos (embocados / dentro 2PC / en FW)
+  bestScore  Float?          // best target score
+  notes      String?
+}
+
 model RangeShot {
   id           String       @id @default(cuid())
   session      RangeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
