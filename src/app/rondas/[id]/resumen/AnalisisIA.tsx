@@ -3,10 +3,20 @@
 import { useState } from "react";
 import { Card, SectionHeader } from "@/components/ui/Card";
 
-export default function AnalisisIA({ roundId }: { roundId: string }) {
+const MIN_HOLES = 5;
+
+export default function AnalisisIA({
+  roundId,
+  holesPlayed,
+}: {
+  roundId: string;
+  holesPlayed: number;
+}) {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const enoughHoles = holesPlayed >= MIN_HOLES;
 
   async function generar() {
     setBusy(true);
@@ -30,14 +40,19 @@ export default function AnalisisIA({ roundId }: { roundId: string }) {
     <>
       <SectionHeader>Análisis IA · Coach</SectionHeader>
       {!analysis && (
-        <Card className="text-center">
+        <Card className="text-center space-y-2">
           <button
             className="gf-btn"
             onClick={generar}
-            disabled={busy}
+            disabled={busy || !enoughHoles}
           >
             {busy ? "Pensando..." : "🤖 Pedir análisis a Claude"}
           </button>
+          {!enoughHoles && (
+            <p className="text-xs text-[var(--muted)]">
+              Cargá al menos {MIN_HOLES} hoyos para tener un PP útil ({holesPlayed}/{MIN_HOLES})
+            </p>
+          )}
           {error && <p className="text-xs text-[var(--red)] mt-2">{error}</p>}
         </Card>
       )}

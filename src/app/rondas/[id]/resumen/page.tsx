@@ -334,7 +334,7 @@ export default async function ResumenPage({
       )}
 
       {/* Análisis IA */}
-      <AnalisisIA roundId={round.id} />
+      <AnalisisIA roundId={round.id} holesPlayed={kpis.holesPlayed} />
 
       {/* Scorecard tabla full — compacto para mostrar todos los jugadores en mobile */}
       <SectionHeader>Scorecard</SectionHeader>

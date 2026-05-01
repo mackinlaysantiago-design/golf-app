@@ -42,6 +42,18 @@ export async function POST(req: NextRequest) {
     twoPuttCircleYds: round.twoPuttCircleYds,
   };
   const kpis = computeRoundKPIs(holes, config);
+
+  // Mínimo 5 hoyos para que el análisis tenga sentido (PP semanal)
+  const MIN_HOLES = 5;
+  if (kpis.holesPlayed < MIN_HOLES) {
+    return NextResponse.json({
+      analysis: `**Faltan datos para armar un Purposeful Practice útil.**\n\nTenés ${kpis.holesPlayed} hoyo${kpis.holesPlayed === 1 ? "" : "s"} cargado${kpis.holesPlayed === 1 ? "" : "s"}, mínimo necesito ${MIN_HOLES} para detectar patrones reales y darte un plan de práctica de la semana. Cargá más hoyos y volvé a pedir el análisis.`,
+      kpis,
+      ppPlan: [],
+      insufficient: true,
+    });
+  }
+
   const ppPlan = computePPPlan(holes, config, kpis);
 
   const prompt = `Sos un performance coach de golf usando el Scoring Method de Will Robins. Analizá esta ronda y dame:
