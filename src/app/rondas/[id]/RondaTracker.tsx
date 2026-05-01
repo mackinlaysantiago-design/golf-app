@@ -424,6 +424,45 @@ export default function RondaTracker({ round }: { round: Round }) {
           <SectionHeader>
             Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
           </SectionHeader>
+          {/* Quién tiene golpe en este hoyo */}
+          {(() => {
+            const strokesAt = round.players.map((rp) => {
+              const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+              const s = strokesPerHole(hcp, courseHcpMap)[currentHole] ?? 0;
+              return { name: rp.player.name, isMe: rp.player.isMe, strokes: s };
+            });
+            const withStrokes = strokesAt.filter((x) => x.strokes !== 0);
+            if (withStrokes.length === 0) {
+              return (
+                <Card className="!p-2 text-center">
+                  <span className="text-[11px] text-[var(--muted)]">
+                    Nadie tiene golpe en este hoyo
+                  </span>
+                </Card>
+              );
+            }
+            return (
+              <Card className="!p-2">
+                <div className="flex flex-wrap gap-1.5 items-center justify-center">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                    Golpes:
+                  </span>
+                  {withStrokes.map((x) => (
+                    <span
+                      key={x.name}
+                      className="gf-pill gf-mono"
+                      style={{
+                        background: x.strokes > 0 ? "var(--accent-light)" : "#fde0dc",
+                        color: x.strokes > 0 ? "var(--accent)" : "var(--red)",
+                      }}
+                    >
+                      {x.name.split(" ")[0]} {x.strokes > 0 ? "+" : ""}{x.strokes}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            );
+          })()}
 
           {round.players.map((rp) => {
             const cells = data[rp.id]?.[currentHole] ?? {};
