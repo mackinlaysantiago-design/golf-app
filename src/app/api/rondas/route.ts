@@ -8,7 +8,7 @@ const RoundSchema = z.object({
   mode: z.enum(["SOLO", "TWO_P", "THREE_P", "FOUR_P"]),
   modality: z.string().default("MEDAL"),
   tee: z.string().default("BLANCO"),
-  enterSzYds: z.number().int().min(1).max(300),
+  enterSzYds: z.number().int().min(0).max(300),
   downInSzStrokes: z.number().int().min(1).max(10),
   onePuttCircleFt: z.number().int().min(1).max(30),
   twoPuttCircleYds: z.number().int().min(1).max(50),

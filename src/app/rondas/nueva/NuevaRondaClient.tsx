@@ -47,9 +47,9 @@ export default function NuevaRondaClient({
   );
   const [pairs, setPairs] = useState<string>("solo"); // "solo" | "individual" | "parejas"
   const [enterSzYds, setEnterSzYds] = useState(50);
-  const [downInSzStrokes, setDownInSzStrokes] = useState(3);
-  const [onePuttCircleFt, setOnePuttCircleFt] = useState(6);
-  const [twoPuttCircleYds, setTwoPuttCircleYds] = useState(20);
+  const [downInSzStrokes, setDownInSzStrokes] = useState("3");
+  const [onePuttCircleFt, setOnePuttCircleFt] = useState("6");
+  const [twoPuttCircleYds, setTwoPuttCircleYds] = useState("20");
   // Apuestas: por familia (MATCH/MEDAL/STABLEFORD) tenemos enabled + monto Total + monto chico (ida=vuelta)
   type BetFamily = {
     enabled: boolean;
@@ -181,9 +181,9 @@ export default function NuevaRondaClient({
       modality,
       tee,
       enterSzYds,
-      downInSzStrokes,
-      onePuttCircleFt,
-      twoPuttCircleYds,
+      downInSzStrokes: parseInt(downInSzStrokes) || 3,
+      onePuttCircleFt: parseInt(onePuttCircleFt) || 6,
+      twoPuttCircleYds: parseInt(twoPuttCircleYds) || 20,
       bets: expandBets(),
       pairs:
         mode === "FOUR_P" && pairs === "parejas"
@@ -528,14 +528,18 @@ export default function NuevaRondaClient({
           <Card className="space-y-3">
             <div>
               <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Enter SZ (yds al hoyo)
+                Enter SZ
               </label>
-              <input
-                type="number"
+              <select
                 className="gf-input mt-1"
                 value={enterSzYds}
-                onChange={(e) => setEnterSzYds(parseInt(e.target.value) || 0)}
-              />
+                onChange={(e) => setEnterSzYds(parseInt(e.target.value))}
+              >
+                <option value={0}>GIR (en green)</option>
+                <option value={25}>≤ 25 yds</option>
+                <option value={50}>≤ 50 yds</option>
+                <option value={100}>≤ 100 yds</option>
+              </select>
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
@@ -543,9 +547,10 @@ export default function NuevaRondaClient({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 className="gf-input mt-1"
                 value={downInSzStrokes}
-                onChange={(e) => setDownInSzStrokes(parseInt(e.target.value) || 0)}
+                onChange={(e) => setDownInSzStrokes(e.target.value)}
               />
             </div>
             <div>
@@ -554,9 +559,10 @@ export default function NuevaRondaClient({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 className="gf-input mt-1"
                 value={onePuttCircleFt}
-                onChange={(e) => setOnePuttCircleFt(parseInt(e.target.value) || 0)}
+                onChange={(e) => setOnePuttCircleFt(e.target.value)}
               />
             </div>
             <div>
@@ -565,9 +571,10 @@ export default function NuevaRondaClient({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
                 className="gf-input mt-1"
                 value={twoPuttCircleYds}
-                onChange={(e) => setTwoPuttCircleYds(parseInt(e.target.value) || 0)}
+                onChange={(e) => setTwoPuttCircleYds(e.target.value)}
               />
             </div>
           </Card>
