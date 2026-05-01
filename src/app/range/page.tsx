@@ -43,6 +43,9 @@ export default async function RangePage() {
           🎯 Purposeful Practice
         </Link>
       </div>
+      <Link href="/range/stats" className="gf-btn gf-btn-secondary w-full text-sm">
+        📊 Stats por palo
+      </Link>
 
       <SectionHeader>Sesiones FlightScope</SectionHeader>
       <div className="space-y-2">
