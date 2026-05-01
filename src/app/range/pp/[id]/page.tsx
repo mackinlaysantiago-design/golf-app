@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
-import { DRILL_BY_TYPE, meetsTarget, type DrillType } from "@/lib/pp-drills";
+import { DRILL_BY_TYPE, CLUB_LABEL, type DrillType } from "@/lib/pp-drills";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -40,26 +40,29 @@ export default async function PPSessionPage({
         const def = DRILL_BY_TYPE[d.drillType as DrillType];
         if (!def) return null;
         const attempts = (d.attemptsJson as number[] | null) ?? [];
-        const target = d.target ?? def.defaultTarget;
-        const cumple = meetsTarget(def, attempts, target);
-        const bestThis = attempts.length === 0
+        const setBest = attempts.length === 0
           ? null
-          : def.scoring === "SUM_LOWEST"
+          : def.scoring === "BEAT_BEST_LOWER_BY_1"
           ? attempts.reduce((a, b) => a + b, 0)
           : Math.max(...attempts);
 
         return (
-          <Card key={d.id} className="space-y-2">
+          <Card
+            key={d.id}
+            className="space-y-2"
+            style={d.leveledUp ? { borderLeft: "4px solid var(--green)" } : undefined}
+          >
             <div className="flex justify-between items-baseline">
               <div>
                 <span className="font-semibold">{def.label}</span>
                 <span className="ml-2 gf-pill text-[10px]">PP {d.ppCode ?? def.ppCode}</span>
               </div>
-              {cumple && <Pill variant="accent">🎯 Logrado</Pill>}
+              {d.leveledUp && <Pill variant="accent">🎯 Subió de nivel</Pill>}
             </div>
             <div className="text-xs text-[var(--muted)]">
-              Distancia {d.distance}{def.distanceUnit} · Target{" "}
-              {def.scoring === "PCT_HITS" ? `${(target * 100).toFixed(0)}%` : `≤ ${target}`}
+              {d.club ? `Palo: ${CLUB_LABEL[d.club] ?? d.club} · ` : ""}
+              {d.distance != null ? `Distancia ${d.distance}${def.distanceUnit}` : ""}
+              {d.target != null && ` · Mejor anterior: ${d.target}${def.scoring !== "BEAT_BEST_LOWER_BY_1" ? `/${def.scoreOf}` : ""}`}
             </div>
 
             <div>
@@ -70,27 +73,32 @@ export default async function PPSessionPage({
                 <span className="text-xs text-[var(--muted)]">— sin intentos cargados</span>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {attempts.map((a, i) => (
-                    <span
-                      key={i}
-                      className="gf-pill gf-mono"
-                      style={{
-                        background: a === bestThis ? "var(--green-pale)" : undefined,
-                        color: a === bestThis ? "var(--green)" : undefined,
-                        fontWeight: a === bestThis ? 700 : 500,
-                      }}
-                    >
-                      #{i + 1}: {a}
-                    </span>
-                  ))}
+                  {attempts.map((a, i) => {
+                    const isBest = def.scoring === "BEAT_BEST_LOWER_BY_1"
+                      ? false
+                      : a === setBest;
+                    return (
+                      <span
+                        key={i}
+                        className="gf-pill gf-mono"
+                        style={{
+                          background: isBest ? "var(--green-pale)" : undefined,
+                          color: isBest ? "var(--green)" : undefined,
+                          fontWeight: isBest ? 700 : 500,
+                        }}
+                      >
+                        {def.scoring === "BEAT_BEST_LOWER_BY_1" ? `B${i + 1}` : `#${i + 1}`}: {a}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            {bestThis != null && (
+            {setBest != null && (
               <div className="text-xs gf-mono text-[var(--fairway)] font-bold">
-                {def.scoring === "SUM_LOWEST" ? "Suma" : "Mejor"}: {bestThis}
-                {def.scoring === "PCT_HITS" && ` / ${def.scoreOf} (${((bestThis / def.scoreOf) * 100).toFixed(0)}%)`}
+                {def.scoring === "BEAT_BEST_LOWER_BY_1" ? "Suma del set" : "Mejor del día"}: {setBest}
+                {def.scoring !== "BEAT_BEST_LOWER_BY_1" && ` / ${def.scoreOf}`}
               </div>
             )}
             {d.notes && (
