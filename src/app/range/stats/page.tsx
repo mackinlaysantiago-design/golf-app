@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Card, KPI, SectionHeader } from "@/components/ui/Card";
+import { Card, KPI } from "@/components/ui/Card";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
