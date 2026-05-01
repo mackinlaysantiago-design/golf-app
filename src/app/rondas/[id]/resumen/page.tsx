@@ -5,6 +5,7 @@ import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
 import Link from "next/link";
+import DeleteButton from "./DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -396,6 +397,8 @@ export default async function ResumenPage({
           </tbody>
         </table>
       </Card>
+
+      <DeleteButton roundId={round.id} />
     </div>
   );
 }

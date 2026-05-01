@@ -14,6 +14,8 @@ const tabs = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  if (pathname === "/login") return null;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[var(--border)]">
       <div className="mx-auto max-w-md grid grid-cols-5">
