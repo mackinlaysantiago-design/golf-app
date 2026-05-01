@@ -336,27 +336,33 @@ export default async function ResumenPage({
       {/* Análisis IA */}
       <AnalisisIA roundId={round.id} />
 
-      {/* Scorecard tabla full */}
+      {/* Scorecard tabla full — compacto para mostrar todos los jugadores en mobile */}
       <SectionHeader>Scorecard</SectionHeader>
-      <Card className="!p-2 overflow-x-auto">
-        <table className="gf-table" style={{ minWidth: 320 + standings.length * 70 }}>
+      <Card className="!p-1">
+        <table className="w-full text-[11px]">
           <thead>
-            <tr>
-              <th>Hoyo</th>
-              <th>Par</th>
-              {standings.map((s) => (
-                <th key={s.rp.id} className="text-right">
-                  {s.rp.player.name}
-                  {s.rp.player.isMe && " ⛳"}
-                </th>
-              ))}
+            <tr className="border-b border-[var(--border)]">
+              <th className="text-left p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">H</th>
+              <th className="text-center p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Par</th>
+              {standings.map((s) => {
+                const firstName = s.rp.player.name.split(" ")[0];
+                return (
+                  <th
+                    key={s.rp.id}
+                    className="text-center p-1 text-[9px] uppercase tracking-wider"
+                    style={{ color: s.rp.player.isMe ? "var(--accent)" : "var(--muted)" }}
+                  >
+                    {firstName}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {round.course.holes.map((h) => (
-              <tr key={h.number}>
-                <td className="gf-mono">{h.number}</td>
-                <td className="gf-mono">{h.par}</td>
+              <tr key={h.number} className="border-b border-[var(--green-pale)]">
+                <td className="p-1 gf-mono">{h.number}</td>
+                <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
                 {round.players.map((rp) => {
                   const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
                   const score = hd?.score;
@@ -368,20 +374,20 @@ export default async function ResumenPage({
                     : vsPar === 1 ? "text-[var(--accent)]"
                     : "text-[var(--red)] font-bold";
                   return (
-                    <td key={rp.id} className={`text-right gf-mono ${cls}`}>
+                    <td key={rp.id} className={`p-1 text-center gf-mono ${cls}`}>
                       {score && score > 0 ? score : "—"}
                     </td>
                   );
                 })}
               </tr>
             ))}
-            <tr className="font-bold">
-              <td>Total</td>
-              <td className="gf-mono">
+            <tr className="font-bold border-t-2 border-[var(--fairway)]">
+              <td className="p-1">T</td>
+              <td className="p-1 text-center gf-mono">
                 {round.course.holes.reduce((s, h) => s + h.par, 0)}
               </td>
               {standings.map((s) => (
-                <td key={s.rp.id} className="text-right gf-mono">
+                <td key={s.rp.id} className="p-1 text-center gf-mono">
                   {s.bruto || "—"}
                 </td>
               ))}
