@@ -32,6 +32,7 @@ type RoundPlayer = {
   position: number;
   hcpIndex: number | null;
   courseHcp: number | null;
+  modalityHcps?: unknown;
   player: { id: string; name: string; isMe: boolean };
   holes: RoundHoleData[];
 };
@@ -413,6 +414,50 @@ export default function RondaTracker({ round }: { round: Round }) {
               </tbody>
             </table>
           )}
+        </Card>
+      )}
+
+      {/* Tabla de CHs por modalidad — referencia */}
+      {round.players.some((rp) => rp.modalityHcps) && (
+        <Card className="!p-2">
+          <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1 text-center">
+            Course HCP por modalidad
+          </div>
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr>
+                <th className="text-left p-0.5 text-[var(--muted)]">Mod.</th>
+                {round.players.map((rp) => (
+                  <th key={rp.id} className="p-0.5 text-center text-[var(--muted)]">
+                    {rp.player.name.split(" ")[0]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"] as const).map(
+                (mod) => (
+                  <tr key={mod} className="border-t border-[var(--green-pale)]">
+                    <td className="p-0.5 gf-mono text-[var(--muted)]">
+                      {mod === "MEDAL" ? "Medal Tot" : mod === "MEDAL_IDA" ? "Medal Ida" : mod === "MEDAL_VUELTA" ? "Medal Vta" : mod === "STABLEFORD" ? "Stbl Tot" : mod === "STABLEFORD_IDA" ? "Stbl Ida" : "Stbl Vta"}
+                    </td>
+                    {round.players.map((rp) => {
+                      const chs = rp.modalityHcps as Record<string, number> | null;
+                      const v = chs?.[mod];
+                      return (
+                        <td key={rp.id} className="p-0.5 text-center gf-mono">
+                          {v != null ? v : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+          <div className="text-[9px] text-[var(--muted)] mt-1 text-center">
+            * Medal CH usa stroke allocation hoyo a hoyo. Stableford usa Stableford CH.
+          </div>
         </Card>
       )}
 

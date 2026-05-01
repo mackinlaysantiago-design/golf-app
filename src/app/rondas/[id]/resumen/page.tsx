@@ -72,6 +72,7 @@ export default async function ResumenPage({
       name: rp.player.name,
       isMe: rp.player.isMe,
       hcp: rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0),
+      modalityHcps: (rp.modalityHcps as Record<string, number> | null) ?? null,
       scoresByHole,
     };
   });

@@ -97,14 +97,15 @@ model RoundBet {
 }
 
 model RoundPlayer {
-  id        String @id @default(cuid())
-  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  roundId   String
-  player    Player @relation(fields: [playerId], references: [id])
-  playerId  String
-  hcpIndex  Float?  // index del jugador para esa fecha
-  courseHcp Int?    // course handicap del día (calculado de HcpTable o manual)
-  position  Int     // 1..4 orden de display
+  id          String @id @default(cuid())
+  round       Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId     String
+  player      Player @relation(fields: [playerId], references: [id])
+  playerId    String
+  hcpIndex    Float?  // index del jugador para esa fecha
+  courseHcp   Int?    // course handicap del día principal (Medal Total) — para stroke allocation por hoyo
+  modalityHcps Json?  // cache de CH por modalidad: { MEDAL: 6, STABLEFORD: 5, MEDAL_IDA: 3, ... }
+  position    Int     // 1..4 orden de display
 
   holes RoundHole[]
 

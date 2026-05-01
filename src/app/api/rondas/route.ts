@@ -40,6 +40,28 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = RoundSchema.parse(body);
 
+  // Lookup CH por modalidad para cada jugador (Medal Total, Stableford, Ida/Vuelta, etc)
+  const MODALITIES = ["MEDAL", "STABLEFORD", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD_IDA", "STABLEFORD_VUELTA"];
+  const playersWithChs = await Promise.all(
+    parsed.players.map(async (p) => {
+      if (p.hcpIndex == null) return { ...p, modalityHcps: null };
+      const chs: Record<string, number> = {};
+      for (const mod of MODALITIES) {
+        const range = await prisma.courseHcpRange.findFirst({
+          where: {
+            courseId: parsed.courseId,
+            modality: mod,
+            tee: parsed.tee,
+            indexFrom: { lte: p.hcpIndex },
+            indexTo: { gte: p.hcpIndex },
+          },
+        });
+        if (range) chs[mod] = range.courseHcp;
+      }
+      return { ...p, modalityHcps: Object.keys(chs).length > 0 ? chs : null };
+    }),
+  );
+
   const round = await prisma.round.create({
     data: {
       courseId: parsed.courseId,
@@ -54,10 +76,11 @@ export async function POST(req: NextRequest) {
       pairs: parsed.pairs ? JSON.stringify(parsed.pairs) : null,
       notes: parsed.notes ?? null,
       players: {
-        create: parsed.players.map((p) => ({
+        create: playersWithChs.map((p) => ({
           playerId: p.playerId,
           hcpIndex: p.hcpIndex ?? null,
           courseHcp: p.courseHcp ?? null,
+          modalityHcps: p.modalityHcps ?? undefined,
           position: p.position,
         })),
       },

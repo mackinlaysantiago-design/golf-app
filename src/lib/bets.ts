@@ -7,9 +7,20 @@ type PlayerScores = {
   playerId: string;
   name: string;
   isMe: boolean;
-  hcp: number;
+  hcp: number; // CH default (Medal Total) — usado para Match/Medal stroke allocation
+  modalityHcps?: Record<string, number> | null; // CH per modalidad (override por modalidad)
   scoresByHole: Record<number, number | null>;
 };
+
+// Devuelve la CH a usar para una modalidad dada del jugador
+function chForModality(p: PlayerScores, mod: BetModality): number {
+  // Stableford siempre usa Stableford CH si está disponible
+  if (mod === "STABLEFORD") return p.modalityHcps?.STABLEFORD ?? p.hcp;
+  if (mod === "STABLEFORD_IDA") return p.modalityHcps?.STABLEFORD_IDA ?? p.hcp;
+  if (mod === "STABLEFORD_VUELTA") return p.modalityHcps?.STABLEFORD_VUELTA ?? p.hcp;
+  // Match/Medal usan Medal CH (el default `p.hcp`)
+  return p.hcp;
+}
 
 export type BetModality =
   | "MATCH"
@@ -56,7 +67,8 @@ function matchPlayPairs(
     if (!p) return null;
     const score = p.scoresByHole[holeNum];
     if (score == null || score === 0) return null;
-    const strokes = strokesPerHole(p.hcp, courseHoles)[holeNum] ?? 0;
+    const ch = chForModality(p, modality);
+    const strokes = strokesPerHole(ch, courseHoles)[holeNum] ?? 0;
     return score - strokes;
   }
 
@@ -119,7 +131,8 @@ export function computeBetWinner(
         .map((p) => {
           const score = p.scoresByHole[h.number];
           if (score == null || score === 0) return null;
-          const strokes = strokesPerHole(p.hcp, courseHoles)[h.number] ?? 0;
+          const ch = chForModality(p, modality);
+          const strokes = strokesPerHole(ch, courseHoles)[h.number] ?? 0;
           return { playerId: p.playerId, net: score - strokes };
         })
         .filter((x): x is { playerId: string; net: number } => x !== null);
@@ -150,7 +163,8 @@ export function computeBetWinner(
   const isStbl = modality.startsWith("STABLEFORD");
 
   const playerScores = players.map((p) => {
-    const strokes = strokesPerHole(p.hcp, courseHoles);
+    const ch = chForModality(p, modality);
+    const strokes = strokesPerHole(ch, courseHoles);
     let total = 0;
     let played = 0;
     for (const h of holes) {
