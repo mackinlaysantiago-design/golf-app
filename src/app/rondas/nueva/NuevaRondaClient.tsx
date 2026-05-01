@@ -34,6 +34,7 @@ export default function NuevaRondaClient({
 
   const me = players.find((p) => p.isMe);
   const today = new Date().toISOString().slice(0, 10);
+  const [allPlayers, setAllPlayers] = useState<Player[]>(players);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [courseId, setCourseId] = useState<string>(courses[0]?.id ?? "");
@@ -80,7 +81,7 @@ export default function NuevaRondaClient({
   const ready = selectedPlayers.length === requiredCount && selectedPlayers.every((p) => p.id);
 
   function setPlayerSlot(idx: number, playerId: string) {
-    const player = players.find((p) => p.id === playerId);
+    const player = allPlayers.find((p) => p.id === playerId);
     const newHcp = player?.hcpIndex?.toString() ?? "";
     setSelectedPlayers((prev) => {
       const next = [...prev];
@@ -376,52 +377,33 @@ export default function NuevaRondaClient({
         <>
           <SectionHeader>Jugadores · HCP</SectionHeader>
           {Array.from({ length: requiredCount }).map((_, i) => (
-            <Card key={i} className="space-y-2">
-              <div className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Jugador {i + 1}
-                {mode === "FOUR_P" && pairs === "parejas" && (
-                  <span className="ml-2">
-                    {i < 2 ? <Pill>Pareja A</Pill> : <Pill variant="accent">Pareja B</Pill>}
-                  </span>
-                )}
-              </div>
-              <select
-                className="gf-input"
-                value={selectedPlayers[i]?.id ?? ""}
-                onChange={(e) => setPlayerSlot(i, e.target.value)}
-              >
-                <option value="">— Elegir —</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={selectedPlayers.some((sp, idx) => sp.id === p.id && idx !== i)}
-                  >
-                    {p.name}
-                    {p.isMe ? " (yo)" : ""}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="gf-input"
-                placeholder="Handicap Index (ej 8.9)"
-                inputMode="decimal"
-                value={selectedPlayers[i]?.hcp ?? ""}
-                onChange={(e) => setPlayerHcp(i, e.target.value)}
-              />
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                  Course Hcp del día (auto si la cancha tiene tabla)
-                </label>
-                <input
-                  className="gf-input mt-0.5"
-                  placeholder="ej 6"
-                  inputMode="numeric"
-                  value={selectedPlayers[i]?.courseHcp ?? ""}
-                  onChange={(e) => setPlayerCourseHcp(i, e.target.value)}
-                />
-              </div>
-            </Card>
+            <PlayerSlot
+              key={i}
+              index={i}
+              mode={mode}
+              pairs={pairs}
+              allPlayers={allPlayers}
+              selectedPlayers={selectedPlayers}
+              currentSlot={selectedPlayers[i]}
+              onPickExisting={(playerId) => setPlayerSlot(i, playerId)}
+              onCreateNew={async (name, hcpStr) => {
+                const hcpNum = hcpStr ? parseFloat(hcpStr) : null;
+                const res = await fetch("/api/jugadores", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ name, hcpIndex: hcpNum }),
+                });
+                if (!res.ok) {
+                  alert("Error creando jugador");
+                  return;
+                }
+                const newP: Player = await res.json();
+                setAllPlayers((prev) => [...prev, newP]);
+                setPlayerSlot(i, newP.id);
+              }}
+              onUpdateHcp={(hcp) => setPlayerHcp(i, hcp)}
+              onUpdateCourseHcp={(ch) => setPlayerCourseHcp(i, ch)}
+            />
           ))}
           <div className="flex gap-2">
             <button
@@ -564,5 +546,247 @@ export default function NuevaRondaClient({
         </>
       )}
     </div>
+  );
+}
+
+function PlayerSlot({
+  index,
+  mode,
+  pairs,
+  allPlayers,
+  selectedPlayers,
+  currentSlot,
+  onPickExisting,
+  onCreateNew,
+  onUpdateHcp,
+  onUpdateCourseHcp,
+}: {
+  index: number;
+  mode: Mode;
+  pairs: string;
+  allPlayers: Player[];
+  selectedPlayers: { id: string; hcp: string; courseHcp: string }[];
+  currentSlot: { id: string; hcp: string; courseHcp: string } | undefined;
+  onPickExisting: (playerId: string) => void;
+  onCreateNew: (name: string, hcp: string) => Promise<void>;
+  onUpdateHcp: (hcp: string) => void;
+  onUpdateCourseHcp: (ch: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newHcp, setNewHcp] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const selectedPlayer = currentSlot?.id
+    ? allPlayers.find((p) => p.id === currentSlot.id)
+    : null;
+
+  const usedIds = new Set(
+    selectedPlayers.map((sp, i) => (i !== index ? sp.id : null)).filter(Boolean) as string[],
+  );
+
+  const matches = search
+    ? allPlayers.filter(
+        (p) =>
+          !usedIds.has(p.id) &&
+          p.name.toLowerCase().includes(search.toLowerCase()),
+      )
+    : allPlayers.filter((p) => !usedIds.has(p.id));
+
+  const exactMatch = matches.find(
+    (p) => p.name.toLowerCase() === search.toLowerCase(),
+  );
+
+  async function handleCreate() {
+    if (!newName.trim()) return;
+    setBusy(true);
+    await onCreateNew(newName.trim(), newHcp);
+    setBusy(false);
+    setCreatingNew(false);
+    setNewName("");
+    setNewHcp("");
+    setSearch("");
+  }
+
+  return (
+    <Card className="space-y-2">
+      <div className="text-xs uppercase tracking-wider text-[var(--muted)]">
+        Jugador {index + 1}
+        {mode === "FOUR_P" && pairs === "parejas" && (
+          <span className="ml-2">
+            {index < 2 ? <Pill>Pareja A</Pill> : <Pill variant="accent">Pareja B</Pill>}
+          </span>
+        )}
+      </div>
+
+      {selectedPlayer ? (
+        <div className="flex justify-between items-center gap-2">
+          <div className="flex-1">
+            <div className="font-semibold">
+              {selectedPlayer.name}
+              {selectedPlayer.isMe && (
+                <span className="ml-2"><Pill variant="accent">YO</Pill></span>
+              )}
+            </div>
+            {selectedPlayer.hcpIndex != null && (
+              <div className="text-[10px] text-[var(--muted)] gf-mono">
+                Index guardado: {selectedPlayer.hcpIndex.toFixed(1)}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="text-xs text-[var(--red)]"
+            onClick={() => {
+              onPickExisting("");
+              setSearch("");
+            }}
+          >
+            Cambiar
+          </button>
+        </div>
+      ) : creatingNew ? (
+        <div className="space-y-2">
+          <input
+            className="gf-input"
+            placeholder="Nombre nuevo"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            autoFocus
+          />
+          <input
+            className="gf-input"
+            placeholder="HCP Index (opcional)"
+            inputMode="decimal"
+            value={newHcp}
+            onChange={(e) => setNewHcp(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setCreatingNew(false)}
+              className="gf-btn gf-btn-secondary flex-1"
+              disabled={busy}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={busy || !newName.trim()}
+              className="gf-btn flex-1"
+            >
+              {busy ? "Guardando..." : "Crear y usar"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="relative">
+          <input
+            className="gf-input"
+            placeholder="Buscar o tipear nombre..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          />
+          {showSuggestions && (
+            <div className="mt-1 max-h-48 overflow-y-auto border border-[var(--border)] rounded-xl bg-white">
+              {matches.slice(0, 6).map((p) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  className="w-full text-left px-3 py-2 hover:bg-[var(--green-pale)] border-b border-[var(--green-pale)] last:border-0"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onPickExisting(p.id);
+                    setSearch("");
+                    setShowSuggestions(false);
+                  }}
+                >
+                  <span className="text-sm">
+                    {p.name}
+                    {p.isMe ? " (yo)" : ""}
+                  </span>
+                  {p.hcpIndex != null && (
+                    <span className="ml-2 text-[10px] gf-mono text-[var(--muted)]">
+                      idx {p.hcpIndex.toFixed(1)}
+                    </span>
+                  )}
+                </button>
+              ))}
+              {search && !exactMatch && (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-[var(--accent-light)] text-[var(--fairway)] font-semibold text-sm"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setNewName(search);
+                    setCreatingNew(true);
+                    setShowSuggestions(false);
+                  }}
+                >
+                  + Crear &quot;{search}&quot;
+                </button>
+              )}
+              {!search && (
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-[var(--accent-light)] text-[var(--fairway)] font-semibold text-sm"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setCreatingNew(true);
+                    setShowSuggestions(false);
+                  }}
+                >
+                  + Nuevo jugador
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedPlayer && (
+        <>
+          <input
+            className="gf-input"
+            placeholder="Handicap Index (ej 8.9)"
+            inputMode="decimal"
+            value={currentSlot?.hcp ?? ""}
+            onChange={(e) => onUpdateHcp(e.target.value)}
+            onBlur={async (e) => {
+              const v = e.target.value;
+              if (!selectedPlayer || !v) return;
+              const num = parseFloat(v);
+              if (isNaN(num)) return;
+              if (selectedPlayer.hcpIndex === num) return;
+              await fetch(`/api/jugadores/${selectedPlayer.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ hcpIndex: num }),
+              });
+            }}
+          />
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Course Hcp del día (auto si la cancha tiene tabla)
+            </label>
+            <input
+              className="gf-input mt-0.5"
+              placeholder="ej 6"
+              inputMode="numeric"
+              value={currentSlot?.courseHcp ?? ""}
+              onChange={(e) => onUpdateCourseHcp(e.target.value)}
+            />
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
