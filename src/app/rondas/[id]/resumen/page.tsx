@@ -6,6 +6,8 @@ import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
 import Link from "next/link";
 import DeleteButton from "./DeleteButton";
+import ResumenActions from "./ResumenActions";
+import StandingsTabs from "./StandingsTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +30,9 @@ export default async function ResumenPage({
   });
 
   if (!round) return notFound();
+  const r = round; // narrow non-null
 
-  const me = round.players.find((rp) => rp.player.isMe) ?? round.players[0];
+  const me = r.players.find((rp) => rp.player.isMe) ?? r.players[0];
   const parByNumber = new Map(round.course.holes.map((h) => [h.number, h.par]));
   const holes: HoleData[] = me.holes.map((h) => ({
     holeNumber: h.holeNumber,
@@ -59,6 +62,133 @@ export default async function ResumenPage({
     par: h.par,
     hcpHoyo: h.hcpHoyo,
   }));
+
+  type Section = "IDA" | "VUELTA" | "TOTAL";
+  const allCourseHoles = r.course.holes;
+  function holesForSection(sec: Section) {
+    if (sec === "IDA") return allCourseHoles.filter((h) => h.number <= 9);
+    if (sec === "VUELTA") return allCourseHoles.filter((h) => h.number >= 10);
+    return allCourseHoles;
+  }
+  function chForSection(rp: typeof r.players[number], sec: Section) {
+    const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
+    const fb = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+    const medalCh = sec === "IDA"
+      ? mh?.MEDAL_IDA ?? fb
+      : sec === "VUELTA"
+      ? mh?.MEDAL_VUELTA ?? fb
+      : mh?.MEDAL ?? fb;
+    const stblCh = mh?.STABLEFORD ?? fb;
+    return { medalCh, stblCh };
+  }
+  function standingsBySection(sec: Section) {
+    const sectionHoles = holesForSection(sec);
+    return r.players.map((rp) => {
+      const { medalCh, stblCh } = chForSection(rp, sec);
+      const medalStrokes = strokesPerHole(medalCh, courseHcpMap);
+      const stblStrokes = strokesPerHole(stblCh, courseHcpMap);
+      let bruto = 0, neto = 0, stbl = 0;
+      for (const h of sectionHoles) {
+        const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+        const sc = hd?.score;
+        if (sc != null && sc > 0) {
+          bruto += sc;
+          neto += sc - (medalStrokes[h.number] ?? 0);
+          stbl += stablefordPoints(h.par, sc, stblStrokes[h.number] ?? 0);
+        }
+      }
+      return {
+        playerId: rp.id,
+        name: rp.player.name,
+        isMe: rp.player.isMe,
+        bruto,
+        neto,
+        stableford: stbl,
+        hcp: medalCh,
+      };
+    });
+  }
+  const standingsBySec: Record<Section, ReturnType<typeof standingsBySection>> = {
+    IDA: standingsBySection("IDA"),
+    VUELTA: standingsBySection("VUELTA"),
+    TOTAL: standingsBySection("TOTAL"),
+  };
+
+  // Pairs por sección
+  type PairRow = {
+    label: string;
+    playerNames: string[];
+    matchPoints: number;
+    medalSum: number;
+    stbl: number;
+  };
+  function computePairsForSection(sec: Section): [PairRow, PairRow] | null {
+    if (r.mode !== "FOUR_P" || !r.pairs) return null;
+    try {
+      const pairsJSON: string[][] = JSON.parse(r.pairs);
+      if (pairsJSON.length !== 2) return null;
+      const rpByPlayerId = new Map(r.players.map((rp) => [rp.player.id, rp]));
+      const pairAR = pairsJSON[0].map((pid) => rpByPlayerId.get(pid)).filter((x): x is NonNullable<typeof x> => Boolean(x));
+      const pairBR = pairsJSON[1].map((pid) => rpByPlayerId.get(pid)).filter((x): x is NonNullable<typeof x> => Boolean(x));
+      if (pairAR.length !== 2 || pairBR.length !== 2) return null;
+
+      const sectionHoles = holesForSection(sec);
+      let mA = 0, mB = 0, medA = 0, medB = 0, sA = 0, sB = 0;
+      for (const h of sectionHoles) {
+        const netForMedal = (rp: typeof pairAR[number]) => {
+          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+          if (!hd?.score) return null;
+          const { medalCh } = chForSection(rp, sec);
+          const strokes = strokesPerHole(medalCh, courseHcpMap)[h.number] ?? 0;
+          return hd.score - strokes;
+        };
+        const netForMatch = (rp: typeof pairAR[number]) => {
+          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+          if (!hd?.score) return null;
+          const { stblCh } = chForSection(rp, sec);
+          const strokes = strokesPerHole(stblCh, courseHcpMap)[h.number] ?? 0;
+          return hd.score - strokes;
+        };
+        const stblFor = (rp: typeof pairAR[number]) => {
+          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+          if (!hd?.score) return 0;
+          const { stblCh } = chForSection(rp, sec);
+          const strokes = strokesPerHole(stblCh, courseHcpMap)[h.number] ?? 0;
+          return stablefordPoints(h.par, hd.score, strokes);
+        };
+
+        const medA1 = pairAR.map(netForMedal).filter((n): n is number => n != null);
+        const medB1 = pairBR.map(netForMedal).filter((n): n is number => n != null);
+        const matA1 = pairAR.map(netForMatch).filter((n): n is number => n != null);
+        const matB1 = pairBR.map(netForMatch).filter((n): n is number => n != null);
+        sA += pairAR.reduce((s, rp) => s + stblFor(rp), 0);
+        sB += pairBR.reduce((s, rp) => s + stblFor(rp), 0);
+        if (medA1.length === 2 && medB1.length === 2) {
+          medA += medA1[0] + medA1[1];
+          medB += medB1[0] + medB1[1];
+        }
+        if (matA1.length === 2 && matB1.length === 2) {
+          const minA = Math.min(...matA1), maxA = Math.max(...matA1);
+          const minB = Math.min(...matB1), maxB = Math.max(...matB1);
+          if (minA < minB) mA += 2; else if (minB < minA) mB += 2;
+          if (maxA < maxB) mA += 1; else if (maxB < maxA) mB += 1;
+        }
+      }
+      return [
+        { label: "Pareja A", playerNames: pairAR.map((rp) => rp.player.name), matchPoints: mA, medalSum: medA, stbl: sA },
+        { label: "Pareja B", playerNames: pairBR.map((rp) => rp.player.name), matchPoints: mB, medalSum: medB, stbl: sB },
+      ];
+    } catch {
+      return null;
+    }
+  }
+  const pairsBySec = r.mode === "FOUR_P" && r.pairs
+    ? {
+        IDA: computePairsForSection("IDA")!,
+        VUELTA: computePairsForSection("VUELTA")!,
+        TOTAL: computePairsForSection("TOTAL")!,
+      }
+    : null;
 
   // Calcular apuestas si hay
   const playerScoresForBets = round.players.map((rp) => {
@@ -143,34 +273,28 @@ export default async function ResumenPage({
       totalsByPlayer[pid] = (totalsByPlayer[pid] ?? 0) + amt;
     }
   }
-  const standings = round.players.map((rp) => {
-    const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
-    const strokes = strokesPerHole(hcp, courseHcpMap);
-    let bruto = 0, neto = 0, stbl = 0;
-    for (const h of round.course.holes) {
-      const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
-      if (hd?.score && hd.score > 0) {
-        bruto += hd.score;
-        neto += hd.score - (strokes[h.number] ?? 0);
-        stbl += stablefordPoints(h.par, hd.score, strokes[h.number] ?? 0);
-      }
-    }
-    return { rp, hcp, bruto, neto, stableford: stbl };
+  // standings para el scorecard tabla (al final) — usa TOTAL
+  const standings = standingsBySec.TOTAL.map((s) => {
+    const rp = round.players.find((rp) => rp.id === s.playerId)!;
+    return { rp, hcp: s.hcp, bruto: s.bruto, neto: s.neto, stableford: s.stableford };
   });
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
-      <header>
-        <Link href={`/rondas/${round.id}`} className="text-xs text-[var(--muted)]">
-          ‹ Volver al tracker
-        </Link>
-        <h1 className="gf-display text-3xl text-[var(--fairway)] mt-1">
+      <header className="space-y-2">
+        <ResumenActions round={round} />
+        <h1 className="gf-display text-3xl text-[var(--fairway)]">
           {round.course.name}
         </h1>
         <p className="text-xs text-[var(--muted)] gf-mono">
           {new Date(round.date).toLocaleDateString("es-AR")} · SZ {round.enterSzYds}y · Down {round.downInSzStrokes}
         </p>
       </header>
+
+      <StandingsTabs
+        individual={standingsBySec}
+        pairs={pairsBySec}
+      />
 
       <SectionHeader>KPIs Scoring Method</SectionHeader>
       <div className="grid grid-cols-2 gap-3">
