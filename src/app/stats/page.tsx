@@ -205,6 +205,10 @@ export default async function StatsPage() {
         <p className="text-sm text-[var(--muted)]">Resumen de tu juego</p>
       </header>
 
+      <Link href="/stats/por-hoyo" className="gf-btn gf-btn-secondary w-full text-sm">
+        🏌️ Stats por hoyo (cross-rondas)
+      </Link>
+
       <SectionHeader>Promedios últimas 5 rondas</SectionHeader>
       <div className="grid grid-cols-3 gap-3">
         <KPI label="Score" value={avgScore.toFixed(0)} />
