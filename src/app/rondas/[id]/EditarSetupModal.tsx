@@ -19,6 +19,8 @@ type Bet = {
 
 type Round = {
   id: string;
+  courseId: string;
+  tee: string;
   players: RoundPlayer[];
   bets: Bet[];
 };
@@ -93,6 +95,40 @@ export default function EditarSetupModal({
       ...prev,
       [rpId]: { ...prev[rpId], [field]: value },
     }));
+  }
+
+  // Cuando cambia el Index, lookup las 4 modalidades en la tabla HCP de la cancha
+  async function recomputeHcpsFromIndex(rpId: string, indexStr: string) {
+    const idx = parseFloat(indexStr.replace(",", "."));
+    if (isNaN(idx)) return;
+    const modalities = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD"];
+    const mapField: Record<string, keyof HcpsState[string]> = {
+      MEDAL: "medalTotal",
+      MEDAL_IDA: "medalIda",
+      MEDAL_VUELTA: "medalVuelta",
+      STABLEFORD: "stableford",
+    };
+    try {
+      const updates = await Promise.all(
+        modalities.map((mod) =>
+          fetch(
+            `/api/canchas/${round.courseId}/hcp?index=${idx}&modality=${mod}&tee=${encodeURIComponent(round.tee)}&category=CAB`,
+          )
+            .then((r) => r.json())
+            .then((data) => ({ mod, ch: data.found ? data.courseHcp : null })),
+        ),
+      );
+      setHcps((prev) => {
+        const next = { ...prev };
+        for (const u of updates) {
+          if (u.ch != null) {
+            const fld = mapField[u.mod];
+            next[rpId] = { ...next[rpId], [fld]: String(u.ch) };
+          }
+        }
+        return next;
+      });
+    } catch {}
   }
 
   function setBetField(fam: FamilyKey, field: "enabled" | "total" | "leg", value: string | boolean) {
@@ -199,7 +235,15 @@ export default function EditarSetupModal({
                   {h.isMe && <span className="ml-2 gf-pill gf-pill-accent text-[10px]">YO</span>}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Index" value={h.hcpIndex} onChange={(v) => setHcp(rpId, "hcpIndex", v)} decimal />
+                  <Field
+                    label="Index"
+                    value={h.hcpIndex}
+                    onChange={(v) => {
+                      setHcp(rpId, "hcpIndex", v);
+                      recomputeHcpsFromIndex(rpId, v);
+                    }}
+                    decimal
+                  />
                   <Field label="Medal Total" value={h.medalTotal} onChange={(v) => setHcp(rpId, "medalTotal", v)} />
                   <Field label="Medal Ida" value={h.medalIda} onChange={(v) => setHcp(rpId, "medalIda", v)} />
                   <Field label="Medal Vuelta" value={h.medalVuelta} onChange={(v) => setHcp(rpId, "medalVuelta", v)} />

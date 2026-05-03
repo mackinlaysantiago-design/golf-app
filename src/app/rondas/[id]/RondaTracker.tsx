@@ -42,6 +42,8 @@ type Round = {
   id: string;
   date: Date;
   mode: string;
+  courseId: string;
+  tee: string;
   enterSzYds: number;
   downInSzStrokes: number;
   onePuttCircleFt: number;
