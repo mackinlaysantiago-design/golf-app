@@ -18,7 +18,30 @@ model Course {
   holes     CourseHole[]
   rounds    Round[]
   hcpTable  CourseHcpRange[]
+  tees      CourseTee[]
   createdAt DateTime         @default(now())
+}
+
+// Tees con Slope / Course Rating / Par — para fórmula WHS cuando no hay tabla pre-cargada
+model CourseTee {
+  id           String  @id @default(cuid())
+  course       Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId     String
+  name         String  // BLANCO | AZUL | NEGRO | ROJO | AMARILLO | etc
+  category     String  @default("CAB") // CAB | DAM
+  slopeRating  Int     // típicamente 110-140
+  courseRating Float   // típicamente 67-74 (para 18 hoyos)
+  parTotal     Int     // total par del recorrido
+  // Para 9-hoyos: ida/vuelta separados (opcional)
+  slopeIda     Int?
+  courseRatingIda Float?
+  parIda       Int?
+  slopeVuelta  Int?
+  courseRatingVuelta Float?
+  parVuelta    Int?
+  notes        String?
+
+  @@unique([courseId, name, category])
 }
 
 // Tabla "Hcp Juego" — index range → course handicap, por modalidad/tee
