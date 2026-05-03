@@ -64,11 +64,10 @@ export async function GET() {
           if (rank > bestRank) bestRank = rank;
         }
       }
-      const currentClub = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[Math.min(bestRank + 1, GO_TO_CLUB_LADDER.length - 1)];
-      const nextClub = bestRank === -1
-        ? null
-        : bestRank + 1 < GO_TO_CLUB_LADDER.length - 1
-        ? GO_TO_CLUB_LADDER[bestRank + 2]
+      // Nivel actual = el último palo donde completaste 9/9 (no el siguiente)
+      const currentClub = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[bestRank];
+      const nextClub = bestRank + 1 < GO_TO_CLUB_LADDER.length
+        ? GO_TO_CLUB_LADDER[bestRank + 1]
         : null;
       result[drill.type] = {
         drillType: drill.type,
@@ -94,9 +93,10 @@ export async function GET() {
           bestDistance = s.distance;
         }
       }
+      // Nivel actual = la última distancia donde completaste el target (no la siguiente)
       const currentDistance = bestDistance === -Infinity
         ? drill.defaultDistance
-        : bestDistance + drill.distanceStep;
+        : bestDistance;
       // Mejor marca AT current distance
       const atCurrent = drillSessions.filter((s) => s.distance === currentDistance);
       const bestAtCurrent = bestHistoricalScore(

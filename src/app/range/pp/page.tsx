@@ -45,9 +45,10 @@ async function getLevels() {
           if (rank > bestRank) bestRank = rank;
         }
       }
+      // Nivel actual = el último palo donde completaste 9/9 (no el siguiente)
       const currentClub = bestRank === -1
         ? GO_TO_CLUB_LADDER[0]
-        : GO_TO_CLUB_LADDER[Math.min(bestRank + 1, GO_TO_CLUB_LADDER.length - 1)];
+        : GO_TO_CLUB_LADDER[bestRank];
       result[drill.type] = {
         currentClub,
         bestAtCurrent: null,
@@ -63,9 +64,10 @@ async function getLevels() {
         const score = s.attempts.length > 0 ? Math.max(...s.attempts) : 0;
         if (score === drill.scoreOf && s.distance > bestDistance) bestDistance = s.distance;
       }
+      // Nivel actual = la última distancia donde completaste el target (no la siguiente)
       const currentDistance = bestDistance === -Infinity
         ? drill.defaultDistance
-        : bestDistance + drill.distanceStep;
+        : bestDistance;
       const atCurrent = drillSessions.filter((s) => s.distance === currentDistance);
       result[drill.type] = {
         currentDistance,
