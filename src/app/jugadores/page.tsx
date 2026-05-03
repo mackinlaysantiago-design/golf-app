@@ -3,6 +3,7 @@ import { Card, SectionHeader, Pill } from "@/components/ui/Card";
 import Link from "next/link";
 import PlayersClient from "./PlayersClient";
 import LogoutButton from "./LogoutButton";
+import LucilaSyncButton from "./LucilaSyncButton";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function SetupPage() {
       </header>
 
       <SectionHeader>Jugadores</SectionHeader>
+      <LucilaSyncButton />
       <PlayersClient initialPlayers={players} />
 
       <SectionHeader>Canchas</SectionHeader>

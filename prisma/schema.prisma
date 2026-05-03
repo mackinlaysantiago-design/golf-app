@@ -51,12 +51,14 @@ model CourseHole {
 // ============ JUGADORES ============
 
 model Player {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  hcpIndex     Float?        // ej: 8.9
-  isMe         Boolean       @default(false) // marca a Santiago
-  createdAt    DateTime      @default(now())
-  roundEntries RoundPlayer[]
+  id              String        @id @default(cuid())
+  name            String        @unique
+  hcpIndex        Float?        // ej: 8.9
+  isMe            Boolean       @default(false) // marca a Santiago
+  lucilaMatricula String?       @unique // matrícula del socio La Lucila (para sync auto)
+  lastHcpUpdate   DateTime?     // última actualización del HCP via sync
+  createdAt       DateTime      @default(now())
+  roundEntries    RoundPlayer[]
 }
 
 // ============ RONDAS ============

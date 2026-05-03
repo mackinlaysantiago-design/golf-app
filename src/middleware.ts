@@ -15,6 +15,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Vercel Cron: header x-vercel-cron viene seteado en cron jobs
+  if (req.headers.get("x-vercel-cron")) {
+    return NextResponse.next();
+  }
+  // Cron secret manual (para dispararlo desde fuera)
+  const cronSecret = req.nextUrl.searchParams.get("secret");
+  const expectedSecret = process.env.CRON_SECRET;
+  if (
+    expectedSecret &&
+    cronSecret === expectedSecret &&
+    pathname.startsWith("/api/lucila/sync")
+  ) {
+    return NextResponse.next();
+  }
+
   const cookie = req.cookies.get("gf-auth");
   if (cookie?.value === "ok") {
     return NextResponse.next();
