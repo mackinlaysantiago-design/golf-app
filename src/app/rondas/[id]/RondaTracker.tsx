@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
 import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
+import EditarSetupModal from "./EditarSetupModal";
 
 type Hole = {
   number: number;
@@ -48,6 +49,7 @@ type Round = {
   pairs: string | null;
   course: { id: string; name: string; holes: Hole[] };
   players: RoundPlayer[];
+  bets: { modality: string; amount: number; currency: string }[];
 };
 
 type FieldKey =
@@ -90,6 +92,7 @@ export default function RondaTracker({ round }: { round: Round }) {
 
   const [data, setData] = useState<CellState>(initial);
   const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
   function toggleSm(rpId: string) {
@@ -392,13 +395,26 @@ export default function RondaTracker({ round }: { round: Round }) {
             SZ {round.enterSzYds}y · Down {round.downInSzStrokes} · 1PC {round.onePuttCircleFt}ft
           </p>
         </div>
-        <Link
-          href={`/rondas/${round.id}/resumen`}
-          className="gf-pill"
-        >
-          Resumen ›
-        </Link>
+        <div className="flex flex-col gap-1 items-end">
+          <Link
+            href={`/rondas/${round.id}/resumen`}
+            className="gf-pill"
+          >
+            Resumen ›
+          </Link>
+          <button
+            type="button"
+            onClick={() => setSetupOpen(true)}
+            className="text-[11px] text-[var(--muted)] underline"
+          >
+            ⚙️ Editar setup
+          </button>
+        </div>
       </header>
+
+      {setupOpen && (
+        <EditarSetupModal round={round} onClose={() => setSetupOpen(false)} />
+      )}
 
       {/* Leaderboard live (no SOLO) */}
       {!isSolo && (

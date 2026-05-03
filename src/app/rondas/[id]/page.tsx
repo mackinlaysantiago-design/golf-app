@@ -18,6 +18,7 @@ export default async function RondaPage({
         orderBy: { position: "asc" },
         include: { player: true, holes: true },
       },
+      bets: true,
     },
   });
 
