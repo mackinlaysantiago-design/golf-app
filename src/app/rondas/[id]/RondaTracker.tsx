@@ -771,10 +771,11 @@ export default function RondaTracker({ round }: { round: Round }) {
           <SectionHeader>
             Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
           </SectionHeader>
-          {/* Quién tiene golpe en este hoyo */}
+          {/* Quién tiene golpe en este hoyo (usa HCP Stableford = Match Play stroke allocation) */}
           {(() => {
             const strokesAt = round.players.map((rp) => {
-              const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+              const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
+              const hcp = mh?.STABLEFORD ?? rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
               const s = strokesPerHole(hcp, courseHcpMap)[currentHole] ?? 0;
               return { name: rp.player.name, isMe: rp.player.isMe, strokes: s };
             });
