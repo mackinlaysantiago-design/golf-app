@@ -173,8 +173,10 @@ model PracticeDrill {
   club       String?         // Para GO_TO_CLUB: IRON_7 | IRON_6 | DRIVER | etc
   ppCode     String?         // A | B | 1 | 2 — qué PP plan code ataca
   target     Float?          // referencia (mejor marca o config)
+  timesToAchieve  Int?       // veces a lograr el target (vienen del PP plan de la ronda)
+  timesAchieved   Int?       // veces logradas en esta sesión (= # de attempts que cumplieron target)
   attemptsJson Json?         // array de scores: [8, 6, 9] o para chipping [3,4,2,3,3,2,3,3,2]
-  leveledUp  Boolean         @default(false) // true si en esta sesión cumplió target
+  leveledUp  Boolean         @default(false) // true si cumplió plan completo (timesAchieved >= timesToAchieve)
   notes      String?
 }
 

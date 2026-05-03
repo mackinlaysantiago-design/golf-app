@@ -13,6 +13,7 @@ const DrillSchema = z.object({
   distance: z.number().int().nullable().optional(),
   club: z.string().nullable().optional(),
   ppCode: z.string().nullable().optional(),
+  timesToAchieve: z.number().int().nullable().optional(),
   attempts: z.array(z.number()).default([]),
   notes: z.string().nullable().optional(),
 });
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
         club: d.club ?? null,
         ppCode: d.ppCode ?? null,
         target: null,
+        timesToAchieve: d.timesToAchieve ?? null,
+        timesAchieved: 0,
         attemptsJson: d.attempts ?? [],
         leveledUp: false,
         notes: d.notes ?? null,
@@ -67,7 +70,30 @@ export async function POST(req: NextRequest) {
         .map((dr) => (dr.attemptsJson as number[]) ?? []),
     );
     const bestPrevious = bestHistoricalScore(def, past);
-    const leveledUp = meetsTarget(def, d.attempts, bestPrevious);
+
+    // timesAchieved: cuántos attempts cumplen target (cada intento es un set; el set "cumple" según meetsTarget)
+    // Para PCT_HITS_PERFECT: cada attempt cumple si === scoreOf
+    // Para BEAT_BEST_HIGHER: cada attempt cumple si > bestPrevious
+    // Para BEAT_BEST_LOWER_BY_1 (chipping): el SET completo es 1 intento; suma <= bestPrevious - 1
+    let timesAchieved = 0;
+    if (def.scoring === "PCT_HITS_PERFECT") {
+      timesAchieved = d.attempts.filter((a) => a === def.scoreOf).length;
+    } else if (def.scoring === "BEAT_BEST_HIGHER") {
+      const threshold = bestPrevious ?? 0;
+      timesAchieved = d.attempts.filter((a) => a > threshold).length;
+    } else if (def.scoring === "BEAT_BEST_LOWER_BY_1") {
+      // chipping: 1 set entero = 1 intento. d.attempts es la suma de los 9 hoyos.
+      // si la suma <= best - 1, cumple
+      if (d.attempts.length > 0 && bestPrevious != null) {
+        const sum = d.attempts.reduce((a, b) => a + b, 0);
+        if (sum <= bestPrevious - 1) timesAchieved = 1;
+      }
+    }
+
+    const timesToAchieve = d.timesToAchieve ?? null;
+    const leveledUp = timesToAchieve != null
+      ? timesAchieved >= timesToAchieve
+      : meetsTarget(def, d.attempts, bestPrevious);
 
     return {
       drillType: d.drillType,
@@ -75,6 +101,8 @@ export async function POST(req: NextRequest) {
       club: d.club ?? null,
       ppCode: d.ppCode ?? null,
       target: bestPrevious,
+      timesToAchieve,
+      timesAchieved,
       attemptsJson: d.attempts ?? [],
       leveledUp,
       notes: d.notes ?? null,
