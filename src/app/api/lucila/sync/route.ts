@@ -123,6 +123,15 @@ function normalizeName(s: string): string {
     .trim();
 }
 
+// Tokens ordenados para match agnóstico al orden ("MACKINLAY SANTIAGO" == "SANTIAGO MACKINLAY")
+function nameTokens(s: string): string {
+  return normalizeName(s)
+    .split(" ")
+    .filter((t) => t.length > 0)
+    .sort()
+    .join(" ");
+}
+
 async function sync(): Promise<{ scraped: number; updated: number; created: number; errors: string[] }> {
   const socios = await loginAndScrape();
   const errors: string[] = [];
@@ -133,15 +142,20 @@ async function sync(): Promise<{ scraped: number; updated: number; created: numb
   const allPlayers = await prisma.player.findMany();
   const byMatricula = new Map(allPlayers.filter((p) => p.lucilaMatricula).map((p) => [p.lucilaMatricula!, p]));
   const byNormName = new Map(allPlayers.map((p) => [normalizeName(p.name), p]));
+  // Match agnóstico al orden de palabras (ej: "Santiago Mackinlay" == "MACKINLAY SANTIAGO")
+  const byTokens = new Map(allPlayers.map((p) => [nameTokens(p.name), p]));
 
   const now = new Date();
 
   for (const s of socios) {
     try {
-      // Match prioridad: matricula > nombre normalizado
+      // Match prioridad: matricula > nombre exacto > tokens ordenados
       let target = byMatricula.get(s.matricula);
       if (!target) {
         target = byNormName.get(normalizeName(s.name));
+      }
+      if (!target) {
+        target = byTokens.get(nameTokens(s.name));
       }
 
       if (target) {

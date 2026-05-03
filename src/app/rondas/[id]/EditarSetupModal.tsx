@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type RoundPlayer = {
@@ -89,6 +89,9 @@ export default function EditarSetupModal({
   const [hcps, setHcps] = useState<HcpsState>(() => loadInitialHcps(round));
   const [bets, setBets] = useState<BetsState>(() => loadInitialBets(round.bets));
   const [busy, setBusy] = useState(false);
+  // Debounce timers + último valor disparado por jugador (para evitar race condition)
+  const debounceRefs = useRef<Record<string, NodeJS.Timeout | null>>({});
+  const lastIndexRefs = useRef<Record<string, string>>({});
 
   function setHcp(rpId: string, field: keyof HcpsState[string], value: string) {
     setHcps((prev) => ({
@@ -97,38 +100,57 @@ export default function EditarSetupModal({
     }));
   }
 
-  // Cuando cambia el Index, lookup las 4 modalidades en la tabla HCP de la cancha
-  async function recomputeHcpsFromIndex(rpId: string, indexStr: string) {
-    const idx = parseFloat(indexStr.replace(",", "."));
-    if (isNaN(idx)) return;
-    const modalities = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD"];
-    const mapField: Record<string, keyof HcpsState[string]> = {
-      MEDAL: "medalTotal",
-      MEDAL_IDA: "medalIda",
-      MEDAL_VUELTA: "medalVuelta",
-      STABLEFORD: "stableford",
-    };
-    try {
-      const updates = await Promise.all(
-        modalities.map((mod) =>
-          fetch(
-            `/api/canchas/${round.courseId}/hcp?index=${idx}&modality=${mod}&tee=${encodeURIComponent(round.tee)}&category=CAB`,
-          )
-            .then((r) => r.json())
-            .then((data) => ({ mod, ch: data.found ? data.courseHcp : null })),
-        ),
-      );
-      setHcps((prev) => {
-        const next = { ...prev };
-        for (const u of updates) {
-          if (u.ch != null) {
+  // Cuando cambia el Index, lookup las 4 modalidades. Debounce 400ms + check de
+  // que el index sigue siendo el mismo cuando llega la respuesta (anti race condition)
+  function recomputeHcpsFromIndex(rpId: string, indexStr: string) {
+    // Cancelar timer anterior
+    const prev = debounceRefs.current[rpId];
+    if (prev) clearTimeout(prev);
+
+    // Marcar el último valor "intentado" para que respuestas viejas no pisen
+    lastIndexRefs.current[rpId] = indexStr;
+
+    debounceRefs.current[rpId] = setTimeout(async () => {
+      // Si entre tanto el usuario siguió tipeando, este lookup ya quedó stale
+      if (lastIndexRefs.current[rpId] !== indexStr) return;
+
+      const idx = parseFloat(indexStr.replace(",", "."));
+      if (isNaN(idx)) return;
+      const modalities = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD"];
+      const mapField: Record<string, keyof HcpsState[string]> = {
+        MEDAL: "medalTotal",
+        MEDAL_IDA: "medalIda",
+        MEDAL_VUELTA: "medalVuelta",
+        STABLEFORD: "stableford",
+      };
+      try {
+        const updates = await Promise.all(
+          modalities.map((mod) =>
+            fetch(
+              `/api/canchas/${round.courseId}/hcp?index=${idx}&modality=${mod}&tee=${encodeURIComponent(round.tee)}&category=CAB`,
+            )
+              .then((r) => r.json())
+              .then((data) => ({ mod, ch: data.found ? data.courseHcp : null })),
+          ),
+        );
+        // Re-check después del await: si el usuario cambió el index entre fetch
+        // start y end, descartar este resultado
+        if (lastIndexRefs.current[rpId] !== indexStr) return;
+        setHcps((cur) => {
+          // Sólo aplicar si el state actual del index sigue coincidiendo con lo que pedimos
+          if (cur[rpId]?.hcpIndex !== indexStr) return cur;
+          const next = { ...cur };
+          for (const u of updates) {
             const fld = mapField[u.mod];
-            next[rpId] = { ...next[rpId], [fld]: String(u.ch) };
+            next[rpId] = {
+              ...next[rpId],
+              [fld]: u.ch != null ? String(u.ch) : "",
+            };
           }
-        }
-        return next;
-      });
-    } catch {}
+          return next;
+        });
+      } catch {}
+    }, 400);
   }
 
   function setBetField(fam: FamilyKey, field: "enabled" | "total" | "leg", value: string | boolean) {
