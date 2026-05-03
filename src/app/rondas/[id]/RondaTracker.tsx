@@ -89,6 +89,25 @@ export default function RondaTracker({ round }: { round: Round }) {
   }, [round.players]);
 
   const [data, setData] = useState<CellState>(initial);
+  const [scorecardOpen, setScorecardOpen] = useState(false);
+  // Toggle expand SM stats por jugador en el hoyo actual
+  const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
+  function toggleSm(rpId: string) {
+    setSmExpanded((prev) => ({ ...prev, [rpId]: !prev[rpId] }));
+  }
+  function hasSmDataInHole(rpId: string, hole: number): boolean {
+    const c = data[rpId]?.[hole];
+    if (!c) return false;
+    return (
+      c.strokesToEnterSz != null ||
+      c.distanceInRegYds != null ||
+      c.strokesInsideSz != null ||
+      c.putts != null ||
+      c.firstPuttDistanceFt != null ||
+      c.puttMadeDistanceFt != null ||
+      c.puttsInside1PuttCircle != null
+    );
+  }
 
   const meRP = round.players.find((rp) => rp.player.isMe) ?? round.players[0];
   const isSolo = round.mode === "SOLO";
@@ -142,31 +161,60 @@ export default function RondaTracker({ round }: { round: Round }) {
 
   // Leaderboard live
   const courseHcpMap = courseHoles.map((h) => ({ number: h.number, par: h.par, hcpHoyo: h.hcpHoyo }));
-  const standings = round.players.map((rp) => {
-    const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
-    const strokes = strokesPerHole(hcp, courseHcpMap);
-    let bruto = 0;
-    let neto = 0;
-    let stbl = 0;
-    let played = 0;
-    for (const h of courseHoles) {
-      const score = data[rp.id]?.[h.number]?.score;
-      if (score != null && score > 0) {
-        bruto += score;
-        neto += score - (strokes[h.number] ?? 0);
-        stbl += stablefordPoints(h.par, score, strokes[h.number] ?? 0);
-        played++;
+
+  type LBSection = "TOTAL" | "IDA" | "VUELTA";
+  const [lbSection, setLbSection] = useState<LBSection>("TOTAL");
+
+  function holesForSection(sec: LBSection) {
+    if (sec === "IDA") return courseHoles.filter((h) => h.number <= 9);
+    if (sec === "VUELTA") return courseHoles.filter((h) => h.number >= 10);
+    return courseHoles;
+  }
+
+  // Para Medal: usa CH específico de la sección. Para Stbl: usa Stableford CH.
+  function chForRpSection(rp: typeof round.players[number], sec: LBSection): { medalCh: number; stblCh: number } {
+    const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
+    const fallback = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+    const medalCh = sec === "IDA"
+      ? mh?.MEDAL_IDA ?? fallback
+      : sec === "VUELTA"
+      ? mh?.MEDAL_VUELTA ?? fallback
+      : mh?.MEDAL ?? fallback;
+    const stblCh = mh?.STABLEFORD ?? fallback;
+    return { medalCh, stblCh };
+  }
+
+  function computeStandingsForSection(sec: LBSection) {
+    const sectionHoles = holesForSection(sec);
+    return round.players.map((rp) => {
+      const { medalCh, stblCh } = chForRpSection(rp, sec);
+      const medalStrokes = strokesPerHole(medalCh, courseHcpMap);
+      const stblStrokes = strokesPerHole(stblCh, courseHcpMap);
+      let bruto = 0;
+      let neto = 0;
+      let stbl = 0;
+      let played = 0;
+      for (const h of sectionHoles) {
+        const score = data[rp.id]?.[h.number]?.score;
+        if (score != null && score > 0) {
+          bruto += score;
+          neto += score - (medalStrokes[h.number] ?? 0);
+          stbl += stablefordPoints(h.par, score, stblStrokes[h.number] ?? 0);
+          played++;
+        }
       }
-    }
-    return {
-      rp,
-      hcp,
-      bruto,
-      neto,
-      stableford: stbl,
-      holesPlayed: played,
-    };
-  });
+      return {
+        rp,
+        hcp: medalCh,
+        bruto,
+        neto,
+        stableford: stbl,
+        holesPlayed: played,
+      };
+    });
+  }
+
+  const standings = computeStandingsForSection(lbSection);
 
   // Parsing de parejas (4P 2v2)
   type PairStanding = {
@@ -196,42 +244,60 @@ export default function RondaTracker({ round }: { round: Round }) {
           let stblB = 0;
           let played = 0;
 
-          for (const h of courseHoles) {
-            const netsForPair = (rps: typeof pairAR) =>
+          const sectionHoles = holesForSection(lbSection);
+          for (const h of sectionHoles) {
+            // Match usa HCP Stableford
+            const netsForPairMatch = (rps: typeof pairAR) =>
               rps
                 .map((rp) => {
                   const sc = data[rp.id]?.[h.number]?.score;
                   if (sc == null || sc === 0) return null;
-                  const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
-                  const strokes = strokesPerHole(hcp, courseHcpMap)[h.number] ?? 0;
+                  const { stblCh } = chForRpSection(rp, lbSection);
+                  const strokes = strokesPerHole(stblCh, courseHcpMap)[h.number] ?? 0;
                   return sc - strokes;
                 })
                 .filter((n): n is number => n != null);
+            // Medal usa Medal CH (que cambia según sección)
+            const netsForPairMedal = (rps: typeof pairAR) =>
+              rps
+                .map((rp) => {
+                  const sc = data[rp.id]?.[h.number]?.score;
+                  if (sc == null || sc === 0) return null;
+                  const { medalCh } = chForRpSection(rp, lbSection);
+                  const strokes = strokesPerHole(medalCh, courseHcpMap)[h.number] ?? 0;
+                  return sc - strokes;
+                })
+                .filter((n): n is number => n != null);
+            // Stableford usa Stableford CH
             const stblForPair = (rps: typeof pairAR) =>
               rps
                 .map((rp) => {
                   const sc = data[rp.id]?.[h.number]?.score;
                   if (sc == null || sc === 0) return 0;
-                  const hcp = rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
-                  const strokes = strokesPerHole(hcp, courseHcpMap)[h.number] ?? 0;
+                  const { stblCh } = chForRpSection(rp, lbSection);
+                  const strokes = strokesPerHole(stblCh, courseHcpMap)[h.number] ?? 0;
                   return stablefordPoints(h.par, sc, strokes);
                 })
                 .reduce((s, v) => s + v, 0);
 
-            const netsA = netsForPair(pairAR);
-            const netsB = netsForPair(pairBR);
+            const netsAMatch = netsForPairMatch(pairAR);
+            const netsBMatch = netsForPairMatch(pairBR);
+            const netsAMedal = netsForPairMedal(pairAR);
+            const netsBMedal = netsForPairMedal(pairBR);
 
             stblA += stblForPair(pairAR);
             stblB += stblForPair(pairBR);
 
-            if (netsA.length === 2 && netsB.length === 2) {
+            if (netsAMedal.length === 2 && netsBMedal.length === 2) {
               played++;
-              medalA += netsA[0] + netsA[1];
-              medalB += netsB[0] + netsB[1];
-              const minA = Math.min(...netsA);
-              const maxA = Math.max(...netsA);
-              const minB = Math.min(...netsB);
-              const maxB = Math.max(...netsB);
+              medalA += netsAMedal[0] + netsAMedal[1];
+              medalB += netsBMedal[0] + netsBMedal[1];
+            }
+            if (netsAMatch.length === 2 && netsBMatch.length === 2) {
+              const minA = Math.min(...netsAMatch);
+              const maxA = Math.max(...netsAMatch);
+              const minB = Math.min(...netsBMatch);
+              const maxB = Math.max(...netsBMatch);
               if (minA < minB) matchA += 2;
               else if (minB < minA) matchB += 2;
               if (maxA < maxB) matchA += 1;
@@ -262,19 +328,19 @@ export default function RondaTracker({ round }: { round: Round }) {
     } catch {}
   }
 
-  // Match Play 1v1 (solo si TWO_P)
+  // Match Play 1v1 (solo si TWO_P) — usa HCP Stableford
   let matchScore: { a: number; b: number } | null = null;
   if (round.mode === "TWO_P" && round.players.length === 2) {
     const [a, b] = round.players;
-    const sa = standings.find((s) => s.rp.id === a.id)!;
-    const sb = standings.find((s) => s.rp.id === b.id)!;
+    const { stblCh: chA } = chForRpSection(a, lbSection);
+    const { stblCh: chB } = chForRpSection(b, lbSection);
     let aWins = 0, bWins = 0;
-    for (const h of courseHoles) {
+    for (const h of holesForSection(lbSection)) {
       const scoreA = data[a.id]?.[h.number]?.score;
       const scoreB = data[b.id]?.[h.number]?.score;
       if (scoreA != null && scoreB != null && scoreA > 0 && scoreB > 0) {
-        const strokesA = strokesPerHole(sa.hcp, courseHcpMap)[h.number] ?? 0;
-        const strokesB = strokesPerHole(sb.hcp, courseHcpMap)[h.number] ?? 0;
+        const strokesA = strokesPerHole(chA, courseHcpMap)[h.number] ?? 0;
+        const strokesB = strokesPerHole(chB, courseHcpMap)[h.number] ?? 0;
         const netA = scoreA - strokesA;
         const netB = scoreB - strokesB;
         if (netA < netB) aWins++;
@@ -350,6 +416,25 @@ export default function RondaTracker({ round }: { round: Round }) {
                 Match: {matchScore.a}–{matchScore.b}
               </span>
             ) : null}
+          </div>
+
+          {/* Tabs Ida / Vuelta / Total */}
+          <div className="flex gap-1 mb-2">
+            {(["IDA", "VUELTA", "TOTAL"] as const).map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                onClick={() => setLbSection(sec)}
+                className="flex-1 text-[10px] uppercase tracking-wider py-1 rounded"
+                style={{
+                  background: lbSection === sec ? "var(--fairway)" : "var(--green-pale)",
+                  color: lbSection === sec ? "white" : "var(--fairway)",
+                  fontWeight: lbSection === sec ? 700 : 500,
+                }}
+              >
+                {sec === "IDA" ? "Ida (1-9)" : sec === "VUELTA" ? "Vuelta (10-18)" : "Total"}
+              </button>
+            ))}
           </div>
 
           {pairsStandings ? (
@@ -461,6 +546,205 @@ export default function RondaTracker({ round }: { round: Round }) {
         </Card>
       )}
 
+      {/* Scorecard live (accordion) */}
+      {(() => {
+        // Calcular puntos por hoyo en parejas (BB + WB)
+        type PairPts = { holeNumber: number; ptsA: number; ptsB: number };
+        const pairsPointsByHole: PairPts[] = [];
+        if (round.mode === "FOUR_P" && round.pairs) {
+          try {
+            const pairsJSON: string[][] = JSON.parse(round.pairs);
+            const rpByPlayerId = new Map(round.players.map((rp) => [rp.player.id, rp]));
+            const pairAR = pairsJSON[0]?.map((pid) => rpByPlayerId.get(pid)).filter((x): x is NonNullable<typeof x> => Boolean(x)) ?? [];
+            const pairBR = pairsJSON[1]?.map((pid) => rpByPlayerId.get(pid)).filter((x): x is NonNullable<typeof x> => Boolean(x)) ?? [];
+            if (pairAR.length === 2 && pairBR.length === 2) {
+              for (const h of courseHoles) {
+                const netFor = (rp: typeof pairAR[number]) => {
+                  const sc = data[rp.id]?.[h.number]?.score;
+                  if (sc == null || sc === 0) return null;
+                  // Match usa HCP Stableford (regla planilla)
+                  const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
+                  const ch = mh?.STABLEFORD ?? rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+                  const strokes = strokesPerHole(ch, courseHcpMap)[h.number] ?? 0;
+                  return sc - strokes;
+                };
+                const netsA = pairAR.map(netFor).filter((n): n is number => n != null);
+                const netsB = pairBR.map(netFor).filter((n): n is number => n != null);
+                let ptsA = 0;
+                let ptsB = 0;
+                if (netsA.length === 2 && netsB.length === 2) {
+                  const minA = Math.min(...netsA), maxA = Math.max(...netsA);
+                  const minB = Math.min(...netsB), maxB = Math.max(...netsB);
+                  if (minA < minB) ptsA += 2; else if (minB < minA) ptsB += 2;
+                  if (maxA < maxB) ptsA += 1; else if (maxB < maxA) ptsB += 1;
+                }
+                pairsPointsByHole.push({ holeNumber: h.number, ptsA, ptsB });
+              }
+            }
+          } catch {}
+        }
+
+        return (
+          <Card className="!p-0 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setScorecardOpen(!scorecardOpen)}
+              className="w-full flex justify-between items-center p-3 text-sm font-semibold text-[var(--fairway)]"
+            >
+              <span>📋 Scorecard live</span>
+              <span>{scorecardOpen ? "▾" : "▸"}</span>
+            </button>
+            {scorecardOpen && (
+              <div className="!p-1 overflow-x-auto border-t border-[var(--green-pale)]">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="border-b border-[var(--border)]">
+                      <th className="text-left p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">H</th>
+                      <th className="text-center p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Par</th>
+                      {round.players.map((rp) => (
+                        <th
+                          key={rp.id}
+                          className="p-1 text-center text-[9px] uppercase tracking-wider"
+                          style={{ color: rp.player.isMe ? "var(--accent)" : "var(--muted)" }}
+                        >
+                          {rp.player.name.split(" ")[0]}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courseHoles.map((h) => {
+                      const isCurrent = h.number === currentHole;
+                      return (
+                        <tr
+                          key={h.number}
+                          className="border-b border-[var(--green-pale)] cursor-pointer"
+                          onClick={() => setCurrentHole(h.number)}
+                          style={{ background: isCurrent ? "var(--green-pale)" : undefined }}
+                        >
+                          <td className="p-1 gf-mono font-semibold">{h.number}</td>
+                          <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
+                          {round.players.map((rp) => {
+                            const score = data[rp.id]?.[h.number]?.score;
+                            const vsPar = score && score > 0 ? score - h.par : null;
+                            const cls = vsPar == null
+                              ? "text-[var(--muted)]"
+                              : vsPar < 0 ? "text-[var(--green)] font-bold"
+                              : vsPar === 0 ? ""
+                              : vsPar === 1 ? "text-[var(--accent)]"
+                              : "text-[var(--red)] font-bold";
+                            return (
+                              <td key={rp.id} className={`p-1 text-center gf-mono ${cls}`}>
+                                {score && score > 0 ? score : "—"}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                    {/* Total row */}
+                    <tr className="font-bold border-t-2 border-[var(--fairway)]">
+                      <td className="p-1">T</td>
+                      <td className="p-1 text-center gf-mono">
+                        {courseHoles.reduce((s, h) => s + h.par, 0)}
+                      </td>
+                      {round.players.map((rp) => {
+                        const total = courseHoles.reduce((s, h) => {
+                          const sc = data[rp.id]?.[h.number]?.score;
+                          return s + (sc && sc > 0 ? sc : 0);
+                        }, 0);
+                        return (
+                          <td key={rp.id} className="p-1 text-center gf-mono">
+                            {total > 0 ? total : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* Puntos Match BB+WB por hoyo en parejas */}
+                    {pairsPointsByHole.length > 0 && (
+                      <>
+                        <tr className="border-t-2 border-[var(--accent)]">
+                          <td colSpan={2 + round.players.length} className="p-1 text-[9px] uppercase tracking-wider text-[var(--muted)] text-center">
+                            Match BB + WB por hoyo
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="p-1 text-[10px] font-semibold">Pts A</td>
+                          <td></td>
+                          <td colSpan={round.players.length}>
+                            <div className="grid grid-cols-9 gap-px text-[10px]">
+                              {pairsPointsByHole.slice(0, 9).map((p) => (
+                                <span key={p.holeNumber} className="text-center gf-mono"
+                                  style={{
+                                    background: p.ptsA > p.ptsB ? "var(--green-pale)" : p.ptsA < p.ptsB ? "#fde0dc" : undefined,
+                                    color: p.ptsA > p.ptsB ? "var(--green)" : p.ptsA < p.ptsB ? "var(--red)" : undefined,
+                                  }}
+                                >
+                                  {p.ptsA}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-9 gap-px text-[10px] mt-px">
+                              {pairsPointsByHole.slice(9, 18).map((p) => (
+                                <span key={p.holeNumber} className="text-center gf-mono"
+                                  style={{
+                                    background: p.ptsA > p.ptsB ? "var(--green-pale)" : p.ptsA < p.ptsB ? "#fde0dc" : undefined,
+                                    color: p.ptsA > p.ptsB ? "var(--green)" : p.ptsA < p.ptsB ? "var(--red)" : undefined,
+                                  }}
+                                >
+                                  {p.ptsA}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="text-right gf-mono text-[10px] font-bold mt-1">
+                              Total A: {pairsPointsByHole.reduce((s, p) => s + p.ptsA, 0)}
+                            </div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="p-1 text-[10px] font-semibold">Pts B</td>
+                          <td></td>
+                          <td colSpan={round.players.length}>
+                            <div className="grid grid-cols-9 gap-px text-[10px]">
+                              {pairsPointsByHole.slice(0, 9).map((p) => (
+                                <span key={p.holeNumber} className="text-center gf-mono"
+                                  style={{
+                                    background: p.ptsB > p.ptsA ? "var(--green-pale)" : p.ptsB < p.ptsA ? "#fde0dc" : undefined,
+                                    color: p.ptsB > p.ptsA ? "var(--green)" : p.ptsB < p.ptsA ? "var(--red)" : undefined,
+                                  }}
+                                >
+                                  {p.ptsB}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-9 gap-px text-[10px] mt-px">
+                              {pairsPointsByHole.slice(9, 18).map((p) => (
+                                <span key={p.holeNumber} className="text-center gf-mono"
+                                  style={{
+                                    background: p.ptsB > p.ptsA ? "var(--green-pale)" : p.ptsB < p.ptsA ? "#fde0dc" : undefined,
+                                    color: p.ptsB > p.ptsA ? "var(--green)" : p.ptsB < p.ptsA ? "var(--red)" : undefined,
+                                  }}
+                                >
+                                  {p.ptsB}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="text-right gf-mono text-[10px] font-bold mt-1">
+                              Total B: {pairsPointsByHole.reduce((s, p) => s + p.ptsB, 0)}
+                            </div>
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {nav}
 
       {/* Tracker del hoyo actual: para Santi (siempre full datos) + score para los demás */}
@@ -512,6 +796,8 @@ export default function RondaTracker({ round }: { round: Round }) {
           {round.players.map((rp) => {
             const cells = data[rp.id]?.[currentHole] ?? {};
             const isMain = rp.id === meRP.id;
+            const hasSmData = hasSmDataInHole(rp.id, currentHole);
+            const showSm = (smExpanded[rp.id] ?? false) || hasSmData;
 
             return (
               <Card key={rp.id} className="space-y-2">
@@ -529,81 +815,103 @@ export default function RondaTracker({ round }: { round: Round }) {
                   )}
                 </div>
 
-                {/* Datos completos solo para "yo" o si es solo 1 jugador */}
-                {isMain ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumField
-                      label="Strokes to Enter SZ"
-                      value={cells.strokesToEnterSz ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "strokesToEnterSz", v)}
+                {/* Score siempre visible (input grande) */}
+                <NumField
+                  label="Score total"
+                  value={cells.score ?? null}
+                  onChange={(v) => setCell(rp.id, currentHole, "score", v)}
+                  big
+                  isLast={!showSm}
+                />
+
+                {/* Stats Scoring Method colapsadas por default */}
+                {showSm && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
+                      <NumField
+                        label="Strokes to Enter SZ"
+                        value={cells.strokesToEnterSz ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "strokesToEnterSz", v)}
+                      />
+                      <NumField
+                        label="Distancia REG (yds)"
+                        value={cells.distanceInRegYds ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "distanceInRegYds", v)}
+                        showGir
+                      />
+                      <NumField
+                        label="Strokes inside SZ"
+                        value={cells.strokesInsideSz ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "strokesInsideSz", v)}
+                      />
+                      <NumField
+                        label="Putts"
+                        value={cells.putts ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
+                      />
+                      <NumField
+                        label="1st putt (ft)"
+                        value={cells.firstPuttDistanceFt ?? null}
+                        onChange={(v) =>
+                          setCell(rp.id, currentHole, "firstPuttDistanceFt", v)
+                        }
+                      />
+                      <NumField
+                        label="Putt embocado (ft)"
+                        value={cells.puttMadeDistanceFt ?? null}
+                        onChange={(v) =>
+                          setCell(rp.id, currentHole, "puttMadeDistanceFt", v)
+                        }
+                      />
+                      <NumField
+                        label={`Putts dentro 1PC (${round.onePuttCircleFt}ft)`}
+                        value={cells.puttsInside1PuttCircle ?? null}
+                        onChange={(v) =>
+                          setCell(rp.id, currentHole, "puttsInside1PuttCircle", v)
+                        }
+                        isLast
+                      />
+                    </div>
+                    <FlagRow
+                      cells={cells}
+                      config={{
+                        enterSzYds: round.enterSzYds,
+                        downInSzStrokes: round.downInSzStrokes,
+                        onePuttCircleFt: round.onePuttCircleFt,
+                        twoPuttCircleYds: round.twoPuttCircleYds,
+                      }}
+                      par={currentHoleInfo.par}
+                      holeNumber={currentHole}
                     />
-                    <NumField
-                      label="Distancia REG (yds)"
-                      value={cells.distanceInRegYds ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "distanceInRegYds", v)}
-                      showGir
-                    />
-                    <NumField
-                      label="Strokes inside SZ"
-                      value={cells.strokesInsideSz ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "strokesInsideSz", v)}
-                    />
-                    <NumField
-                      label="Putts"
-                      value={cells.putts ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
-                    />
-                    <NumField
-                      label="1st putt (ft)"
-                      value={cells.firstPuttDistanceFt ?? null}
-                      onChange={(v) =>
-                        setCell(rp.id, currentHole, "firstPuttDistanceFt", v)
-                      }
-                    />
-                    <NumField
-                      label="Putt embocado (ft)"
-                      value={cells.puttMadeDistanceFt ?? null}
-                      onChange={(v) =>
-                        setCell(rp.id, currentHole, "puttMadeDistanceFt", v)
-                      }
-                    />
-                    <NumField
-                      label={`Putts dentro 1PC (${round.onePuttCircleFt}ft)`}
-                      value={cells.puttsInside1PuttCircle ?? null}
-                      onChange={(v) =>
-                        setCell(rp.id, currentHole, "puttsInside1PuttCircle", v)
-                      }
-                    />
-                    <NumField
-                      label="Score total (auto = enter + inside)"
-                      value={cells.score ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                      big
-                      isLast
-                    />
-                  </div>
-                ) : (
-                  <NumField
-                    label="Score total"
-                    value={cells.score ?? null}
-                    onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                    big
-                    isLast
-                  />
+                    {!hasSmData && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSm(rp.id)}
+                        className="text-[10px] text-[var(--muted)] underline"
+                      >
+                        Ocultar stats
+                      </button>
+                    )}
+                  </>
                 )}
 
-                {isMain && (
-                  <FlagRow
-                    cells={cells}
-                    config={{
-                      enterSzYds: round.enterSzYds,
-                      downInSzStrokes: round.downInSzStrokes,
-                      onePuttCircleFt: round.onePuttCircleFt,
-                      twoPuttCircleYds: round.twoPuttCircleYds,
-                    }}
-                    par={currentHoleInfo.par}
-                    holeNumber={currentHole}
-                  />
+                {!showSm && isMain && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSm(rp.id)}
+                    className="text-xs text-[var(--fairway)] underline"
+                  >
+                    + Agregar stats Scoring Method
+                  </button>
+                )}
+                {!showSm && !isMain && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSm(rp.id)}
+                    className="text-[10px] text-[var(--muted)] underline"
+                  >
+                    + Agregar stats SM
+                  </button>
                 )}
               </Card>
             );

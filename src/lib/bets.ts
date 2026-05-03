@@ -12,13 +12,23 @@ type PlayerScores = {
   scoresByHole: Record<number, number | null>;
 };
 
-// Devuelve la CH a usar para una modalidad dada del jugador
+// Devuelve la CH a usar para una modalidad dada del jugador.
+// Regla planilla:
+//  - Match (cualquier variante) y Stableford usan HCP Stableford
+//  - Medal Total usa HCP Medal Total (el default p.hcp)
+//  - Medal Ida usa HCP Medal Ida
+//  - Medal Vuelta usa HCP Medal Vuelta
 function chForModality(p: PlayerScores, mod: BetModality): number {
-  // Stableford siempre usa Stableford CH si está disponible
+  // Match (todas las variantes) → HCP Stableford
+  if (mod.startsWith("MATCH")) return p.modalityHcps?.STABLEFORD ?? p.hcp;
+  // Stableford → HCP Stableford
   if (mod === "STABLEFORD") return p.modalityHcps?.STABLEFORD ?? p.hcp;
-  if (mod === "STABLEFORD_IDA") return p.modalityHcps?.STABLEFORD_IDA ?? p.hcp;
-  if (mod === "STABLEFORD_VUELTA") return p.modalityHcps?.STABLEFORD_VUELTA ?? p.hcp;
-  // Match/Medal usan Medal CH (el default `p.hcp`)
+  if (mod === "STABLEFORD_IDA") return p.modalityHcps?.STABLEFORD_IDA ?? p.modalityHcps?.STABLEFORD ?? p.hcp;
+  if (mod === "STABLEFORD_VUELTA") return p.modalityHcps?.STABLEFORD_VUELTA ?? p.modalityHcps?.STABLEFORD ?? p.hcp;
+  // Medal Ida/Vuelta → su propio CH
+  if (mod === "MEDAL_IDA") return p.modalityHcps?.MEDAL_IDA ?? p.hcp;
+  if (mod === "MEDAL_VUELTA") return p.modalityHcps?.MEDAL_VUELTA ?? p.hcp;
+  // Medal Total → Medal CH (el default p.hcp)
   return p.hcp;
 }
 
