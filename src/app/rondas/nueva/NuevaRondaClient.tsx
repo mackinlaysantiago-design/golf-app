@@ -37,7 +37,10 @@ export default function NuevaRondaClient({
   const [allPlayers, setAllPlayers] = useState<Player[]>(players);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [courseId, setCourseId] = useState<string>(courses[0]?.id ?? "");
+  const [courseId, setCourseId] = useState<string>(() => {
+    const lucila = courses.find((c) => /lucila/i.test(c.name));
+    return lucila?.id ?? courses[0]?.id ?? "";
+  });
   const [date, setDate] = useState(today);
   const [mode, setMode] = useState<Mode>("SOLO");
   const [modality, setModality] = useState("MEDAL");
