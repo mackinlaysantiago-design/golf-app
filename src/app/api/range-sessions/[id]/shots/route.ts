@@ -5,6 +5,7 @@ import { z } from "zod";
 const ShotSchema = z.object({
   shotNumber: z.number().int(),
   rowType: z.enum(["SHOT", "AVG", "DEV"]).default("SHOT"),
+  club: z.string().nullable().optional(),
   carryYds: z.number().nullable().optional(),
   rollYds: z.number().nullable().optional(),
   totalYds: z.number().nullable().optional(),

@@ -247,6 +247,7 @@ model RangeShot {
   sessionId    String
   shotNumber   Int          // 1..N o 0 para AVG/DEV
   rowType      String       @default("SHOT") // SHOT | AVG | DEV
+  club         String?      // override del club de la sesión — permite mezclar palos en una misma sesión
 
   carryYds           Float?
   rollYds            Float?

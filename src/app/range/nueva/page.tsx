@@ -25,6 +25,7 @@ const CLUBS = [
 type ParsedShot = {
   shotNumber: number;
   rowType: string;
+  club?: string | null;
   carryYds: number | null;
   totalYds: number | null;
   smashFactor: number | null;
@@ -33,87 +34,113 @@ type ParsedShot = {
   shotType: string | null;
 };
 
+type Block = {
+  id: string;
+  club: string;
+  file: File | null;
+  preview: string | null;
+  shots: ParsedShot[] | null;
+  status: "idle" | "parsing" | "ready" | "error";
+  error: string | null;
+};
+
+function newBlock(defaultClub: string = "DRIVER"): Block {
+  return {
+    id: crypto.randomUUID(),
+    club: defaultClub,
+    file: null,
+    preview: null,
+    shots: null,
+    status: "idle",
+    error: null,
+  };
+}
+
 export default function NuevaRangePage() {
   const router = useRouter();
-  const [club, setClub] = useState("DRIVER");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [shots, setShots] = useState<ParsedShot[] | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([newBlock()]);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function onFiles(fs: File[]) {
-    setFiles(fs);
-    setShots(null);
-    setError(null);
-    setPreviews([]);
-    fs.forEach((f) => {
-      const reader = new FileReader();
-      reader.onload = (e) =>
-        setPreviews((prev) => [...prev, e.target?.result as string]);
-      reader.readAsDataURL(f);
-    });
+  function updateBlock(id: string, patch: Partial<Block>) {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
   }
 
-  async function parseImages() {
-    if (files.length === 0) return;
+  function removeBlock(id: string) {
+    setBlocks((prev) => (prev.length > 1 ? prev.filter((b) => b.id !== id) : prev));
+  }
+
+  function onFile(id: string, f: File) {
+    updateBlock(id, { file: f, shots: null, status: "idle", error: null });
+    const reader = new FileReader();
+    reader.onload = (e) => updateBlock(id, { preview: e.target?.result as string });
+    reader.readAsDataURL(f);
+  }
+
+  async function parseBlock(id: string) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block || !block.file) return;
+    updateBlock(id, { status: "parsing", error: null });
+    const fd = new FormData();
+    fd.append("image", block.file);
+    const res = await fetch("/api/analyze-flightscope", { method: "POST", body: fd });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      updateBlock(id, { status: "error", error: data.error ?? "Error parseando imagen" });
+      return;
+    }
+    const data = await res.json();
+    updateBlock(id, { shots: data.shots, status: "ready" });
+  }
+
+  const allReady =
+    blocks.length > 0 &&
+    blocks.every((b) => b.status === "ready" && b.shots && b.shots.length > 0);
+  const totalShots = blocks.reduce(
+    (s, b) => s + (b.shots?.filter((sh) => sh.rowType === "SHOT").length ?? 0),
+    0,
+  );
+
+  async function save() {
+    if (!allReady) return;
     setBusy(true);
     setError(null);
+
+    // Construir array de shots taggeados por club, renumerar SHOTs
+    // consecutivamente y deduplicar AVG/DEV (uno solo final)
     const allShots: ParsedShot[] = [];
-    let nextShotNum = 1;
+    let nextNum = 1;
     let haveAvg = false;
     let haveDev = false;
-    for (let i = 0; i < files.length; i++) {
-      setProgress(`Parseando foto ${i + 1}/${files.length}...`);
-      const fd = new FormData();
-      fd.append("image", files[i]);
-      const res = await fetch("/api/analyze-flightscope", {
-        method: "POST",
-        body: fd,
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? `Error parseando foto ${i + 1}`);
-        setBusy(false);
-        setProgress(null);
-        return;
-      }
-      const data = await res.json();
-      const parsed: ParsedShot[] = data.shots;
-      // Renumerar SHOTs consecutivos; deduplicar AVG/DEV (uno solo final)
-      for (const s of parsed) {
+    for (const b of blocks) {
+      for (const s of b.shots ?? []) {
         if (s.rowType === "AVG") {
           if (haveAvg) continue;
           haveAvg = true;
-          allShots.push(s);
+          allShots.push({ ...s, club: b.club });
         } else if (s.rowType === "DEV") {
           if (haveDev) continue;
           haveDev = true;
-          allShots.push(s);
+          allShots.push({ ...s, club: b.club });
         } else {
-          allShots.push({ ...s, shotNumber: nextShotNum++ });
+          allShots.push({ ...s, club: b.club, shotNumber: nextNum++ });
         }
       }
     }
-    setShots(allShots);
-    setBusy(false);
-    setProgress(null);
-  }
 
-  async function save() {
-    if (!shots || shots.length === 0) return;
-    setBusy(true);
+    // El club "primario" de la sesión: el del primer bloque (legacy)
+    const primaryClub = blocks[0]?.club ?? "DRIVER";
+
     const res = await fetch("/api/range-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date: new Date(date).toISOString(),
-        club,
+        club: primaryClub,
         notes: notes || null,
-        shots,
+        shots: allShots,
       }),
     });
     if (res.ok) {
@@ -129,26 +156,11 @@ export default function NuevaRangePage() {
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
       <header>
-        <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva range</h1>
+        <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva sesión Range</h1>
       </header>
 
+      {/* Encabezado: fecha + notas */}
       <Card className="space-y-3">
-        <div>
-          <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-            Palo
-          </label>
-          <select
-            className="gf-input mt-1"
-            value={club}
-            onChange={(e) => setClub(e.target.value)}
-          >
-            {CLUBS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
         <div>
           <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
             Fecha
@@ -173,83 +185,109 @@ export default function NuevaRangePage() {
         </div>
       </Card>
 
-      <SectionHeader>Screenshots FlightScope</SectionHeader>
-      <Card className="space-y-3">
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => onFiles(Array.from(e.target.files ?? []))}
-          className="gf-input"
-        />
-        {files.length > 0 && (
-          <div className="text-[11px] text-[var(--muted)] gf-mono">
-            {files.length} foto{files.length === 1 ? "" : "s"} seleccionada
-            {files.length === 1 ? "" : "s"}
-          </div>
-        )}
-        {previews.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {previews.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={src}
-                alt={`preview ${i + 1}`}
-                className="rounded-xl border border-[var(--border)] max-h-40 object-contain w-full bg-[var(--ink)]"
-              />
-            ))}
-          </div>
-        )}
-        {progress && (
-          <div className="text-[11px] text-[var(--accent)]">{progress}</div>
-        )}
-        {files.length > 0 && !shots && (
-          <button onClick={parseImages} disabled={busy} className="gf-btn w-full">
-            {busy ? "Parseando..." : `🤖 Extraer shots (${files.length})`}
-          </button>
-        )}
-        {error && <p className="text-xs text-[var(--red)]">{error}</p>}
-      </Card>
+      <SectionHeader>Palos · Screenshots FlightScope</SectionHeader>
 
-      {shots && (
-        <>
-          <SectionHeader>Preview de {shots.length} shots</SectionHeader>
-          <Card className="!p-2 overflow-x-auto">
-            <table className="gf-table" style={{ minWidth: 480 }}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Carry</th>
-                  <th>Total</th>
-                  <th>Ball</th>
-                  <th>Smash</th>
-                  <th>Spin</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shots.map((s, i) => (
-                  <tr key={i} className={s.rowType !== "SHOT" ? "font-semibold bg-[var(--green-pale)]" : ""}>
-                    <td className="gf-mono">
-                      {s.rowType === "SHOT" ? s.shotNumber : s.rowType}
-                    </td>
-                    <td className="gf-mono">{s.carryYds?.toFixed(1) ?? "—"}</td>
-                    <td className="gf-mono">{s.totalYds?.toFixed(1) ?? "—"}</td>
-                    <td className="gf-mono">{s.ballSpeedMph?.toFixed(1) ?? "—"}</td>
-                    <td className="gf-mono">{s.smashFactor?.toFixed(2) ?? "—"}</td>
-                    <td className="gf-mono">{s.spinRpm ?? "—"}</td>
-                    <td className="text-xs">{s.shotType ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-          <button onClick={save} disabled={busy} className="gf-btn w-full">
-            {busy ? "Guardando..." : "💾 Guardar sesión"}
-          </button>
-        </>
-      )}
+      {blocks.map((b, idx) => (
+        <Card
+          key={b.id}
+          className="space-y-3"
+          style={
+            b.status === "ready"
+              ? { borderLeft: "4px solid var(--green)" }
+              : b.status === "error"
+              ? { borderLeft: "4px solid var(--red)" }
+              : undefined
+          }
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider text-[var(--muted)]">
+              Palo #{idx + 1}
+            </span>
+            {blocks.length > 1 && (
+              <button
+                onClick={() => removeBlock(b.id)}
+                className="text-[var(--red)] text-xs"
+              >
+                ✕ Quitar
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <select
+              className="gf-input"
+              value={b.club}
+              onChange={(e) => updateBlock(b.id, { club: e.target.value })}
+            >
+              {CLUBS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <label className="gf-btn gf-btn-secondary !text-xs cursor-pointer flex items-center px-3">
+              {b.file ? "Cambiar foto" : "Choose file"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && onFile(b.id, e.target.files[0])}
+              />
+            </label>
+          </div>
+          {b.file && (
+            <div className="text-[10px] gf-mono text-[var(--muted)] truncate">
+              {b.file.name}
+            </div>
+          )}
+
+          {b.preview && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={b.preview}
+              alt="preview"
+              className="rounded-xl border border-[var(--border)] max-h-48 object-contain w-full bg-[var(--ink)]"
+            />
+          )}
+
+          {b.file && b.status !== "ready" && (
+            <button
+              onClick={() => parseBlock(b.id)}
+              disabled={b.status === "parsing"}
+              className="gf-btn w-full !text-sm"
+            >
+              {b.status === "parsing" ? "Parseando..." : "🤖 Extraer shots"}
+            </button>
+          )}
+
+          {b.status === "ready" && b.shots && (
+            <div className="text-[11px] gf-mono text-[var(--green)]">
+              ✓ {b.shots.filter((s) => s.rowType === "SHOT").length} shots extraídos
+            </div>
+          )}
+
+          {b.error && <p className="text-xs text-[var(--red)]">{b.error}</p>}
+        </Card>
+      ))}
+
+      <button
+        onClick={() => setBlocks((prev) => [...prev, newBlock()])}
+        className="gf-card !p-3 text-center text-[var(--fairway)] font-semibold border-dashed w-full"
+      >
+        + Agregar otro palo
+      </button>
+
+      {error && <p className="text-xs text-[var(--red)] text-center">{error}</p>}
+
+      <button
+        onClick={save}
+        disabled={busy || !allReady}
+        className="gf-btn w-full"
+      >
+        {busy
+          ? "Guardando..."
+          : allReady
+          ? `💾 Guardar sesión (${totalShots} shots)`
+          : "Extraé los shots de cada palo primero"}
+      </button>
     </div>
   );
 }
