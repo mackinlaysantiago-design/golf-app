@@ -145,6 +145,16 @@ export default function NuevaRangePage() {
     });
     if (res.ok) {
       const session = await res.json();
+      const filtered = session._filtered;
+      if (filtered && filtered.discardedCount > 0) {
+        const lines = filtered.discarded
+          .slice(0, 6)
+          .map((d: { reason: string; shot: { shotNumber: number } }) => `  #${d.shot.shotNumber}: ${d.reason}`)
+          .join("\n");
+        alert(
+          `Guardado. Se descartaron ${filtered.discardedCount} outliers:\n\n${lines}${filtered.discardedCount > 6 ? "\n  ..." : ""}`,
+        );
+      }
       router.push(`/range/${session.id}`);
       router.refresh();
     } else {

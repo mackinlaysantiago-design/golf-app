@@ -68,6 +68,8 @@ export default function EditarRangeSesion({
     if (files.length === 0) return;
     setBusy(true);
     let totalAdded = 0;
+    let totalDiscarded = 0;
+    const allDiscardedReasons: { shotNumber: number; reason: string }[] = [];
     for (let i = 0; i < files.length; i++) {
       setProgress(`Parseando foto ${i + 1}/${files.length}...`);
       const fd = new FormData();
@@ -89,12 +91,24 @@ export default function EditarRangeSesion({
       if (appendRes.ok) {
         const data = await appendRes.json();
         totalAdded += data.added ?? 0;
+        if (data.discardedCount && data.discardedCount > 0) {
+          totalDiscarded += data.discardedCount;
+          allDiscardedReasons.push(...(data.discarded ?? []));
+        }
       }
     }
     setProgress(null);
     setBusy(false);
     setFiles([]);
-    alert(`Agregados ${totalAdded} shots`);
+    let msg = `Agregados ${totalAdded} shots`;
+    if (totalDiscarded > 0) {
+      const lines = allDiscardedReasons
+        .slice(0, 6)
+        .map((d) => `  #${d.shotNumber}: ${d.reason}`)
+        .join("\n");
+      msg += `. Se descartaron ${totalDiscarded} outliers:\n\n${lines}${totalDiscarded > 6 ? "\n  ..." : ""}`;
+    }
+    alert(msg);
     router.refresh();
   }
 

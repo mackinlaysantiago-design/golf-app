@@ -47,15 +47,37 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = CreateSessionSchema.parse(body);
 
+  // Filtrar outliers POR CLUB antes de guardar
+  const { filterClubOutliers } = await import("@/lib/range-outlier");
+  const byClub = new Map<string, typeof parsed.shots>();
+  for (const s of parsed.shots) {
+    const k = s.club ?? parsed.club;
+    if (!byClub.has(k)) byClub.set(k, []);
+    byClub.get(k)!.push(s);
+  }
+  const keptShots: typeof parsed.shots = [];
+  const discarded: { reason: string; shot: { shotNumber: number; club: string | null | undefined; carryYds?: number | null } }[] = [];
+  for (const entry of Array.from(byClub.entries())) {
+    const [clubKey, group] = entry;
+    const r = filterClubOutliers(group);
+    keptShots.push(...r.kept);
+    for (const d of r.discarded) {
+      discarded.push({
+        reason: d.reason,
+        shot: { shotNumber: d.shot.shotNumber ?? 0, club: clubKey, carryYds: d.shot.carryYds },
+      });
+    }
+  }
+
   const session = await prisma.rangeSession.create({
     data: {
       date: new Date(parsed.date),
       club: parsed.club,
       notes: parsed.notes ?? null,
       imagePath: parsed.imagePath ?? null,
-      shots: { create: parsed.shots },
+      shots: { create: keptShots },
     },
     include: { shots: true },
   });
-  return NextResponse.json(session, { status: 201 });
+  return NextResponse.json({ ...session, _filtered: { discardedCount: discarded.length, discarded } }, { status: 201 });
 }

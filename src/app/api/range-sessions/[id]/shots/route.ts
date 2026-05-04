@@ -72,8 +72,27 @@ export async function POST(
     }
   }
 
+  // Filtrar outliers POR CLUB antes de guardar
+  const { filterClubOutliers } = await import("@/lib/range-outlier");
+  const session = await prisma.rangeSession.findUnique({ where: { id }, select: { club: true } });
+  const byClub = new Map<string, typeof dataToCreate>();
+  for (const s of dataToCreate) {
+    const k = s.club ?? session?.club ?? "DRIVER";
+    if (!byClub.has(k)) byClub.set(k, []);
+    byClub.get(k)!.push(s);
+  }
+  const keptShots: typeof dataToCreate = [];
+  const discarded: { reason: string; shotNumber: number; carry?: number | null }[] = [];
+  for (const group of Array.from(byClub.values())) {
+    const r = filterClubOutliers(group);
+    keptShots.push(...r.kept);
+    for (const d of r.discarded) {
+      discarded.push({ reason: d.reason, shotNumber: d.shot.shotNumber ?? 0, carry: d.shot.carryYds });
+    }
+  }
+
   await prisma.rangeShot.createMany({
-    data: dataToCreate.map((s) => ({ ...s, sessionId: id })),
+    data: keptShots.map((s) => ({ ...s, sessionId: id })),
   });
 
   // Invalidar el AI analysis (los promedios cambiaron)
@@ -82,5 +101,10 @@ export async function POST(
     data: { aiAnalysis: null },
   });
 
-  return NextResponse.json({ ok: true, added: dataToCreate.length });
+  return NextResponse.json({
+    ok: true,
+    added: keptShots.length,
+    discardedCount: discarded.length,
+    discarded,
+  });
 }
