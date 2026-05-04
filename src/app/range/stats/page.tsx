@@ -26,10 +26,20 @@ function median(nums: number[]): number {
   return percentile(sorted, 0.5);
 }
 
-function stdev(nums: number[], mean: number): number {
-  if (nums.length < 2) return 0;
-  const sq = nums.reduce((s, n) => s + (n - mean) * (n - mean), 0);
-  return Math.sqrt(sq / nums.length);
+// Texto natural para la dispersión: "10 yds a la derecha", "5 yds a la izquierda", "centrado"
+function aimText(latMed: number, pctRight: number): { dir: "L" | "R" | "C"; magnitude: number; label: string; aim: string } {
+  const abs = Math.abs(latMed);
+  if (abs < 3) return { dir: "C", magnitude: 0, label: "centrado", aim: "Apuntá al target" };
+  const dir = latMed > 0 ? "R" : "L";
+  const sideName = dir === "R" ? "derecha" : "izquierda";
+  const oppSide = dir === "R" ? "izquierda" : "derecha";
+  const dominance = dir === "R" ? pctRight : 100 - pctRight;
+  return {
+    dir,
+    magnitude: abs,
+    label: `${abs.toFixed(0)}y a la ${sideName}`,
+    aim: `Apuntá ${abs.toFixed(0)}y a la ${oppSide}${dominance >= 70 ? "" : ` (${dominance.toFixed(0)}% de las veces)`}`,
+  };
 }
 
 export default async function RangeStatsPage() {
@@ -90,8 +100,9 @@ export default async function RangeStatsPage() {
     // Confianza (% shots dentro de ±10 yds de la mediana)
     confidence: number;
     // Dispersión lateral
-    latSd: number;
-    latP90: number;      // dispersión absoluta del 90% (10 yds más extremo descartado)
+    latMed: number;      // mediana firmada (+ = derecha, − = izquierda)
+    pctRight: number;    // % shots a la derecha del target
+    latSpread: number;   // ±yds típicos del eje (P90 absoluto desde la mediana)
     // Otros
     smashMed: number | null;
     spinMed: number | null;
@@ -109,6 +120,15 @@ export default async function RangeStatsPage() {
     const med = carriesSorted.length > 0 ? percentile(carriesSorted, 0.5) : 0;
     const insideBand = carries.filter((c) => Math.abs(c - med) <= 10).length;
 
+    // Dirección típica de la dispersión
+    const latSorted = [...lats].sort((a, b) => a - b);
+    const latMed = lats.length > 0 ? percentile(latSorted, 0.5) : 0;
+    const rightCount = lats.filter((l) => l > 0).length;
+    const pctRight = lats.length > 0 ? (rightCount / lats.length) * 100 : 50;
+    // Spread alrededor de la mediana lateral (no del 0)
+    const offsetsFromMed = lats.map((l) => Math.abs(l - latMed)).sort((a, b) => a - b);
+    const latSpread = offsetsFromMed.length > 0 ? percentile(offsetsFromMed, 0.9) : 0;
+
     return {
       club,
       n: carries.length,
@@ -118,8 +138,9 @@ export default async function RangeStatsPage() {
       typical: med,
       good: percentile(carriesSorted, 0.9),
       confidence: carries.length > 0 ? (insideBand / carries.length) * 100 : 0,
-      latSd: stdev(lats, lats.reduce((a, b) => a + b, 0) / Math.max(lats.length, 1)),
-      latP90: lats.length > 0 ? percentile([...lats.map(Math.abs)].sort((a, b) => a - b), 0.9) : 0,
+      latMed,
+      pctRight,
+      latSpread,
       smashMed: smashes.length > 0 ? median(smashes) : null,
       spinMed: spins.length > 0 ? median(spins) : null,
       totalMed: totals.length > 0 ? median(totals) : null,
@@ -164,51 +185,64 @@ export default async function RangeStatsPage() {
                 <th className="text-right" title="Mediana · lo más común">Típico</th>
                 <th className="text-right" title="P90 · cuando le pegás bien">Bueno</th>
                 <th className="text-right" title="% shots ±10y de mediana">Conf</th>
-                <th className="text-right" title="Dispersión lateral típica">±Lat</th>
+                <th className="text-right" title="Para dónde sale en promedio">Suele ir</th>
               </tr>
             </thead>
             <tbody>
-              {stats.map((s) => (
-                <tr key={s.club} className="border-t border-[var(--green-pale)]">
-                  <td className="py-1.5 pr-2 font-semibold">
-                    {CLUB_LABEL[s.club] ?? s.club}
-                    <span className="text-[9px] text-[var(--muted)] font-normal ml-1">
-                      ({s.n})
-                    </span>
-                  </td>
-                  <td className="text-right text-[var(--muted)]">{s.safe.toFixed(0)}</td>
-                  <td className="text-right font-bold text-[var(--fairway)]">
-                    {s.typical.toFixed(0)}
-                  </td>
-                  <td className="text-right text-[var(--muted)]">{s.good.toFixed(0)}</td>
-                  <td
-                    className="text-right"
-                    style={{
-                      color:
-                        s.confidence >= 60
-                          ? "var(--green)"
-                          : s.confidence >= 40
-                          ? "var(--accent)"
-                          : "var(--red)",
-                    }}
-                  >
-                    {s.confidence.toFixed(0)}%
-                  </td>
-                  <td className="text-right text-[var(--muted)]">
-                    {s.latP90.toFixed(0)}y
-                  </td>
-                </tr>
-              ))}
+              {stats.map((s) => {
+                const aim = aimText(s.latMed, s.pctRight);
+                return (
+                  <tr key={s.club} className="border-t border-[var(--green-pale)]">
+                    <td className="py-1.5 pr-2 font-semibold">
+                      {CLUB_LABEL[s.club] ?? s.club}
+                      <span className="text-[9px] text-[var(--muted)] font-normal ml-1">
+                        ({s.n})
+                      </span>
+                    </td>
+                    <td className="text-right text-[var(--muted)]">{s.safe.toFixed(0)}</td>
+                    <td className="text-right font-bold text-[var(--fairway)]">
+                      {s.typical.toFixed(0)}
+                    </td>
+                    <td className="text-right text-[var(--muted)]">{s.good.toFixed(0)}</td>
+                    <td
+                      className="text-right"
+                      style={{
+                        color:
+                          s.confidence >= 60
+                            ? "var(--green)"
+                            : s.confidence >= 40
+                            ? "var(--accent)"
+                            : "var(--red)",
+                      }}
+                    >
+                      {s.confidence.toFixed(0)}%
+                    </td>
+                    <td
+                      className="text-right"
+                      style={{
+                        color:
+                          aim.dir === "C"
+                            ? "var(--green)"
+                            : "var(--accent)",
+                      }}
+                    >
+                      {aim.dir === "C" ? "—" : `${aim.dir} ${aim.magnitude.toFixed(0)}y`}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <p className="text-[10px] text-[var(--muted)] mt-2 px-1">
-            <strong>Seguro</strong>: casi siempre llegás · <strong>Típico</strong>: tu distancia normal · <strong>Bueno</strong>: cuando le pegás bien · <strong>Conf</strong>: % shots cerca de la mediana
+            <strong>Seguro</strong>: casi siempre llegás · <strong>Típico</strong>: tu distancia normal · <strong>Bueno</strong>: cuando le pegás bien · <strong>Conf</strong>: repetibilidad · <strong>Suele ir</strong>: si dice <strong>R 10y</strong>, apuntá 10y a la izquierda
           </p>
         </Card>
       )}
 
       {/* Detalle expandido por palo */}
-      {stats.map((s) => (
+      {stats.map((s) => {
+        const aim = aimText(s.latMed, s.pctRight);
+        return (
         <Card key={`detail-${s.club}`} className="space-y-2">
           <div className="flex justify-between items-baseline border-b border-[var(--green-pale)] pb-2">
             <h2 className="font-bold text-lg text-[var(--fairway)]">
@@ -255,6 +289,26 @@ export default async function RangeStatsPage() {
             </div>
           </div>
 
+          {/* Aim card destacada */}
+          <div
+            className="rounded-lg p-2 text-center"
+            style={{
+              background: aim.dir === "C" ? "var(--green-pale)" : "var(--accent)",
+              color: aim.dir === "C" ? "var(--fairway)" : "white",
+            }}
+          >
+            <div className="text-[9px] uppercase tracking-wider opacity-80">
+              Suele caer
+            </div>
+            <div className="text-lg font-bold gf-display">{aim.label}</div>
+            <div className="text-[10px] opacity-90 mt-0.5">{aim.aim}</div>
+            {aim.dir !== "C" && (
+              <div className="text-[9px] opacity-70 mt-0.5 gf-mono">
+                {s.pctRight.toFixed(0)}% R · {(100 - s.pctRight).toFixed(0)}% L · spread ±{s.latSpread.toFixed(0)}y
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-3 gap-2 text-[11px] gf-mono pt-1">
             <div>
               <div className="text-[9px] text-[var(--muted)] uppercase">Confianza</div>
@@ -272,11 +326,6 @@ export default async function RangeStatsPage() {
                 {s.confidence.toFixed(0)}%
               </div>
               <div className="text-[9px] text-[var(--muted)]">±10y de mediana</div>
-            </div>
-            <div>
-              <div className="text-[9px] text-[var(--muted)] uppercase">Disp lateral</div>
-              <div className="font-bold text-base">{s.latP90.toFixed(0)}y</div>
-              <div className="text-[9px] text-[var(--muted)]">P90 absoluto</div>
             </div>
             <div>
               <div className="text-[9px] text-[var(--muted)] uppercase">Total típico</div>
@@ -301,7 +350,8 @@ export default async function RangeStatsPage() {
             </div>
           </div>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
