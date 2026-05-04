@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 type RoundPlayer = {
   id: string;
@@ -84,7 +83,6 @@ export default function EditarSetupModal({
   round: Round;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [tab, setTab] = useState<"HCP" | "BETS">("HCP");
   const [hcps, setHcps] = useState<HcpsState>(() => loadInitialHcps(round));
   const [bets, setBets] = useState<BetsState>(() => loadInitialBets(round.bets));
@@ -196,11 +194,13 @@ export default function EditarSetupModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ players: playersPayload, bets: betsPayload }),
     });
-    setBusy(false);
     if (res.ok) {
-      router.refresh();
-      onClose();
+      // Reload completo: el tracker tiene state local (data) que useState no
+      // re-inicializa con props nuevos. router.refresh() solo refresca server
+      // components — el cliente se queda con valores viejos.
+      window.location.reload();
     } else {
+      setBusy(false);
       alert("Error guardando");
     }
   }
