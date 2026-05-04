@@ -4,26 +4,58 @@ import { Card, KPI, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import RangeAnalisisIA from "./RangeAnalisisIA";
 import EditarRangeSesion from "./EditarRangeSesion";
+import CLUB_LABEL from "@/lib/club-labels";
 
 export const dynamic = "force-dynamic";
 
-const CLUB_LABEL: Record<string, string> = {
-  DRIVER: "Driver",
-  WOOD_3: "Madera 3",
-  WOOD_5: "Madera 5",
-  HYBRID: "Híbrido",
-  IRON_3: "Hierro 3",
-  IRON_4: "Hierro 4",
-  IRON_5: "Hierro 5",
-  IRON_6: "Hierro 6",
-  IRON_7: "Hierro 7",
-  IRON_8: "Hierro 8",
-  IRON_9: "Hierro 9",
-  PW: "PW",
-  GW: "GW",
-  SW: "SW",
-  LW: "LW",
+type Shot = {
+  id: string;
+  shotNumber: number;
+  rowType: string;
+  club: string | null;
+  carryYds: number | null;
+  rollYds: number | null;
+  totalYds: number | null;
+  lateralYds: number | null;
+  lateralDir: string | null;
+  clubSpeedMph: number | null;
+  ballSpeedMph: number | null;
+  spinRpm: number | null;
+  smashFactor: number | null;
+  aoaDeg: number | null;
+  shotType: string | null;
 };
+
+function avgForClub(shots: Shot[]) {
+  const real = shots.filter((s) => s.rowType === "SHOT" && s.carryYds != null);
+  if (real.length === 0) return null;
+  const safeAvg = (vals: (number | null)[]) => {
+    const valid = vals.filter((v): v is number => v != null);
+    return valid.length === 0 ? null : valid.reduce((s, v) => s + v, 0) / valid.length;
+  };
+  return {
+    n: real.length,
+    carry: safeAvg(real.map((s) => s.carryYds)),
+    total: safeAvg(real.map((s) => s.totalYds)),
+    smash: safeAvg(real.map((s) => s.smashFactor)),
+    ballSpeed: safeAvg(real.map((s) => s.ballSpeedMph)),
+    spin: safeAvg(real.map((s) => s.spinRpm)),
+  };
+}
+
+function dispersionForClub(shots: Shot[]) {
+  const lateralYds = shots
+    .filter((s) => s.rowType === "SHOT")
+    .map((s) => {
+      if (s.lateralYds == null) return null;
+      return s.lateralDir === "L" ? -s.lateralYds : s.lateralYds;
+    })
+    .filter((v): v is number => v !== null);
+  const minLat = lateralYds.length > 0 ? Math.min(...lateralYds) : 0;
+  const maxLat = lateralYds.length > 0 ? Math.max(...lateralYds) : 0;
+  const range = Math.max(Math.abs(minLat), Math.abs(maxLat), 10);
+  return { lateralYds, minLat, maxLat, range };
+}
 
 export default async function RangeSessionPage({
   params,
@@ -37,30 +69,19 @@ export default async function RangeSessionPage({
   });
   if (!session) return notFound();
 
-  const realShots = session.shots.filter((s) => s.rowType === "SHOT" && s.carryYds != null);
-  const avg = realShots.length > 0
-    ? {
-        carry: realShots.reduce((s, x) => s + (x.carryYds ?? 0), 0) / realShots.length,
-        total: realShots.reduce((s, x) => s + (x.totalYds ?? 0), 0) / realShots.length,
-        smash: realShots.filter((x) => x.smashFactor != null).reduce((s, x) => s + (x.smashFactor ?? 0), 0) /
-          (realShots.filter((x) => x.smashFactor != null).length || 1),
-        ballSpeed: realShots.filter((x) => x.ballSpeedMph != null).reduce((s, x) => s + (x.ballSpeedMph ?? 0), 0) /
-          (realShots.filter((x) => x.ballSpeedMph != null).length || 1),
-        spin: realShots.filter((x) => x.spinRpm != null).reduce((s, x) => s + (x.spinRpm ?? 0), 0) /
-          (realShots.filter((x) => x.spinRpm != null).length || 1),
-      }
-    : null;
+  // Agrupar shots por club (fallback a session.club si shot.club es null)
+  const groups = new Map<string, Shot[]>();
+  for (const s of session.shots) {
+    const club = s.club ?? session.club;
+    if (!groups.has(club)) groups.set(club, []);
+    groups.get(club)!.push(s as unknown as Shot);
+  }
+  const clubsInOrder = Array.from(groups.keys());
+  const isMultiClub = clubsInOrder.length > 1;
 
-  // Dispersión lateral: max y min
-  const lateralYds = realShots
-    .map((s) => {
-      if (s.lateralYds == null) return null;
-      return s.lateralDir === "L" ? -s.lateralYds : s.lateralYds;
-    })
-    .filter((v): v is number => v !== null);
-  const minLat = lateralYds.length > 0 ? Math.min(...lateralYds) : 0;
-  const maxLat = lateralYds.length > 0 ? Math.max(...lateralYds) : 0;
-  const range = Math.max(Math.abs(minLat), Math.abs(maxLat), 10);
+  const totalShotsCount = session.shots.filter(
+    (s) => s.rowType === "SHOT" && s.carryYds != null,
+  ).length;
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
@@ -69,10 +90,13 @@ export default async function RangeSessionPage({
           ‹ Volver
         </Link>
         <h1 className="gf-display text-3xl text-[var(--fairway)] mt-1">
-          {CLUB_LABEL[session.club] ?? session.club}
+          {isMultiClub
+            ? `Sesión · ${clubsInOrder.length} palos`
+            : (CLUB_LABEL[session.club] ?? session.club)}
         </h1>
         <p className="text-xs text-[var(--muted)] gf-mono">
-          {new Date(session.date).toLocaleDateString("es-AR")} · {realShots.length} shots
+          {new Date(session.date).toLocaleDateString("es-AR")} · {totalShotsCount} shots
+          {isMultiClub && ` · ${clubsInOrder.map((c) => CLUB_LABEL[c] ?? c).join(", ")}`}
         </p>
         <div className="mt-2">
           <EditarRangeSesion
@@ -84,65 +108,86 @@ export default async function RangeSessionPage({
         </div>
       </header>
 
-      {avg && (
-        <>
-          <SectionHeader>Promedios</SectionHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <KPI label="Carry" value={avg.carry.toFixed(1)} unit="yds" />
-            <KPI label="Total" value={avg.total.toFixed(1)} unit="yds" />
-            <KPI label="Ball speed" value={avg.ballSpeed.toFixed(1)} unit="mph" />
-            <KPI label="Smash" value={avg.smash.toFixed(2)} />
-            <KPI label="Spin" value={avg.spin.toFixed(0)} unit="rpm" />
-            <KPI
-              label="Disp. lateral"
-              value={(maxLat - minLat).toFixed(1)}
-              unit="yds"
-              hint={`L${Math.abs(minLat).toFixed(0)} → R${Math.abs(maxLat).toFixed(0)}`}
-            />
-          </div>
-        </>
-      )}
+      {/* Por cada palo: promedios + dispersión */}
+      {clubsInOrder.map((club) => {
+        const shotsOfClub = groups.get(club)!;
+        const avg = avgForClub(shotsOfClub);
+        const disp = dispersionForClub(shotsOfClub);
+        const title = CLUB_LABEL[club] ?? club;
 
-      {/* Dispersión visual simple */}
-      {lateralYds.length > 0 && (
-        <>
-          <SectionHeader>Dispersión lateral</SectionHeader>
-          <Card>
-            <div className="relative h-24 bg-[var(--green-pale)] rounded-lg">
-              <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-[var(--fairway)]" />
-              <div className="absolute top-0 bottom-0 left-1/2 border-l border-[var(--fairway)]" />
-              {lateralYds.map((y, i) => {
-                const pct = 50 + (y / range) * 45;
-                return (
-                  <div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full bg-[var(--accent)]"
-                    style={{
-                      left: `${pct}%`,
-                      top: `${30 + ((i % 5) * 8)}%`,
-                      transform: "translate(-50%,-50%)",
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] gf-mono text-[var(--muted)] mt-1">
-              <span>L {Math.abs(minLat).toFixed(0)}</span>
-              <span>0</span>
-              <span>R {maxLat.toFixed(0)}</span>
-            </div>
-          </Card>
-        </>
-      )}
+        return (
+          <div key={club} className="space-y-3">
+            <SectionHeader>
+              {isMultiClub ? `${title} · Promedios` : "Promedios"}
+            </SectionHeader>
+            {avg ? (
+              <div className="grid grid-cols-2 gap-3">
+                <KPI
+                  label="Carry"
+                  value={avg.carry?.toFixed(1) ?? "—"}
+                  unit="yds"
+                  hint={`${avg.n} shots`}
+                />
+                <KPI label="Total" value={avg.total?.toFixed(1) ?? "—"} unit="yds" />
+                <KPI label="Ball speed" value={avg.ballSpeed?.toFixed(1) ?? "—"} unit="mph" />
+                <KPI label="Smash" value={avg.smash?.toFixed(2) ?? "—"} />
+                <KPI label="Spin" value={avg.spin?.toFixed(0) ?? "—"} unit="rpm" />
+                <KPI
+                  label="Disp. lateral"
+                  value={(disp.maxLat - disp.minLat).toFixed(1)}
+                  unit="yds"
+                  hint={`L${Math.abs(disp.minLat).toFixed(0)} → R${Math.abs(disp.maxLat).toFixed(0)}`}
+                />
+              </div>
+            ) : (
+              <Card className="text-center text-sm text-[var(--muted)]">
+                Sin shots con datos
+              </Card>
+            )}
+
+            {disp.lateralYds.length > 0 && (
+              <Card>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-2">
+                  Dispersión lateral
+                </div>
+                <div className="relative h-20 bg-[var(--green-pale)] rounded-lg">
+                  <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-[var(--fairway)]" />
+                  <div className="absolute top-0 bottom-0 left-1/2 border-l border-[var(--fairway)]" />
+                  {disp.lateralYds.map((y, i) => {
+                    const pct = 50 + (y / disp.range) * 45;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full bg-[var(--accent)]"
+                        style={{
+                          left: `${pct}%`,
+                          top: `${30 + (i % 5) * 8}%`,
+                          transform: "translate(-50%,-50%)",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[10px] gf-mono text-[var(--muted)] mt-1">
+                  <span>L {Math.abs(disp.minLat).toFixed(0)}</span>
+                  <span>0</span>
+                  <span>R {disp.maxLat.toFixed(0)}</span>
+                </div>
+              </Card>
+            )}
+          </div>
+        );
+      })}
 
       <RangeAnalisisIA sessionId={session.id} cachedAnalysis={session.aiAnalysis} />
 
       <SectionHeader>Tabla shots</SectionHeader>
       <Card className="!p-2 overflow-x-auto">
-        <table className="gf-table" style={{ minWidth: 600 }}>
+        <table className="gf-table" style={{ minWidth: 700 }}>
           <thead>
             <tr>
               <th>#</th>
+              <th>Palo</th>
               <th>Carry</th>
               <th>Total</th>
               <th>Lat</th>
@@ -155,24 +200,33 @@ export default async function RangeSessionPage({
             </tr>
           </thead>
           <tbody>
-            {session.shots.map((s) => (
-              <tr key={s.id} className={s.rowType !== "SHOT" ? "font-semibold bg-[var(--green-pale)]" : ""}>
-                <td className="gf-mono">
-                  {s.rowType === "SHOT" ? s.shotNumber : s.rowType}
-                </td>
-                <td className="gf-mono">{s.carryYds?.toFixed(1) ?? "—"}</td>
-                <td className="gf-mono">{s.totalYds?.toFixed(1) ?? "—"}</td>
-                <td className="gf-mono">
-                  {s.lateralYds != null ? `${s.lateralYds.toFixed(1)}${s.lateralDir ?? ""}` : "—"}
-                </td>
-                <td className="gf-mono">{s.ballSpeedMph?.toFixed(1) ?? "—"}</td>
-                <td className="gf-mono">{s.clubSpeedMph?.toFixed(1) ?? "—"}</td>
-                <td className="gf-mono">{s.smashFactor?.toFixed(2) ?? "—"}</td>
-                <td className="gf-mono">{s.spinRpm ?? "—"}</td>
-                <td className="gf-mono">{s.aoaDeg?.toFixed(1) ?? "—"}</td>
-                <td className="text-xs">{s.shotType ?? "—"}</td>
-              </tr>
-            ))}
+            {session.shots.map((s) => {
+              const club = s.club ?? session.club;
+              return (
+                <tr
+                  key={s.id}
+                  className={s.rowType !== "SHOT" ? "font-semibold bg-[var(--green-pale)]" : ""}
+                >
+                  <td className="gf-mono">
+                    {s.rowType === "SHOT" ? s.shotNumber : s.rowType}
+                  </td>
+                  <td className="gf-mono text-[10px]">{CLUB_LABEL[club] ?? club}</td>
+                  <td className="gf-mono">{s.carryYds?.toFixed(1) ?? "—"}</td>
+                  <td className="gf-mono">{s.totalYds?.toFixed(1) ?? "—"}</td>
+                  <td className="gf-mono">
+                    {s.lateralYds != null
+                      ? `${s.lateralYds.toFixed(1)}${s.lateralDir ?? ""}`
+                      : "—"}
+                  </td>
+                  <td className="gf-mono">{s.ballSpeedMph?.toFixed(1) ?? "—"}</td>
+                  <td className="gf-mono">{s.clubSpeedMph?.toFixed(1) ?? "—"}</td>
+                  <td className="gf-mono">{s.smashFactor?.toFixed(2) ?? "—"}</td>
+                  <td className="gf-mono">{s.spinRpm ?? "—"}</td>
+                  <td className="gf-mono">{s.aoaDeg?.toFixed(1) ?? "—"}</td>
+                  <td className="text-xs">{s.shotType ?? "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
