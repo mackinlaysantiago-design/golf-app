@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Card, SectionHeader, Pill } from "@/components/ui/Card";
+import { Card, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import PlayersClient from "./PlayersClient";
 import LogoutButton from "./LogoutButton";
@@ -27,17 +27,19 @@ export default async function SetupPage() {
       <SectionHeader>Canchas</SectionHeader>
       <div className="space-y-2">
         {courses.map((c) => (
-          <Card key={c.id} className="!p-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-semibold">{c.name}</div>
-                <div className="text-xs text-[var(--muted)] gf-mono">
-                  {c.holes.length} hoyos · Par {c.holes.reduce((s, h) => s + h.par, 0)}
+          <Link key={c.id} href={`/jugadores/canchas/${c.id}`}>
+            <Card className="!p-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-semibold">{c.name}</div>
+                  <div className="text-xs text-[var(--muted)] gf-mono">
+                    {c.holes.length} hoyos · Par {c.holes.reduce((s, h) => s + h.par, 0)}
+                  </div>
                 </div>
+                <span className="text-[var(--muted)]">›</span>
               </div>
-              <Pill>OK</Pill>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         ))}
         <Link href="/jugadores/nueva-cancha">
           <Card className="!p-3 text-center text-[var(--fairway)] font-semibold border-dashed">
