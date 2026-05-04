@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, KPI, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import RangeAnalisisIA from "./RangeAnalisisIA";
+import EditarRangeSesion from "./EditarRangeSesion";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,14 @@ export default async function RangeSessionPage({
         <p className="text-xs text-[var(--muted)] gf-mono">
           {new Date(session.date).toLocaleDateString("es-AR")} · {realShots.length} shots
         </p>
+        <div className="mt-2">
+          <EditarRangeSesion
+            sessionId={session.id}
+            initialClub={session.club}
+            initialDate={session.date.toISOString()}
+            initialNotes={session.notes}
+          />
+        </div>
       </header>
 
       {avg && (
