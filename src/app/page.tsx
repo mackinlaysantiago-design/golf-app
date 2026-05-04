@@ -121,11 +121,11 @@ export default async function HomePage() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 gf-fadeup gf-fadeup-1">
-        <Link href="/range/nueva">
+        <Link href="/range">
           <Card className="text-center !p-4">
             <div className="text-3xl mb-1">🎯</div>
-            <div className="font-semibold text-[var(--fairway)]">Nueva Range</div>
-            <div className="text-xs text-[var(--muted)]">FlightScope</div>
+            <div className="font-semibold text-[var(--fairway)]">Range</div>
+            <div className="text-xs text-[var(--muted)]">PP / FlightScope</div>
           </Card>
         </Link>
         <Link href="/rondas/nueva">
