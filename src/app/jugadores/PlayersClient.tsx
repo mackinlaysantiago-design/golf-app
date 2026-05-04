@@ -9,6 +9,7 @@ type Player = {
   name: string;
   hcpIndex: number | null;
   isMe: boolean;
+  lucilaMatricula?: string | null;
 };
 
 function normalize(s: string): string {
@@ -142,29 +143,113 @@ export default function PlayersClient({ initialPlayers }: { initialPlayers: Play
     }
   }
 
+  const [editingHcpId, setEditingHcpId] = useState<string | null>(null);
+  const [editingHcpValue, setEditingHcpValue] = useState("");
+
+  function startEditHcp(p: Player) {
+    setEditingHcpId(p.id);
+    setEditingHcpValue(p.hcpIndex != null ? String(p.hcpIndex) : "");
+  }
+
+  async function saveHcp(id: string) {
+    const idx = editingHcpValue.trim() === "" ? null : parseFloat(editingHcpValue.replace(",", "."));
+    if (editingHcpValue.trim() !== "" && isNaN(idx as number)) {
+      alert("HCP inválido");
+      return;
+    }
+    const res = await fetch(`/api/jugadores/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hcpIndex: idx }),
+    });
+    if (res.ok) {
+      setPlayers((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, hcpIndex: idx } : p)),
+      );
+      setEditingHcpId(null);
+      router.refresh();
+    } else {
+      alert("Error guardando");
+    }
+  }
+
   function renderPlayer(p: Player) {
+    const isFromLucila = !!p.lucilaMatricula;
+    const isEditing = editingHcpId === p.id;
     return (
-      <Card key={p.id} className="!p-3 flex justify-between items-center">
-        <div>
-          <div className="font-medium flex items-center gap-2">
+      <Card key={p.id} className="!p-3 flex justify-between items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="font-medium flex items-center gap-2 flex-wrap">
             {p.name}
             {p.isMe && <Pill variant="accent">YO</Pill>}
+            {isFromLucila && (
+              <span
+                className="gf-pill text-[9px]"
+                style={{ background: "var(--green-pale)", color: "var(--fairway)" }}
+                title="Sincronizado desde La Lucila — el HCP se actualiza solo"
+              >
+                LUCILA
+              </span>
+            )}
           </div>
-          {p.hcpIndex != null && (
+          {!isEditing && p.hcpIndex != null && (
             <div className="text-xs text-[var(--muted)] gf-mono">
               HCP {p.hcpIndex.toFixed(1)}
             </div>
           )}
+          {!isEditing && p.hcpIndex == null && !isFromLucila && (
+            <div className="text-xs text-[var(--muted)]">sin HCP</div>
+          )}
+          {isEditing && (
+            <div className="flex items-center gap-1 mt-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                autoFocus
+                className="gf-input !p-1 !text-xs !w-20"
+                placeholder="ej 8.9"
+                value={editingHcpValue}
+                onChange={(e) => setEditingHcpValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveHcp(p.id);
+                  if (e.key === "Escape") setEditingHcpId(null);
+                }}
+              />
+              <button
+                onClick={() => saveHcp(p.id)}
+                className="text-[var(--fairway)] text-xs px-1"
+              >
+                ✓
+              </button>
+              <button
+                onClick={() => setEditingHcpId(null)}
+                className="text-[var(--muted)] text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 text-xs">
-          {!p.isMe && (
+        <div className="flex gap-2 text-xs items-center shrink-0">
+          {!isEditing && !isFromLucila && (
+            <button
+              onClick={() => startEditHcp(p)}
+              className="text-[var(--fairway)]"
+            >
+              Editar HCP
+            </button>
+          )}
+          {!isEditing && !p.isMe && (
             <button onClick={() => setAsMe(p.id)} className="text-[var(--fairway)]">
               Soy yo
             </button>
           )}
-          <button onClick={() => remove(p)} className="text-[var(--red)]">
-            Borrar
-          </button>
+          {!isEditing && (
+            <button onClick={() => remove(p)} className="text-[var(--red)]">
+              Borrar
+            </button>
+          )}
         </div>
       </Card>
     );
