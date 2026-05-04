@@ -10,6 +10,8 @@ import ResumenActions from "./ResumenActions";
 import StandingsTabs from "./StandingsTabs";
 import LevelUpCard, { type PerfectRun } from "./LevelUpCard";
 import { nextLevel, type SmField } from "@/lib/sm-levels";
+import { tallyKeys, topKeys, SM_KEYS, KEY_BY_ID } from "@/lib/sm-keys";
+import ReflexionEditor from "./ReflexionEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,15 @@ export default async function ResumenPage({
   };
   const kpis = computeRoundKPIs(holes, config);
   const ppPlan = computePPPlan(holes, config, kpis);
+
+  // 10 Keys to Scoring — tally
+  const allKeysBroken = me.holes.map((h) => (h.keysBroken as number[] | null) ?? []);
+  const keyCounts = tallyKeys(allKeysBroken);
+  const topBroken = topKeys(keyCounts, 2);
+  const totalKeysBroken = Object.values(keyCounts).reduce((s, v) => s + v, 0);
+
+  // Penalidades totales
+  const totalPenalties = me.holes.reduce((s, h) => s + (h.penaltyStrokes ?? 0), 0);
 
   // Detectar perfect runs solo si "me" es el jugador de isMe (Santi),
   // y mostrar el card para subir nivel. Mínimo 14 hoyos con datos.
@@ -399,6 +410,18 @@ export default async function ResumenPage({
           value={`${kpis.threePuttsHoles}/${kpis.puttsDataHoles || "—"}`}
           tone={kpis.threePuttsHoles === 0 && kpis.puttsDataHoles > 0 ? "good" : "bad"}
         />
+        <KPI
+          label="Penalidades"
+          value={totalPenalties}
+          hint="golpes de penalidad"
+          tone={totalPenalties === 0 ? "good" : "bad"}
+        />
+        <KPI
+          label="Keys rotas"
+          value={totalKeysBroken}
+          hint={topBroken[0] ? `Top: ${topBroken[0].key.short}` : "ninguna cargada"}
+          tone={totalKeysBroken === 0 ? "good" : totalKeysBroken < 5 ? "neutral" : "warn"}
+        />
       </div>
 
       {/* Distribución Enter SZ */}
@@ -438,6 +461,57 @@ export default async function ResumenPage({
           </tbody>
         </table>
       </Card>
+
+      {/* 10 Keys to Scoring */}
+      {totalKeysBroken > 0 && (
+        <>
+          <SectionHeader>10 Keys · Top 2 a practicar</SectionHeader>
+          <div className="space-y-2">
+            {topBroken.map(({ key, count }) => (
+              <Card key={key.id} className="!p-3" style={{ borderLeft: "4px solid var(--accent)" }}>
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-sm">
+                    {key.id}. {key.label}
+                  </span>
+                  <span className="gf-display text-2xl text-[var(--accent)]">{count}×</span>
+                </div>
+                <div className="text-xs text-[var(--muted)] mt-1">{key.solution}</div>
+              </Card>
+            ))}
+          </div>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-[var(--muted)] py-1">
+              Ver todas ({totalKeysBroken} keys rotas en {SM_KEYS.length} categorías)
+            </summary>
+            <div className="space-y-1 mt-2">
+              {SM_KEYS.filter((k) => keyCounts[k.id] > 0).map((k) => (
+                <div key={k.id} className="flex justify-between gf-mono text-[11px]">
+                  <span>{k.id}. {KEY_BY_ID[k.id].short}</span>
+                  <span>{keyCounts[k.id]}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        </>
+      )}
+
+      {/* Reflexión post-ronda */}
+      {me.player.isMe && (
+        <>
+          <SectionHeader>Reflexión</SectionHeader>
+          <ReflexionEditor
+            roundId={round.id}
+            initialBestParts={(() => {
+              try {
+                return round.bestParts ? (JSON.parse(round.bestParts) as string[]) : [];
+              } catch {
+                return [];
+              }
+            })()}
+            initialBestShot={round.bestShot ?? ""}
+          />
+        </>
+      )}
 
       {/* PP Plan */}
       <SectionHeader>PP Plan · Practicar próxima</SectionHeader>

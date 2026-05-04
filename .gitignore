@@ -45,3 +45,6 @@ next-env.d.ts
 .env
 .env.production
 .env*.local
+
+# Scoring Method analysis (local research, no commitear)
+scoring-method-analysis/

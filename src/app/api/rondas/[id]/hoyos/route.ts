@@ -13,6 +13,8 @@ const HoleEntrySchema = z.object({
   puttMadeDistanceFt: z.number().int().nullable().optional(),
   puttsInside1PuttCircle: z.number().int().nullable().optional(),
   score: z.number().int().nullable().optional(),
+  penaltyStrokes: z.number().int().nullable().optional(),
+  keysBroken: z.array(z.number().int().min(1).max(10)).nullable().optional(),
 });
 
 const PutSchema = z.object({
@@ -62,6 +64,8 @@ export async function PUT(
           puttMadeDistanceFt: e.puttMadeDistanceFt ?? null,
           puttsInside1PuttCircle: e.puttsInside1PuttCircle ?? null,
           score: e.score ?? null,
+          penaltyStrokes: e.penaltyStrokes ?? null,
+          keysBroken: e.keysBroken ?? undefined,
         },
         update: {
           strokesToEnterSz: e.strokesToEnterSz ?? null,
@@ -72,6 +76,8 @@ export async function PUT(
           puttMadeDistanceFt: e.puttMadeDistanceFt ?? null,
           puttsInside1PuttCircle: e.puttsInside1PuttCircle ?? null,
           score: e.score ?? null,
+          penaltyStrokes: e.penaltyStrokes ?? null,
+          keysBroken: e.keysBroken ?? undefined,
         },
       }),
     ),

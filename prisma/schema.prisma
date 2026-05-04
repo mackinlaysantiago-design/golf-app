@@ -107,6 +107,9 @@ model Round {
   // 4P parejas
   pairs     String?  // JSON: [["playerId1","playerId2"],["playerId3","playerId4"]]
   notes     String?
+  // The Scoring Method — reflexión post-ronda (Level 2)
+  bestParts String?  // JSON array de strings — qué jugaste mejor hoy
+  bestShot  String?  // descripción del mejor tiro del día
   createdAt DateTime @default(now())
 
   players RoundPlayer[]
@@ -160,6 +163,9 @@ model RoundHole {
   puttMadeDistanceFt     Int? // largo del putt embocado
   puttsInside1PuttCircle Int?
   score                  Int? // golpes totales del hoyo
+  // The Scoring Method — Level 2
+  penaltyStrokes  Int?  // golpes de penalidad en el hoyo (key #2)
+  keysBroken      Json? // array de números 1-10 — keys del método rotas
 
   @@unique([roundPlayerId, holeNumber])
 }

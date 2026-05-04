@@ -7,6 +7,7 @@ import { Card, SectionHeader, Pill } from "@/components/ui/Card";
 import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
+import { SM_KEYS } from "@/lib/sm-keys";
 
 type Hole = {
   number: number;
@@ -26,6 +27,8 @@ type RoundHoleData = {
   puttMadeDistanceFt: number | null;
   puttsInside1PuttCircle: number | null;
   score: number | null;
+  penaltyStrokes: number | null;
+  keysBroken: unknown; // JsonValue desde Prisma — se cast a number[] al usar
 };
 
 type RoundPlayer = {
@@ -62,7 +65,8 @@ type FieldKey =
   | "firstPuttDistanceFt"
   | "puttMadeDistanceFt"
   | "puttsInside1PuttCircle"
-  | "score";
+  | "score"
+  | "penaltyStrokes";
 
 export default function RondaTracker({ round }: { round: Round }) {
   const router = useRouter();
@@ -70,7 +74,8 @@ export default function RondaTracker({ round }: { round: Round }) {
   const [busy, setBusy] = useState(false);
 
   // Estado local: { roundPlayerId: { holeNumber: { field: value } } }
-  type CellState = Record<string, Record<number, Partial<Record<FieldKey, number | null>>>>;
+  type CellValues = Partial<Record<FieldKey, number | null>> & { keysBroken?: number[] | null };
+  type CellState = Record<string, Record<number, CellValues>>;
 
   const initial: CellState = useMemo(() => {
     const out: CellState = {};
@@ -86,6 +91,8 @@ export default function RondaTracker({ round }: { round: Round }) {
           puttMadeDistanceFt: h.puttMadeDistanceFt,
           puttsInside1PuttCircle: h.puttsInside1PuttCircle,
           score: h.score,
+          penaltyStrokes: h.penaltyStrokes,
+          keysBroken: Array.isArray(h.keysBroken) ? (h.keysBroken as number[]) : null,
         };
       }
     }
@@ -110,7 +117,9 @@ export default function RondaTracker({ round }: { round: Round }) {
       c.putts != null ||
       c.firstPuttDistanceFt != null ||
       c.puttMadeDistanceFt != null ||
-      c.puttsInside1PuttCircle != null
+      c.puttsInside1PuttCircle != null ||
+      c.penaltyStrokes != null ||
+      (Array.isArray(c.keysBroken) && c.keysBroken.length > 0)
     );
   }
 
@@ -118,6 +127,20 @@ export default function RondaTracker({ round }: { round: Round }) {
   const isSolo = round.mode === "SOLO";
   const courseHoles = round.course.holes;
   const currentHoleInfo = courseHoles.find((h) => h.number === currentHole);
+
+  function toggleKey(rpId: string, hole: number, keyId: number) {
+    setData((prev) => {
+      const cur = prev[rpId]?.[hole] ?? {};
+      const existing = cur.keysBroken ?? [];
+      const next = existing.includes(keyId)
+        ? existing.filter((k) => k !== keyId)
+        : [...existing, keyId].sort((a, b) => a - b);
+      return {
+        ...prev,
+        [rpId]: { ...prev[rpId], [hole]: { ...cur, keysBroken: next.length > 0 ? next : null } },
+      };
+    });
+  }
 
   function setCell(rpId: string, hole: number, field: FieldKey, value: string) {
     const num = value === "" ? null : parseInt(value);
@@ -888,9 +911,21 @@ export default function RondaTracker({ round }: { round: Round }) {
                         onChange={(v) =>
                           setCell(rp.id, currentHole, "puttsInside1PuttCircle", v)
                         }
+                      />
+                      <NumField
+                        label="Penalidades"
+                        value={cells.penaltyStrokes ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "penaltyStrokes", v)}
                         isLast
                       />
                     </div>
+                    {/* 10 Keys to Scoring — solo para "YO" */}
+                    {rp.player.isMe && (
+                      <KeysBrokenInput
+                        keysBroken={cells.keysBroken ?? []}
+                        onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
+                      />
+                    )}
                     <FlagRow
                       cells={cells}
                       config={{
@@ -1077,6 +1112,43 @@ function FlagRow({
       {f("Down in SZ", flags.downInSz)}
       {f("3 putts", flags.threePutts)}
       {f("1PC", flags.missedIn1PuttCircle)}
+    </div>
+  );
+}
+
+function KeysBrokenInput({
+  keysBroken,
+  onToggle,
+}: {
+  keysBroken: number[];
+  onToggle: (keyId: number) => void;
+}) {
+  return (
+    <div className="pt-2 border-t border-[var(--green-pale)] mt-2">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1.5">
+        🎯 Keys rotas en este hoyo
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {SM_KEYS.map((k) => {
+          const active = keysBroken.includes(k.id);
+          return (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => onToggle(k.id)}
+              className="text-[10px] px-2 py-1 rounded gf-mono"
+              style={{
+                background: active ? "var(--accent)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+              title={k.solution}
+            >
+              {k.id}. {k.short}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

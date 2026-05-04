@@ -22,6 +22,12 @@ const PatchSchema = z.object({
       }),
     )
     .optional(),
+  reflexion: z
+    .object({
+      bestParts: z.string().nullable().optional(),
+      bestShot: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 
 export async function PATCH(
@@ -55,6 +61,16 @@ export async function PATCH(
           },
         });
       }
+    }
+
+    if (parsed.reflexion) {
+      await tx.round.update({
+        where: { id },
+        data: {
+          bestParts: parsed.reflexion.bestParts ?? null,
+          bestShot: parsed.reflexion.bestShot ?? null,
+        },
+      });
     }
 
     if (parsed.bets) {
