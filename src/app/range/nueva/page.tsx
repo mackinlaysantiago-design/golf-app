@@ -38,36 +38,69 @@ export default function NuevaRangePage() {
   const [club, setClub] = useState("DRIVER");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [shots, setShots] = useState<ParsedShot[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function onFile(f: File) {
-    setFile(f);
+  function onFiles(fs: File[]) {
+    setFiles(fs);
     setShots(null);
     setError(null);
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(f);
+    setPreviews([]);
+    fs.forEach((f) => {
+      const reader = new FileReader();
+      reader.onload = (e) =>
+        setPreviews((prev) => [...prev, e.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
   }
 
-  async function parseImage() {
-    if (!file) return;
+  async function parseImages() {
+    if (files.length === 0) return;
     setBusy(true);
     setError(null);
-    const fd = new FormData();
-    fd.append("image", file);
-    const res = await fetch("/api/analyze-flightscope", { method: "POST", body: fd });
-    if (res.ok) {
+    const allShots: ParsedShot[] = [];
+    let nextShotNum = 1;
+    let haveAvg = false;
+    let haveDev = false;
+    for (let i = 0; i < files.length; i++) {
+      setProgress(`Parseando foto ${i + 1}/${files.length}...`);
+      const fd = new FormData();
+      fd.append("image", files[i]);
+      const res = await fetch("/api/analyze-flightscope", {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? `Error parseando foto ${i + 1}`);
+        setBusy(false);
+        setProgress(null);
+        return;
+      }
       const data = await res.json();
-      setShots(data.shots);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Error parseando imagen");
+      const parsed: ParsedShot[] = data.shots;
+      // Renumerar SHOTs consecutivos; deduplicar AVG/DEV (uno solo final)
+      for (const s of parsed) {
+        if (s.rowType === "AVG") {
+          if (haveAvg) continue;
+          haveAvg = true;
+          allShots.push(s);
+        } else if (s.rowType === "DEV") {
+          if (haveDev) continue;
+          haveDev = true;
+          allShots.push(s);
+        } else {
+          allShots.push({ ...s, shotNumber: nextShotNum++ });
+        }
+      }
     }
+    setShots(allShots);
     setBusy(false);
+    setProgress(null);
   }
 
   async function save() {
@@ -140,25 +173,40 @@ export default function NuevaRangePage() {
         </div>
       </Card>
 
-      <SectionHeader>Screenshot FlightScope</SectionHeader>
+      <SectionHeader>Screenshots FlightScope</SectionHeader>
       <Card className="space-y-3">
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
+          multiple
+          onChange={(e) => onFiles(Array.from(e.target.files ?? []))}
           className="gf-input"
         />
-        {preview && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={preview}
-            alt="preview"
-            className="rounded-xl border border-[var(--border)] max-h-64 object-contain w-full bg-[var(--ink)]"
-          />
+        {files.length > 0 && (
+          <div className="text-[11px] text-[var(--muted)] gf-mono">
+            {files.length} foto{files.length === 1 ? "" : "s"} seleccionada
+            {files.length === 1 ? "" : "s"}
+          </div>
         )}
-        {file && !shots && (
-          <button onClick={parseImage} disabled={busy} className="gf-btn w-full">
-            {busy ? "Parseando con Claude..." : "🤖 Extraer shots"}
+        {previews.length > 0 && (
+          <div className="grid grid-cols-2 gap-2">
+            {previews.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={src}
+                alt={`preview ${i + 1}`}
+                className="rounded-xl border border-[var(--border)] max-h-40 object-contain w-full bg-[var(--ink)]"
+              />
+            ))}
+          </div>
+        )}
+        {progress && (
+          <div className="text-[11px] text-[var(--accent)]">{progress}</div>
+        )}
+        {files.length > 0 && !shots && (
+          <button onClick={parseImages} disabled={busy} className="gf-btn w-full">
+            {busy ? "Parseando..." : `🤖 Extraer shots (${files.length})`}
           </button>
         )}
         {error && <p className="text-xs text-[var(--red)]">{error}</p>}
