@@ -4,6 +4,7 @@ import { Card, KPI, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import RangeAnalisisIA from "./RangeAnalisisIA";
 import EditarRangeSesion from "./EditarRangeSesion";
+import ShotsTable from "./ShotsTable";
 import CLUB_LABEL from "@/lib/club-labels";
 
 export const dynamic = "force-dynamic";
@@ -181,54 +182,9 @@ export default async function RangeSessionPage({
 
       <RangeAnalisisIA sessionId={session.id} cachedAnalysis={session.aiAnalysis} />
 
-      <SectionHeader>Tabla shots</SectionHeader>
+      <SectionHeader>Tabla shots (✕ para borrar outliers)</SectionHeader>
       <Card className="!p-2 overflow-x-auto">
-        <table className="gf-table" style={{ minWidth: 700 }}>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Palo</th>
-              <th>Carry</th>
-              <th>Total</th>
-              <th>Lat</th>
-              <th>Ball</th>
-              <th>Club</th>
-              <th>Smash</th>
-              <th>Spin</th>
-              <th>AoA</th>
-              <th>Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {session.shots.map((s) => {
-              const club = s.club ?? session.club;
-              return (
-                <tr
-                  key={s.id}
-                  className={s.rowType !== "SHOT" ? "font-semibold bg-[var(--green-pale)]" : ""}
-                >
-                  <td className="gf-mono">
-                    {s.rowType === "SHOT" ? s.shotNumber : s.rowType}
-                  </td>
-                  <td className="gf-mono text-[10px]">{CLUB_LABEL[club] ?? club}</td>
-                  <td className="gf-mono">{s.carryYds?.toFixed(1) ?? "—"}</td>
-                  <td className="gf-mono">{s.totalYds?.toFixed(1) ?? "—"}</td>
-                  <td className="gf-mono">
-                    {s.lateralYds != null
-                      ? `${s.lateralYds.toFixed(1)}${s.lateralDir ?? ""}`
-                      : "—"}
-                  </td>
-                  <td className="gf-mono">{s.ballSpeedMph?.toFixed(1) ?? "—"}</td>
-                  <td className="gf-mono">{s.clubSpeedMph?.toFixed(1) ?? "—"}</td>
-                  <td className="gf-mono">{s.smashFactor?.toFixed(2) ?? "—"}</td>
-                  <td className="gf-mono">{s.spinRpm ?? "—"}</td>
-                  <td className="gf-mono">{s.aoaDeg?.toFixed(1) ?? "—"}</td>
-                  <td className="text-xs">{s.shotType ?? "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ShotsTable shots={session.shots} sessionClub={session.club} />
       </Card>
     </div>
   );
