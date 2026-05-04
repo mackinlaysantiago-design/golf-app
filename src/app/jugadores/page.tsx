@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
-import { Card, SectionHeader } from "@/components/ui/Card";
-import Link from "next/link";
+import { SectionHeader } from "@/components/ui/Card";
 import PlayersClient from "./PlayersClient";
+import CoursesList from "./CoursesList";
 import LogoutButton from "./LogoutButton";
 import LucilaSyncButton from "./LucilaSyncButton";
 
@@ -20,33 +20,12 @@ export default async function SetupPage() {
         <p className="text-sm text-[var(--muted)]">Jugadores y canchas</p>
       </header>
 
-      <SectionHeader>Jugadores</SectionHeader>
+      <SectionHeader>Jugadores ({players.length})</SectionHeader>
       <LucilaSyncButton />
       <PlayersClient initialPlayers={players} />
 
-      <SectionHeader>Canchas</SectionHeader>
-      <div className="space-y-2">
-        {courses.map((c) => (
-          <Link key={c.id} href={`/jugadores/canchas/${c.id}`}>
-            <Card className="!p-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-semibold">{c.name}</div>
-                  <div className="text-xs text-[var(--muted)] gf-mono">
-                    {c.holes.length} hoyos · Par {c.holes.reduce((s, h) => s + h.par, 0)}
-                  </div>
-                </div>
-                <span className="text-[var(--muted)]">›</span>
-              </div>
-            </Card>
-          </Link>
-        ))}
-        <Link href="/jugadores/nueva-cancha">
-          <Card className="!p-3 text-center text-[var(--fairway)] font-semibold border-dashed">
-            + Nueva cancha
-          </Card>
-        </Link>
-      </div>
+      <SectionHeader>Canchas ({courses.length})</SectionHeader>
+      <CoursesList courses={courses} />
 
       <LogoutButton />
     </div>
