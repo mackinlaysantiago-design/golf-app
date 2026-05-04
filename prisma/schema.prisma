@@ -115,6 +115,30 @@ model Round {
   players RoundPlayer[]
   holes   RoundHole[]
   bets    RoundBet[]
+  tasks   PracticeTask[]
+}
+
+// Tareas de práctica pendientes — origen Round (PP plan) o RangeSession (FlightScope).
+// Se crean automáticamente y se cierran cuando el jugador las completa.
+model PracticeTask {
+  id             String        @id @default(cuid())
+  sourceType     String        // ROUND | RANGE_SESSION
+  round          Round?        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId        String?
+  rangeSession   RangeSession? @relation(fields: [rangeSessionId], references: [id], onDelete: Cascade)
+  rangeSessionId String?
+  code           String        // PP "1"|"2"|"A"|"B" para ronda, "FLIGHTSCOPE" para range
+  label          String        // ej "Putts errados <4ft" o "Revisar análisis Hierro 7"
+  description    String?       // contexto extra
+  timesToAchieve Int           // 1 si es solo "revisar"
+  timesCompleted Int           @default(0)
+  status         String        @default("PENDING") // PENDING | DONE | SKIPPED
+  createdAt      DateTime      @default(now())
+  doneAt         DateTime?
+
+  @@index([status])
+  @@index([roundId])
+  @@index([rangeSessionId])
 }
 
 // Apuestas por ronda — Match/Medal/Stableford con plata
@@ -182,6 +206,7 @@ model RangeSession {
   createdAt  DateTime @default(now())
 
   shots RangeShot[]
+  tasks PracticeTask[]
 }
 
 // Sesión de Purposeful Practice (PP) — Will Robins method

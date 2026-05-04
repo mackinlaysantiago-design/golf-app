@@ -12,6 +12,7 @@ import LevelUpCard, { type PerfectRun } from "./LevelUpCard";
 import { nextLevel, type SmField } from "@/lib/sm-levels";
 import { tallyKeys, topKeys, SM_KEYS, KEY_BY_ID } from "@/lib/sm-keys";
 import ReflexionEditor from "./ReflexionEditor";
+import { ensureRoundTasks } from "@/lib/practice-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,9 @@ export default async function ResumenPage({
   };
   const kpis = computeRoundKPIs(holes, config);
   const ppPlan = computePPPlan(holes, config, kpis);
+
+  // Generar PracticeTasks pendientes para los items del PP plan (idempotente)
+  await ensureRoundTasks(round.id, ppPlan);
 
   // 10 Keys to Scoring — tally
   const allKeysBroken = me.holes.map((h) => (h.keysBroken as number[] | null) ?? []);

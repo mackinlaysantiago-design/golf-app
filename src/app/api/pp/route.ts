@@ -117,5 +117,12 @@ export async function POST(req: NextRequest) {
     },
     include: { drills: true },
   });
+
+  // Aplicar progreso a las PracticeTasks pendientes
+  const { applyPracticeProgress } = await import("@/lib/practice-tasks");
+  await applyPracticeProgress(
+    drillsToCreate.map((d) => ({ ppCode: d.ppCode, leveledUp: d.leveledUp })),
+  );
+
   return NextResponse.json(session, { status: 201 });
 }

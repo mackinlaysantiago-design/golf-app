@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getGemini, COACH_MODEL } from "@/lib/ai";
-
-const CLUB_LABEL: Record<string, string> = {
-  DRIVER: "Driver",
-  WOOD_3: "Madera 3",
-  WOOD_5: "Madera 5",
-  HYBRID: "Híbrido",
-  IRON_3: "Hierro 3",
-  IRON_4: "Hierro 4",
-  IRON_5: "Hierro 5",
-  IRON_6: "Hierro 6",
-  IRON_7: "Hierro 7",
-  IRON_8: "Hierro 8",
-  IRON_9: "Hierro 9",
-  PW: "PW",
-  GW: "GW",
-  SW: "SW",
-  LW: "LW",
-};
+import CLUB_LABEL from "@/lib/club-labels";
 
 export async function POST(req: NextRequest) {
   const { sessionId } = await req.json();
@@ -96,6 +79,11 @@ Respondé en markdown, conciso, mobile-friendly. Tono directo de coach argentino
     where: { id: sessionId },
     data: { aiAnalysis: text },
   });
+
+  // Crear task pendiente "Revisar análisis FlightScope" (idempotente)
+  const { ensureRangeTask } = await import("@/lib/practice-tasks");
+  const clubLabel = CLUB_LABEL[session.club] ?? session.club;
+  await ensureRangeTask(sessionId, clubLabel);
 
   return NextResponse.json({ analysis: text, cached: false });
 }

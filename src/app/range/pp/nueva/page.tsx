@@ -219,8 +219,41 @@ export default function NuevaPPPage() {
         </div>
       </Card>
 
-      <SectionHeader>Drills</SectionHeader>
-      {DRILLS.map((d) => {
+      {(() => {
+        const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
+        const complementarios = DRILLS.filter((d) => !plan.drillTargets[d.type]);
+        const orderedDrills = [...obligatorios, ...complementarios];
+        return (
+          <>
+            {orderedDrills.map((d, i) => {
+              const isFirstObligatorio = i === 0 && obligatorios.length > 0;
+              const isFirstComplementario = i === obligatorios.length;
+              return (
+                <div key={d.type}>
+                  {isFirstObligatorio && (
+                    <SectionHeader>Obligatorios (del plan)</SectionHeader>
+                  )}
+                  {isFirstComplementario && obligatorios.length > 0 && (
+                    <SectionHeader>Complementarios</SectionHeader>
+                  )}
+                  {!isFirstObligatorio && !isFirstComplementario && obligatorios.length === 0 && i === 0 && (
+                    <SectionHeader>Drills</SectionHeader>
+                  )}
+                  {renderDrill(d)}
+                </div>
+              );
+            })}
+          </>
+        );
+      })()}
+
+      <button onClick={save} disabled={busy} className="gf-btn w-full">
+        {busy ? "Guardando..." : "💾 Guardar sesión"}
+      </button>
+    </div>
+  );
+
+  function renderDrill(d: typeof DRILLS[number]) {
         const e = drills[d.type];
         const lvl = levels[d.type];
         const validAttempts = e.attempts.map((a) => parseFloat(a)).filter((n) => !isNaN(n));
@@ -416,11 +449,5 @@ export default function NuevaPPPage() {
             )}
           </Card>
         );
-      })}
-
-      <button onClick={save} disabled={busy} className="gf-btn w-full">
-        {busy ? "Guardando..." : "💾 Guardar sesión"}
-      </button>
-    </div>
-  );
+      }
 }
