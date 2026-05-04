@@ -30,6 +30,9 @@ export default function PlayersClient({ initialPlayers }: { initialPlayers: Play
   const [isMe, setIsMe] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [mergeFrom, setMergeFrom] = useState<{ player: Player; rounds: number } | null>(null);
+  const [mergeInto, setMergeInto] = useState("");
+
   const me = players.find((p) => p.isMe) ?? null;
   const others = players.filter((p) => !p.isMe);
 
@@ -68,13 +71,63 @@ export default function PlayersClient({ initialPlayers }: { initialPlayers: Play
     setBusy(false);
   }
 
-  async function remove(id: string) {
-    if (!confirm("Eliminar jugador?")) return;
-    const res = await fetch(`/api/jugadores/${id}`, { method: "DELETE" });
+  async function remove(p: Player) {
+    if (!confirm(`Eliminar a ${p.name}?`)) return;
+    const res = await fetch(`/api/jugadores/${p.id}`, { method: "DELETE" });
     if (res.ok) {
-      setPlayers((p) => p.filter((x) => x.id !== id));
+      setPlayers((prev) => prev.filter((x) => x.id !== p.id));
       router.refresh();
+      return;
     }
+    if (res.status === 409) {
+      const data = await res.json();
+      // Tiene rondas — abrir modal de fusionar/forzar
+      setMergeFrom({ player: p, rounds: data.roundsCount ?? 0 });
+      setMergeInto("");
+      return;
+    }
+    alert("Error eliminando jugador");
+  }
+
+  async function doMerge() {
+    if (!mergeFrom || !mergeInto) return;
+    setBusy(true);
+    const res = await fetch(`/api/jugadores/${mergeFrom.player.id}/merge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetId: mergeInto }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      alert("Error fusionando");
+      return;
+    }
+    setPlayers((prev) => prev.filter((x) => x.id !== mergeFrom.player.id));
+    setMergeFrom(null);
+    setMergeInto("");
+    router.refresh();
+  }
+
+  async function forceDelete() {
+    if (!mergeFrom) return;
+    if (
+      !confirm(
+        `Esto borra a ${mergeFrom.player.name} Y sus participaciones en ${mergeFrom.rounds} rondas. ¿Seguro?`,
+      )
+    )
+      return;
+    setBusy(true);
+    const res = await fetch(`/api/jugadores/${mergeFrom.player.id}?force=true`, {
+      method: "DELETE",
+    });
+    setBusy(false);
+    if (!res.ok) {
+      alert("Error eliminando");
+      return;
+    }
+    setPlayers((prev) => prev.filter((x) => x.id !== mergeFrom.player.id));
+    setMergeFrom(null);
+    router.refresh();
   }
 
   async function setAsMe(id: string) {
@@ -109,7 +162,7 @@ export default function PlayersClient({ initialPlayers }: { initialPlayers: Play
               Soy yo
             </button>
           )}
-          <button onClick={() => remove(p.id)} className="text-[var(--red)]">
+          <button onClick={() => remove(p)} className="text-[var(--red)]">
             Borrar
           </button>
         </div>
@@ -204,6 +257,86 @@ export default function PlayersClient({ initialPlayers }: { initialPlayers: Play
             </button>
           </div>
         </Card>
+      )}
+
+      {mergeFrom && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+        >
+          <Card className="w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-[var(--muted)]">
+                No se puede borrar
+              </div>
+              <div className="font-semibold mt-1">{mergeFrom.player.name}</div>
+              <div className="text-sm text-[var(--muted)]">
+                Tiene {mergeFrom.rounds} ronda{mergeFrom.rounds === 1 ? "" : "s"} asociada
+                {mergeFrom.rounds === 1 ? "" : "s"}.
+              </div>
+            </div>
+
+            <div className="border-t pt-3">
+              <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-2">
+                Opción A · Fusionar con otro jugador
+              </div>
+              <p className="text-[11px] text-[var(--muted)] mb-2">
+                Mueve sus rondas al jugador elegido y borra este. Útil para duplicados.
+              </p>
+              <select
+                className="gf-input"
+                value={mergeInto}
+                onChange={(e) => setMergeInto(e.target.value)}
+              >
+                <option value="">— Elegir jugador destino —</option>
+                {players
+                  .filter((p) => p.id !== mergeFrom.player.id)
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.isMe ? "(YO)" : ""}
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={doMerge}
+                disabled={!mergeInto || busy}
+                className="gf-btn w-full mt-2"
+              >
+                {busy ? "Fusionando..." : "Fusionar"}
+              </button>
+            </div>
+
+            <div className="border-t pt-3">
+              <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-2">
+                Opción B · Borrar igual
+              </div>
+              <p className="text-[11px] text-[var(--muted)] mb-2">
+                Elimina al jugador y sus participaciones en {mergeFrom.rounds} ronda
+                {mergeFrom.rounds === 1 ? "" : "s"}. Las rondas quedan, pero sin sus datos.
+              </p>
+              <button
+                onClick={forceDelete}
+                disabled={busy}
+                className="gf-btn gf-btn-secondary w-full"
+                style={{ color: "var(--red)" }}
+              >
+                Borrar con sus datos
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                setMergeFrom(null);
+                setMergeInto("");
+              }}
+              disabled={busy}
+              className="text-xs text-[var(--muted)] underline w-full text-center py-1"
+            >
+              Cancelar
+            </button>
+          </Card>
+        </div>
       )}
     </div>
   );

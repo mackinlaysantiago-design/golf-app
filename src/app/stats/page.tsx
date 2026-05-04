@@ -142,7 +142,8 @@ export default async function StatsPage() {
           if (rank > bestRank) bestRank = rank;
         }
       }
-      const club = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[Math.min(bestRank + 1, GO_TO_CLUB_LADDER.length - 1)];
+      // Nivel actual = el último palo donde completaste 9/9 (no el siguiente)
+      const club = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[bestRank];
       currentLevel = PP_CLUB_LABEL[club] ?? club;
     } else if (def.distanceStep) {
       let bestDist = -Infinity;
@@ -152,7 +153,8 @@ export default async function StatsPage() {
         const score = att.length > 0 ? Math.max(...att) : 0;
         if (score === def.scoreOf && d.distance > bestDist) bestDist = d.distance;
       }
-      const dist = bestDist === -Infinity ? def.defaultDistance : bestDist + def.distanceStep;
+      // Nivel actual = última distancia donde completaste el target (no la siguiente)
+      const dist = bestDist === -Infinity ? def.defaultDistance : bestDist;
       currentLevel = `${dist}${def.distanceUnit}`;
     } else {
       currentLevel = `${def.defaultDistance}${def.distanceUnit}`;

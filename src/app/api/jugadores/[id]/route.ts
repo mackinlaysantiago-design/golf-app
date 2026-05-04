@@ -14,11 +14,33 @@ export async function PATCH(
   return NextResponse.json(player);
 }
 
+// DELETE: si el jugador tiene rondas, devuelve 409 a menos que se mande ?force=true,
+// en cuyo caso hace cascade manual (borra RoundPlayers + sus RoundHoles).
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const force = req.nextUrl.searchParams.get("force") === "true";
+
+  const rpCount = await prisma.roundPlayer.count({ where: { playerId: id } });
+
+  if (rpCount > 0 && !force) {
+    return NextResponse.json(
+      {
+        error: "El jugador tiene rondas asociadas",
+        roundsCount: rpCount,
+        canForce: true,
+      },
+      { status: 409 },
+    );
+  }
+
+  if (rpCount > 0 && force) {
+    // Cascade manual: RoundHoles via RoundPlayer (onDelete: Cascade ya configurado)
+    await prisma.roundPlayer.deleteMany({ where: { playerId: id } });
+  }
+
   await prisma.player.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
