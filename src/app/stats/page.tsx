@@ -257,6 +257,48 @@ export default async function StatsPage() {
         )}
       </Card>
 
+      {/* Niveles Scoring Method del jugador */}
+      <SectionHeader>Niveles Scoring Method</SectionHeader>
+      <Card className="!p-3">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Enter SZ
+            </div>
+            <div className="gf-display text-2xl text-[var(--fairway)]">
+              {me.enterSzYds === 0 ? "GIR" : `${me.enterSzYds} yds`}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Down in SZ
+            </div>
+            <div className="gf-display text-2xl text-[var(--fairway)]">
+              ≤ {me.downInSzStrokes} golpes
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              1-Putt circle
+            </div>
+            <div className="gf-display text-2xl text-[var(--fairway)]">
+              {me.onePuttCircleFt} ft
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              2-Putt circle
+            </div>
+            <div className="gf-display text-2xl text-[var(--fairway)]">
+              {me.twoPuttCircleYds} yds
+            </div>
+          </div>
+        </div>
+        <p className="text-[10px] text-[var(--muted)] mt-2">
+          Subís nivel cuando lográs perfect run en una ronda (≥14 hoyos cargados al 100%).
+        </p>
+      </Card>
+
       {/* Tabla drills */}
       <SectionHeader>Drills (PP)</SectionHeader>
       <Card className="!p-2 overflow-x-auto">

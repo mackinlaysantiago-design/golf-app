@@ -54,17 +54,28 @@ export default function NuevaRondaClient({
 
   useEffect(() => {
     if (!me) return;
-    fetch(`/api/jugadores/${me.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((p) => {
-        if (!p) return;
-        if (typeof p.enterSzYds === "number") setEnterSzYds(p.enterSzYds);
-        if (typeof p.downInSzStrokes === "number")
-          setDownInSzStrokes(String(p.downInSzStrokes));
-        if (typeof p.onePuttCircleFt === "number")
-          setOnePuttCircleFt(String(p.onePuttCircleFt));
-        if (typeof p.twoPuttCircleYds === "number")
-          setTwoPuttCircleYds(String(p.twoPuttCircleYds));
+    Promise.all([
+      fetch(`/api/jugadores/${me.id}`).then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/pp/levels").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([p, ppLevels]) => {
+        if (p) {
+          if (typeof p.enterSzYds === "number") setEnterSzYds(p.enterSzYds);
+          if (typeof p.downInSzStrokes === "number")
+            setDownInSzStrokes(String(p.downInSzStrokes));
+        }
+        // 1-Putt y 2-Putt: usar el más estricto entre Player.X y nivel del drill PP
+        const playerOpc = typeof p?.onePuttCircleFt === "number" ? p.onePuttCircleFt : 6;
+        const ppOpc = ppLevels?.ONE_PUTT_CIRCLE?.currentDistance;
+        const opc = typeof ppOpc === "number" && ppOpc > 0 ? Math.min(playerOpc, ppOpc) : playerOpc;
+        setOnePuttCircleFt(String(opc));
+
+        // 2-Putt drill PP está en ft → convertir a yds (1 yd = 3 ft)
+        const playerTpc = typeof p?.twoPuttCircleYds === "number" ? p.twoPuttCircleYds : 20;
+        const ppTpcFt = ppLevels?.TWO_PUTT_CIRCLE?.currentDistance;
+        const ppTpcYds = typeof ppTpcFt === "number" && ppTpcFt > 0 ? Math.round(ppTpcFt / 3) : null;
+        const tpc = ppTpcYds != null ? Math.min(playerTpc, ppTpcYds) : playerTpc;
+        setTwoPuttCircleYds(String(tpc));
       })
       .catch(() => {});
   }, [me]);
@@ -269,7 +280,7 @@ export default function NuevaRondaClient({
       <header>
         <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva ronda</h1>
         <div className="flex gap-2 text-xs mt-1">
-          {[1, 2, 3, 4, 5].map((s) => (
+          {(mode === "SOLO" ? [1, 2, 3, 5] : [1, 2, 3, 4, 5]).map((s) => (
             <span
               key={s}
               className="gf-pill"
@@ -455,7 +466,7 @@ export default function NuevaRondaClient({
               Volver
             </button>
             <button
-              onClick={() => setStep(4)}
+              onClick={() => setStep(mode === "SOLO" ? 5 : 4)}
               className="gf-btn flex-1"
               disabled={!ready}
             >
@@ -598,7 +609,7 @@ export default function NuevaRondaClient({
           </Card>
           <div className="flex gap-2">
             <button
-              onClick={() => setStep(4)}
+              onClick={() => setStep(mode === "SOLO" ? 3 : 4)}
               className="gf-btn gf-btn-secondary flex-1"
             >
               Volver
