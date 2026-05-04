@@ -59,15 +59,17 @@ export default async function RangeStatsPage() {
   }>();
 
   for (const sess of sessions) {
-    if (!byClub.has(sess.club)) {
-      byClub.set(sess.club, { sessionDates: new Set(), shots: [], lastDate: null });
-    }
-    const entry = byClub.get(sess.club)!;
-    entry.sessionDates.add(sess.id);
-    if (!entry.lastDate || sess.date > entry.lastDate) entry.lastDate = sess.date;
     for (const s of sess.shots) {
       if (s.rowType !== "SHOT") continue;
       if (s.carryYds == null) continue;
+      // Cada shot tiene su propio club; fallback a session.club si null (legacy)
+      const club = s.club ?? sess.club;
+      if (!byClub.has(club)) {
+        byClub.set(club, { sessionDates: new Set(), shots: [], lastDate: null });
+      }
+      const entry = byClub.get(club)!;
+      entry.sessionDates.add(sess.id);
+      if (!entry.lastDate || sess.date > entry.lastDate) entry.lastDate = sess.date;
       // Lateral firmado: L = neg, R = pos
       const lat = s.lateralYds == null
         ? null

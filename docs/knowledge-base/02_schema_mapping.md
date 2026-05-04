@@ -1,0 +1,49 @@
+## 3. Mapeo al schema actual
+
+| Concepto | Status | Schema field | Notas | Lecciones |
+|---|---|---|---|---|
+| Scoring Zone (SZ) - Definition (e.g., 100 yards) | ✅ | Round.enterSzYds | Define la distancia en yardas para la Scoring Zone para una ronda específica. | level-1__sec108280_les360913, the-scoring-method-level-2__sec117049_les393056 |
+| Strokes to Enter Scoring Zone per Hole | ✅ | RoundHole.strokesToEnterSz | Registra la cantidad de golpes que le tomó al jugador entrar a la Scoring Zone en un hoyo. | level-1__sec108280_les360913, level-1__sec108280_les360912 |
+| Down in Scoring Zone (Down in SZ) - Target Strokes (e.g., 3 strokes) | ✅ | Round.downInSzStrokes | Define la cantidad de golpes objetivo para 'Down in SZ' para una ronda específica. | level-1__sec108280_les360912, the-scoring-method-level-2__sec117049_les393059 |
+| Strokes Inside Scoring Zone per Hole | ✅ | RoundHole.strokesInsideSz | Registra la cantidad de golpes que le tomó al jugador embocar desde la Scoring Zone en un hoyo. | level-1__sec108280_les360912 |
+| 1-Putt Circle - Player's Personal Target | ✅ | Player.onePuttCircleFt | Almacena la distancia en pies para el 1-Putt Circle como objetivo personal del jugador. | level-1__sec108298_les360925, level-1__sec108298_les360926 |
+| 1-Putt Circle - Round-Specific Target | ✅ | Round.onePuttCircleFt | Almacena la distancia en pies para el 1-Putt Circle para una ronda específica. | level-1__sec108298_les360925, level-1__sec108298_les360926 |
+| Putts Made Inside 1-Putt Circle per Hole | ✅ | RoundHole.puttsInside1PuttCircle | Registra la cantidad de putts embocados dentro del 1-Putt Circle en un hoyo. | level-1__sec108280_les360927 |
+| 2-Putt Circle - Player's Personal Target | ✅ | Player.twoPuttCircleYds | Almacena la distancia en yardas para el 2-Putt Circle como objetivo personal del jugador. | level-1__sec108298_les360925 |
+| 2-Putt Circle - Round-Specific Target | ✅ | Round.twoPuttCircleYds | Almacena la distancia en yardas para el 2-Putt Circle para una ronda específica. | level-1__sec108298_les360925 |
+| Purposeful Practice (PP) Sessions | ✅ | PracticeSession | El modelo `PracticeSession` captura la fecha y notas de una sesión de práctica intencional. | level-1__sec107601_les360916, the-scoring-method-level-2__sec117054_les393072 |
+| PP Drills - 1-Putt Circle | ✅ | PracticeDrill.drillType | El tipo de drill 'ONE_PUTT_CIRCLE' está implementado para registrar esta práctica. | level-1__sec108298_les360925, level-1__sec108298_les360926 |
+| PP Drills - 2-Putt Circle | ✅ | PracticeDrill.drillType | El tipo de drill 'TWO_PUTT_CIRCLE' está implementado para registrar esta práctica. | level-1__sec108298_les360925 |
+| PP Drills - Chipping | ✅ | PracticeDrill.drillType | El tipo de drill 'CHIPPING' está implementado para registrar esta práctica. | level-1__sec108298_les360923, chipping-protocol__sec311104_les1150184 |
+| PP Drills - Wedges (50/70/100 yds) | ✅ | PracticeDrill.drillType | Los tipos de drill 'WEDGES_50', 'WEDGES_70', 'WEDGES_100' están implementados. | level-1__sec108298_les360922 |
+| PP Drills - Go-To Club | ✅ | PracticeDrill.drillType | El tipo de drill 'GO_TO_CLUB' está implementado para registrar esta práctica. | level-1__sec108298_les360922 |
+| PP Drills - Distance/Target/Attempts Tracking | ✅ | PracticeDrill.distance, PracticeDrill.target, PracticeDrill.attemptsJson | Campos para registrar la distancia, el objetivo y los resultados de los intentos de cada drill. | level-1__sec108298_les360921, the-scoring-method-level-2__sec117054_les393074 |
+| Practice Tasks from Round Review (Homework) | ✅ | PracticeTask | El modelo `PracticeTask` permite crear tareas de práctica basadas en el rendimiento de la ronda. | level-1__sec108298_les360921, level-1__sec108280_les360927 |
+| Gears of the Game - Target for Entering SZ (100, 50, 25 yds, GIR) | 🟡 | Round.enterSzYds, RoundHole.distanceInRegYds | Mientras `Round.enterSzYds` define la SZ, no hay un campo explícito para registrar la 'Gear' objetivo (e.g., 50yds, 25yds, GIR) para cada golpe de entrada a SZ. `RoundHole.distanceInRegYds` podría inferirlo. | the-scoring-method-level-2__sec117049_les393056, the-scoring-method-level-2__sec117049_les393061 |
+| Gears of the Game - Target for Down in SZ (Down in 3, Down in 2 from 100/125/150 yds) | 🟡 | Round.downInSzStrokes | El campo `Round.downInSzStrokes` define el objetivo de golpes, pero no la distancia específica (e.g., 125yds, 150yds) desde la que se intentó el 'Down in 2'. | the-scoring-method-level-2__sec117049_les393059, the-scoring-method-level-2__sec117049_les393061 |
+| 10 Keys to Scoring - Rules Broken | ✅ | RoundHole.keysBroken | El campo JSON `keysBroken` en `RoundHole` está diseñado para registrar las 'Keys' rotas en un hoyo. | level-1__sec108280_les360936, the-scoring-method-level-2__sec117049_les393066 |
+| Proximity of First Putt | ✅ | RoundHole.firstPuttDistanceFt | Registra la distancia del primer putt en pies, una métrica clave para el análisis de proximidad. | the-scoring-method-level-2__sec117054_les393079, the-scoring-method-level-2__sec117049_les393066 |
+| Total Putts per Hole | ✅ | RoundHole.putts | Registra el número total de putts en un hoyo. | level-1__sec108280_les360927 |
+| Golfing Thermostat (Score Range) | ❌ | null | No hay un campo directo para registrar el rango de score habitual del jugador. Podría ser un campo en `Player` o derivarse de `Round`s anteriores. | the-scoring-method-level-2__sec117056_les393095 |
+| Visualizing Perfect Rounds | ❌ | Round.notes | No hay un campo específico para registrar rondas visualizadas. Podría usarse `Round.notes` o `Player.notes` con un formato específico. | the-scoring-method-level-2__sec117056_les393096 |
+| Beliefs / Self-Talk Tracking | ❌ | Round.notes, PracticeSession.notes | No hay un campo dedicado para registrar creencias o pensamientos negativos/positivos. Podría usarse campos de `notes` con un formato específico. | the-scoring-method-level-2__sec117056_les393097 |
+| Pre-shot / Post-shot Routine | ❌ | Player.notes, PracticeSession.notes | No hay un campo específico para describir o registrar la adherencia a rutinas pre/post-shot. Podría usarse `notes`. | mental-mastery__sec227643_les840381 |
+| Chipping Protocol Drills (One-Handed, Club in Front) | 🟡 | PracticeDrill.drillType, PracticeDrill.notes | El `drillType` 'CHIPPING' existe, pero los detalles específicos de estos drills (e.g., con una mano, palo delante) tendrían que ir en `PracticeDrill.notes`. | chipping-protocol__sec311104_les1150183, chipping-protocol__sec311104_les1150184 |
+| 7-Day Putting Challenge Drills (Start Line, Putting Sword, Lag Putting Pace) | 🟡 | PracticeDrill.drillType, PracticeDrill.notes | Los `drillType` 'ONE_PUTT_CIRCLE' y 'TWO_PUTT_CIRCLE' cubren parte, pero los detalles de los drills específicos (e.g., regla metálica, estacas) irían en `PracticeDrill.notes`. | 7-day-putting-challenge__sec177099_les658758, 7-day-putting-challenge__sec177099_les658759, 7-day-putting-challenge__sec177099_les658761 |
+| Yardage Gapping Drills | 🟡 | PracticeDrill.drillType, PracticeDrill.club, PracticeDrill.attemptsJson | No hay un `drillType` específico para 'Yardage Gapping'. Podría usarse un tipo genérico o extender el enum. `attemptsJson` podría registrar las distancias logradas. | the-scoring-method-level-2__sec117054_les393077 |
+| Player Handicap Index | ✅ | Player.hcpIndex | Almacena el índice de handicap del jugador. | level-1__sec108280_les360928 |
+| Round Player Course Handicap | ✅ | RoundPlayer.courseHcp | Almacena el course handicap del jugador para la ronda principal. | level-1__sec108280_les360912 |
+| Round Player Modality Handicaps | ✅ | RoundPlayer.modalityHcps | Almacena los course handicaps del jugador para diferentes modalidades de juego en la ronda. | level-1__sec108280_les360912 |
+| Best Parts of the Round (Reflection) | ✅ | Round.bestParts | Campo JSON para registrar los aspectos mejor jugados de la ronda, parte de la reflexión post-ronda. | the-scoring-method-level-2__sec117056_les393100 |
+| Best Shot of the Round (Reflection) | ✅ | Round.bestShot | Campo para describir el mejor tiro del día, parte de la reflexión post-ronda. | the-scoring-method-level-2__sec117056_les393100 |
+| Penalty Strokes per Hole | ✅ | RoundHole.penaltyStrokes | Registra los golpes de penalidad incurridos en un hoyo. | level-1__sec108280_les360935 |
+| Practice - Training Hard to Play Easy | ✅ | PracticeDrill.timesToAchieve, PracticeDrill.timesAchieved, PracticeDrill.leveledUp | Los campos de `PracticeDrill` permiten establecer objetivos y registrar el progreso, reflejando la filosofía de entrenamiento con propósito. | level-1__sec107601_les360916, the-scoring-method-level-2__sec117054_les393072 |
+| Practice - One Ball, Expectations, Pressure | ✅ | PracticeDrill.target, PracticeDrill.attemptsJson | El `target` y `attemptsJson` en `PracticeDrill` permiten simular la presión y registrar resultados como si fuera un juego. | level-1__sec108298_les360926, the-scoring-method-level-2__sec117054_les393072 |
+| Real Game of Golf (Tension vs. Technique) | ❌ | null | Concepto filosófico central, no se mapea directamente a un campo de esquema, pero influye en el diseño de la app y la interpretación de los datos. | level-1__sec107601_les360919, level-1__sec107601_les360918 |
+| Golfing Mindset (Emotional vs. Mental) | ❌ | null | Concepto filosófico central, no se mapea directamente a un campo de esquema, pero es fundamental para la interpretación del rendimiento. | level-1__sec107601_les360918, mental-mastery__sec227643_les840377 |
+| Controlling Internal vs. External | ❌ | null | Concepto de mentalidad, no se mapea directamente a un campo de esquema. Podría influir en las notas de reflexión. | mental-mastery__sec227643_les840380 |
+
+
+
+¡Dale, acá va el roadmap accionable para tu app de golf, con un toque bien argentino!
+
