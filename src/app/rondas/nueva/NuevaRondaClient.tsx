@@ -46,28 +46,28 @@ export default function NuevaRondaClient({
     me ? [{ id: me.id, hcp: me.hcpIndex?.toString() ?? "", courseHcp: "" }] : [],
   );
   const [pairs, setPairs] = useState<string>("solo"); // "solo" | "individual" | "parejas"
+  // Defaults pre-fill desde Player.isMe (niveles que va subiendo con cada perfect run)
   const [enterSzYds, setEnterSzYds] = useState(50);
   const [downInSzStrokes, setDownInSzStrokes] = useState("3");
-  const [onePuttCircleFt, setOnePuttCircleFt] = useState("3");
-  const [twoPuttCircleYds, setTwoPuttCircleYds] = useState("10");
+  const [onePuttCircleFt, setOnePuttCircleFt] = useState("6");
+  const [twoPuttCircleYds, setTwoPuttCircleYds] = useState("20");
 
-  // Cargar nivel actual de PP para 1-Putt y 2-Putt — refleja la realidad del jugador
   useEffect(() => {
-    fetch("/api/pp/levels")
-      .then((r) => r.json())
-      .then((data) => {
-        const onePc = data?.ONE_PUTT_CIRCLE?.currentDistance;
-        if (typeof onePc === "number" && onePc > 0) {
-          setOnePuttCircleFt(String(onePc));
-        }
-        // TWO_PUTT_CIRCLE en el drill PP está en ft. Convertir a yds (1 yd = 3 ft).
-        const twoPcFt = data?.TWO_PUTT_CIRCLE?.currentDistance;
-        if (typeof twoPcFt === "number" && twoPcFt > 0) {
-          setTwoPuttCircleYds(String(Math.round(twoPcFt / 3)));
-        }
+    if (!me) return;
+    fetch(`/api/jugadores/${me.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => {
+        if (!p) return;
+        if (typeof p.enterSzYds === "number") setEnterSzYds(p.enterSzYds);
+        if (typeof p.downInSzStrokes === "number")
+          setDownInSzStrokes(String(p.downInSzStrokes));
+        if (typeof p.onePuttCircleFt === "number")
+          setOnePuttCircleFt(String(p.onePuttCircleFt));
+        if (typeof p.twoPuttCircleYds === "number")
+          setTwoPuttCircleYds(String(p.twoPuttCircleYds));
       })
       .catch(() => {});
-  }, []);
+  }, [me]);
   // Apuestas: por familia (MATCH/MEDAL/STABLEFORD) tenemos enabled + monto Total + monto chico (ida=vuelta)
   type BetFamily = {
     enabled: boolean;

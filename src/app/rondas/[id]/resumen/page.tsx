@@ -8,6 +8,8 @@ import Link from "next/link";
 import DeleteButton from "./DeleteButton";
 import ResumenActions from "./ResumenActions";
 import StandingsTabs from "./StandingsTabs";
+import LevelUpCard, { type PerfectRun } from "./LevelUpCard";
+import { nextLevel, type SmField } from "@/lib/sm-levels";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,65 @@ export default async function ResumenPage({
   };
   const kpis = computeRoundKPIs(holes, config);
   const ppPlan = computePPPlan(holes, config, kpis);
+
+  // Detectar perfect runs solo si "me" es el jugador de isMe (Santi),
+  // y mostrar el card para subir nivel. Mínimo 14 hoyos con datos.
+  const MIN_HOLES = 14;
+  const perfectRuns: PerfectRun[] = [];
+  const alreadyApplied: SmField[] = [];
+  if (me.player.isMe) {
+    const checks: { field: SmField; label: string; ok: boolean; cumplidos: number; total: number }[] = [
+      {
+        field: "enterSzYds",
+        label: "Enter SZ",
+        ok: kpis.enterSzDataHoles >= MIN_HOLES && kpis.enterSzCount === kpis.enterSzDataHoles,
+        cumplidos: kpis.enterSzCount,
+        total: kpis.enterSzDataHoles,
+      },
+      {
+        field: "downInSzStrokes",
+        label: "Down in SZ",
+        ok: kpis.downInSzDataHoles >= MIN_HOLES && kpis.downInSzCount === kpis.downInSzDataHoles,
+        cumplidos: kpis.downInSzCount,
+        total: kpis.downInSzDataHoles,
+      },
+      {
+        field: "onePuttCircleFt",
+        label: "1-Putt Circle",
+        ok:
+          kpis.onePuttCircleDataHoles >= MIN_HOLES &&
+          kpis.missedIn1PuttCircleHoles === 0,
+        cumplidos: kpis.onePuttCircleDataHoles - kpis.missedIn1PuttCircleHoles,
+        total: kpis.onePuttCircleDataHoles,
+      },
+      {
+        field: "twoPuttCircleYds",
+        label: "2-Putt Circle (sin 3-putts)",
+        ok: kpis.puttsDataHoles >= MIN_HOLES && kpis.threePuttsHoles === 0,
+        cumplidos: kpis.puttsDataHoles - kpis.threePuttsHoles,
+        total: kpis.puttsDataHoles,
+      },
+    ];
+    const meFull = await prisma.player.findUnique({ where: { id: me.player.id } });
+    for (const c of checks) {
+      if (!c.ok) continue;
+      const currentLevel = config[c.field];
+      const next = nextLevel(c.field, currentLevel);
+      if (next == null) continue;
+      perfectRuns.push({
+        field: c.field,
+        label: c.label,
+        current: currentLevel,
+        next,
+        cumplidos: c.cumplidos,
+        total: c.total,
+      });
+      // Si el Player ya tiene este field == next, asumimos que ya aplicó el level-up
+      if (meFull && meFull[c.field] === next) {
+        alreadyApplied.push(c.field);
+      }
+    }
+  }
 
   // Standings (todos los jugadores)
   const courseHcpMap = round.course.holes.map((h) => ({
@@ -295,6 +356,14 @@ export default async function ResumenPage({
         individual={standingsBySec}
         pairs={pairsBySec}
       />
+
+      {perfectRuns.length > 0 && (
+        <LevelUpCard
+          playerId={me.player.id}
+          perfectRuns={perfectRuns}
+          alreadyApplied={alreadyApplied}
+        />
+      )}
 
       <SectionHeader>KPIs Scoring Method</SectionHeader>
       <div className="grid grid-cols-2 gap-3">

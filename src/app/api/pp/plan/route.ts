@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { computeRoundKPIs, computePPPlan, type HoleData } from "@/lib/scoring-method";
 import { type DrillType } from "@/lib/pp-drills";
 
+export const dynamic = "force-dynamic";
+
 // Mapeo PP code → drills sugeridos para atacarlo
 const PP_TO_DRILLS: Record<string, DrillType[]> = {
   A: ["GO_TO_CLUB"],
