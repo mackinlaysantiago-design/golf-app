@@ -83,7 +83,7 @@ model Player {
   // Niveles personales del Scoring Method — suben cuando lográs perfect run en una ronda
   enterSzYds        Int @default(50)  // yds que define "Enter SZ"
   downInSzStrokes   Int @default(3)   // golpes desde SZ que define "Down in SZ"
-  onePuttCircleFt   Int @default(6)   // ft del 1-putt circle
+  onePuttCircleFt   Int @default(3)   // ft del 1-putt circle
   twoPuttCircleYds  Int @default(20)  // yds del 2-putt circle
   createdAt       DateTime      @default(now())
   roundEntries    RoundPlayer[]
