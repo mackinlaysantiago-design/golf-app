@@ -84,12 +84,36 @@ export async function POST(
       });
     }
 
+    // Actualizar `pairs` JSON en rondas 4P: reemplazar sourceId por targetId
+    const roundsWithPairs = await tx.round.findMany({
+      where: { mode: "FOUR_P", pairs: { not: null } },
+      select: { id: true, pairs: true },
+    });
+    let pairsUpdated = 0;
+    for (const r of roundsWithPairs) {
+      try {
+        const parsed: string[][] = JSON.parse(r.pairs!);
+        if (!parsed.flat().includes(sourceId)) continue;
+        const replaced = parsed.map((pair) =>
+          pair.map((pid) => (pid === sourceId ? targetId : pid)),
+        );
+        await tx.round.update({
+          where: { id: r.id },
+          data: { pairs: JSON.stringify(replaced) },
+        });
+        pairsUpdated++;
+      } catch {
+        // pairs JSON inválido — skip
+      }
+    }
+
     // Borrar source
     await tx.player.delete({ where: { id: sourceId } });
 
     return {
       moved: movableIds.length,
       conflicts: conflictingIds.length,
+      pairsUpdated,
     };
   });
 
