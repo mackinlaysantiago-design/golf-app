@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Card, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import PendingTasks from "./PendingTasks";
+import { dedupPendingRoundTasksByCode } from "@/lib/practice-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,9 @@ const CLUB_LABEL: Record<string, string> = {
 };
 
 export default async function RangePage() {
+  // Limpia tasks duplicadas/menos exigentes antes de listar
+  await dedupPendingRoundTasksByCode();
+
   const [sessions, pendingTasks] = await Promise.all([
     prisma.rangeSession.findMany({
       orderBy: { date: "desc" },
