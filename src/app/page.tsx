@@ -19,12 +19,12 @@ async function getDashboardData() {
     },
   });
 
-  // Ronda en curso: la más reciente con < 18 hoyos cargados
+  // Ronda en curso: la más reciente con menos hoyos cargados que los planificados (9 o 18)
   const inProgressRound = recentRounds.find((r) => {
     const meRP = r.players[0];
     if (!meRP) return false;
     const played = meRP.holes.filter((h) => h.score && h.score > 0).length;
-    return played < 18;
+    return played < r.holesPlayed;
   }) ?? null;
 
   // Última ronda completada para los KPIs (saltea las en curso)
@@ -111,7 +111,7 @@ export default async function HomePage() {
               <div className="text-xs opacity-90 gf-mono">
                 {inProgressRound.players[0]?.holes.filter(
                   (h) => h.score && h.score > 0,
-                ).length}/18 hoyos · seguir cargando
+                ).length}/{inProgressRound.holesPlayed} hoyos · seguir cargando
               </div>
             </div>
             <span className="text-2xl">›</span>

@@ -45,6 +45,23 @@ export default function NuevaRondaClient({
   const [mode, setMode] = useState<Mode>("SOLO");
   const [modality, setModality] = useState("MEDAL");
   const [tee, setTee] = useState("BLANCO");
+  const [holesPlayed, setHolesPlayed] = useState<9 | 18>(18);
+  const [nineWhich, setNineWhich] = useState<"IDA" | "VUELTA">("IDA");
+  // Cuando cambian holesPlayed/nineWhich, actualizar la modalidad principal
+  useEffect(() => {
+    setModality((prev) => {
+      const base = prev.replace(/_IDA$|_VUELTA$/, "");
+      return holesPlayed === 9 ? `${base}_${nineWhich}` : base;
+    });
+    // Recalcular CH con la nueva modalidad
+    selectedPlayers.forEach((p, i) => {
+      if (p.hcp) {
+        const n = parseFloat(p.hcp);
+        if (!isNaN(n)) lookupCourseHcp(i, n);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holesPlayed, nineWhich]);
   const [selectedPlayers, setSelectedPlayers] = useState<{ id: string; hcp: string; courseHcp: string }[]>(
     me ? [{ id: me.id, hcp: me.hcpIndex?.toString() ?? "", courseHcp: "" }] : [],
   );
@@ -103,7 +120,10 @@ export default function NuevaRondaClient({
       // Re-elegir modality principal para lookup HCP
       const priority: ("MEDAL" | "STABLEFORD")[] = ["MEDAL", "STABLEFORD"];
       const primaryFam = priority.find((p) => next[p].enabled) ?? "MEDAL";
-      const primary = primaryFam; // usar el "Total" para lookup
+      // Si juega 9 hoyos, usar la modalidad de ida o vuelta correspondiente
+      const primary = holesPlayed === 9
+        ? `${primaryFam}_${nineWhich}`
+        : primaryFam;
       if (primary !== modality) {
         setModality(primary);
         selectedPlayers.forEach((p, i) => {
@@ -212,6 +232,8 @@ export default function NuevaRondaClient({
       mode,
       modality,
       tee,
+      holesPlayed,
+      nineWhich: holesPlayed === 9 ? nineWhich : null,
       enterSzYds,
       downInSzStrokes: parseInt(downInSzStrokes) || 3,
       onePuttCircleFt: parseInt(onePuttCircleFt) || 6,
@@ -414,6 +436,48 @@ export default function NuevaRondaClient({
             <p className="text-[10px] text-[var(--muted)] mt-2">
               La modalidad de juego se elige en el siguiente paso (podés marcar varias).
             </p>
+          </Card>
+
+          <Card>
+            <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
+              Hoyos a jugar
+            </label>
+            <div className="flex gap-2 mt-1">
+              {([18, 9] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="flex-1 gf-btn"
+                  style={{
+                    background: holesPlayed === n ? "var(--fairway)" : "var(--white)",
+                    color: holesPlayed === n ? "white" : "var(--fairway)",
+                    border: "1px solid var(--border)",
+                  }}
+                  onClick={() => setHolesPlayed(n)}
+                >
+                  {n} hoyos
+                </button>
+              ))}
+            </div>
+            {holesPlayed === 9 && (
+              <div className="flex gap-2 mt-2">
+                {(["IDA", "VUELTA"] as const).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className="flex-1 gf-btn"
+                    style={{
+                      background: nineWhich === w ? "var(--fairway)" : "var(--white)",
+                      color: nineWhich === w ? "white" : "var(--fairway)",
+                      border: "1px solid var(--border)",
+                    }}
+                    onClick={() => setNineWhich(w)}
+                  >
+                    {w === "IDA" ? "Ida (1-9)" : "Vuelta (10-18)"}
+                  </button>
+                ))}
+              </div>
+            )}
           </Card>
           <div className="flex gap-2">
             <button

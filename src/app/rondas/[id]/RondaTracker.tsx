@@ -47,6 +47,8 @@ type Round = {
   mode: string;
   courseId: string;
   tee: string;
+  holesPlayed: number;
+  nineWhich: string | null;
   enterSzYds: number;
   downInSzStrokes: number;
   onePuttCircleFt: number;
@@ -70,7 +72,9 @@ type FieldKey =
 
 export default function RondaTracker({ round }: { round: Round }) {
   const router = useRouter();
-  const [currentHole, setCurrentHole] = useState(1);
+  const [currentHole, setCurrentHole] = useState(
+    round.holesPlayed === 9 && round.nineWhich === "VUELTA" ? 10 : 1,
+  );
   const [busy, setBusy] = useState(false);
 
   // Estado local: { roundPlayerId: { holeNumber: { field: value } } }
@@ -125,7 +129,15 @@ export default function RondaTracker({ round }: { round: Round }) {
 
   const meRP = round.players.find((rp) => rp.player.isMe) ?? round.players[0];
   const isSolo = round.mode === "SOLO";
-  const courseHoles = round.course.holes;
+  // Filtrar hoyos según 9 (Ida 1-9 o Vuelta 10-18) o 18 completos
+  const allCourseHoles = round.course.holes;
+  const courseHoles = round.holesPlayed === 9
+    ? (round.nineWhich === "VUELTA"
+        ? allCourseHoles.filter((h) => h.number >= 10)
+        : allCourseHoles.filter((h) => h.number <= 9))
+    : allCourseHoles;
+  const minHole = courseHoles[0]?.number ?? 1;
+  const maxHole = courseHoles[courseHoles.length - 1]?.number ?? 18;
   const currentHoleInfo = courseHoles.find((h) => h.number === currentHole);
 
   function toggleKey(rpId: string, hole: number, keyId: number) {
@@ -381,9 +393,9 @@ export default function RondaTracker({ round }: { round: Round }) {
   const nav = (
     <div className="flex items-center gap-2 sticky top-0 z-30 bg-[var(--sand)] py-2 -mx-4 px-4">
       <button
-        onClick={() => setCurrentHole((h) => Math.max(1, h - 1))}
+        onClick={() => setCurrentHole((h) => Math.max(minHole, h - 1))}
         className="gf-btn gf-btn-secondary !px-3"
-        disabled={currentHole === 1}
+        disabled={currentHole === minHole}
       >
         ‹
       </button>
@@ -399,9 +411,9 @@ export default function RondaTracker({ round }: { round: Round }) {
         ))}
       </select>
       <button
-        onClick={() => setCurrentHole((h) => Math.min(18, h + 1))}
+        onClick={() => setCurrentHole((h) => Math.min(maxHole, h + 1))}
         className="gf-btn !px-3"
-        disabled={currentHole === 18}
+        disabled={currentHole === maxHole}
       >
         ›
       </button>
@@ -978,7 +990,7 @@ export default function RondaTracker({ round }: { round: Round }) {
             <button
               onClick={() => {
                 saveAll();
-                if (currentHole < 18) setCurrentHole(currentHole + 1);
+                if (currentHole < maxHole) setCurrentHole(currentHole + 1);
               }}
               className="gf-btn gf-btn-secondary"
             >

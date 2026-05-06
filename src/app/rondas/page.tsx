@@ -14,11 +14,11 @@ export default async function RondasPage() {
     },
   });
 
-  // Marcar "en curso" si el jugador "yo" tiene <18 hoyos con score
+  // Marcar "en curso" si el jugador "yo" tiene menos hoyos con score que los planificados (9 o 18)
   const enriched = rounds.map((r) => {
     const meRP = r.players.find((rp) => rp.player.id === me?.id) ?? r.players[0];
     const holesWithScore = meRP.holes.filter((h) => h.score && h.score > 0).length;
-    const inProgress = holesWithScore > 0 && holesWithScore < 18;
+    const inProgress = holesWithScore > 0 && holesWithScore < r.holesPlayed;
     const notStarted = holesWithScore === 0;
     return { round: r, holesWithScore, inProgress, notStarted };
   });
@@ -51,7 +51,7 @@ export default async function RondasPage() {
                     <div className="font-medium flex items-center gap-2">
                       {r.course.name}
                       <Pill variant="accent">
-                        {notStarted ? "Sin empezar" : `${holesWithScore}/18`}
+                        {notStarted ? "Sin empezar" : `${holesWithScore}/${r.holesPlayed}`}
                       </Pill>
                     </div>
                     <div className="text-xs text-[var(--muted)] gf-mono">
