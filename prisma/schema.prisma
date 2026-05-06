@@ -102,6 +102,7 @@ model Round {
   // 9 o 18 hoyos — define cuándo la ronda se considera completa
   holesPlayed Int    @default(18)
   nineWhich   String? // IDA | VUELTA — solo cuando holesPlayed=9
+  closedAt    DateTime? // marca explícita de "ronda finalizada"
   // Configs Scoring Method (por ronda — clave de tu planilla)
   enterSzYds       Int @default(50)  // yds que define "Enter SZ"
   downInSzStrokes  Int @default(3)   // golpes desde SZ que define "Down in SZ"

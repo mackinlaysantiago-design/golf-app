@@ -14,12 +14,13 @@ export default async function RondasPage() {
     },
   });
 
-  // Marcar "en curso" si el jugador "yo" tiene menos hoyos con score que los planificados (9 o 18)
+  // Marcar "en curso" si la ronda no fue cerrada explícitamente (closedAt == null)
   const enriched = rounds.map((r) => {
     const meRP = r.players.find((rp) => rp.player.id === me?.id) ?? r.players[0];
     const holesWithScore = meRP.holes.filter((h) => h.score && h.score > 0).length;
-    const inProgress = holesWithScore > 0 && holesWithScore < r.holesPlayed;
-    const notStarted = holesWithScore === 0;
+    const isClosed = r.closedAt != null;
+    const inProgress = !isClosed && holesWithScore > 0;
+    const notStarted = !isClosed && holesWithScore === 0;
     return { round: r, holesWithScore, inProgress, notStarted };
   });
 

@@ -49,6 +49,7 @@ type Round = {
   tee: string;
   holesPlayed: number;
   nineWhich: string | null;
+  closedAt: Date | null;
   enterSzYds: number;
   downInSzStrokes: number;
   onePuttCircleFt: number;
@@ -1001,6 +1002,7 @@ export default function RondaTracker({ round }: { round: Round }) {
           <button
             onClick={async () => {
               await saveAll();
+              await fetch(`/api/rondas/${round.id}/close`, { method: "POST" });
               router.push(`/rondas/${round.id}/resumen`);
             }}
             className="gf-btn w-full mt-2"

@@ -19,8 +19,9 @@ async function getDashboardData() {
     },
   });
 
-  // Ronda en curso: la más reciente con menos hoyos cargados que los planificados (9 o 18)
+  // Ronda en curso: la más reciente sin closedAt y con al menos 1 hoyo cargado o todavía sin completar
   const inProgressRound = recentRounds.find((r) => {
+    if (r.closedAt) return false;
     const meRP = r.players[0];
     if (!meRP) return false;
     const played = meRP.holes.filter((h) => h.score && h.score > 0).length;
