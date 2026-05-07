@@ -46,30 +46,30 @@ export default async function LabsMapsPage() {
         {courses.map((c) => {
           const cargados = c.mapPoints.length;
           return (
-            <Link key={c.id} href={`/labs/maps/${c.id}`}>
-              <Card className="!p-3">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">{c.name}</div>
-                    <div className="text-xs text-[var(--muted)] gf-mono mt-0.5">
-                      {cargados > 0
-                        ? `${cargados}/18 hoyos con coords`
-                        : "sin coords cargadas"}
-                    </div>
+            <Card key={c.id} className="!p-3 space-y-2">
+              <Link
+                href={`/labs/maps/${c.id}`}
+                className="flex justify-between items-center"
+              >
+                <div>
+                  <div className="font-semibold">{c.name}</div>
+                  <div className="text-xs text-[var(--muted)] gf-mono mt-0.5">
+                    {cargados > 0
+                      ? `${cargados}/18 hoyos con coords`
+                      : "sin coords cargadas"}
                   </div>
-                  <span className="text-[var(--muted)]">›</span>
                 </div>
-                {cargados > 0 && cargados >= 9 && (
-                  <Link
-                    href={`/labs/maps/${c.id}/play`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-[11px] text-[var(--fairway)] underline mt-2 inline-block"
-                  >
-                    📍 Usar GPS en cancha →
-                  </Link>
-                )}
-              </Card>
-            </Link>
+                <span className="text-[var(--muted)]">›</span>
+              </Link>
+              {cargados >= 9 && (
+                <Link
+                  href={`/labs/maps/${c.id}/play`}
+                  className="text-[11px] text-[var(--fairway)] underline inline-block"
+                >
+                  📍 Usar GPS en cancha →
+                </Link>
+              )}
+            </Card>
           );
         })}
       </div>
