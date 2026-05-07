@@ -7,16 +7,31 @@ import {
   DRILLS,
   GO_TO_CLUB_LADDER,
   CLUB_LABEL,
-  setScore,
   type DrillType,
+  type DrillDef,
 } from "@/lib/pp-drills";
+
+// Estado de input por drill: vamos a usar shapes distintos por formato.
+// Para simplificar, manejamos un único objeto por drill.
+type StreakRow = { distance: string; streak: string };
+type RatioLowerRow = { distance: string; strokes: string; balls: string };
+type RatioHigherRow = { inTarget: string; balls: string };
+type LegacyRow = { value: string };
 
 type DrillEntry = {
   enabled: boolean;
+  // Streak
+  streakRows?: StreakRow[];
+  // RatioLower
+  ratioLowerRows?: RatioLowerRow[];
+  // RatioHigher
+  ratioHigherRows?: RatioHigherRow[];
+  // Legacy (Go-To Club): cada intento es un score 0-9
+  legacyRows?: LegacyRow[];
+  // Para legacy
   distance: string;
   club: string;
-  timesToAchieve: string; // veces a lograr el target (del PP plan)
-  attempts: string[];
+  timesToAchieve: string;
   notes: string;
 };
 
@@ -26,6 +41,9 @@ type LevelInfo = {
   currentClub?: string;
   bestAtCurrent: number | null;
   bestEver: number | null;
+  bestStreakByDist?: Record<number, number>;
+  bestRatioByDist?: Record<number, { strokes: number; balls: number; ratio: number }>;
+  bestRatio?: { inTarget: number; balls: number; ratio: number } | null;
 };
 
 type PlanInfo = {
@@ -33,6 +51,26 @@ type PlanInfo = {
   lastRoundDate?: string;
   lastRoundCourse?: string;
 };
+
+function emptyEntry(d: DrillDef): DrillEntry {
+  const base = {
+    enabled: false,
+    distance: String(d.defaultDistance),
+    club: d.type === "GO_TO_CLUB" ? GO_TO_CLUB_LADDER[0] : "",
+    timesToAchieve: "1",
+    notes: "",
+  };
+  if (d.format === "STREAK_BY_DIST") {
+    return { ...base, streakRows: [{ distance: String(d.defaultDistance), streak: "" }] };
+  }
+  if (d.format === "RATIO_LOWER_BY_DIST") {
+    return { ...base, ratioLowerRows: [{ distance: String(d.defaultDistance), strokes: "", balls: "" }] };
+  }
+  if (d.format === "RATIO_HIGHER") {
+    return { ...base, ratioHigherRows: [{ inTarget: "", balls: "" }] };
+  }
+  return { ...base, legacyRows: [{ value: "" }] };
+}
 
 export default function NuevaPPPage() {
   const router = useRouter();
@@ -43,22 +81,10 @@ export default function NuevaPPPage() {
   const [plan, setPlan] = useState<PlanInfo>({ drillTargets: {} });
 
   const initial: Record<DrillType, DrillEntry> = Object.fromEntries(
-    DRILLS.map((d) => [
-      d.type,
-      {
-        enabled: false,
-        distance: String(d.defaultDistance),
-        club: d.type === "GO_TO_CLUB" ? GO_TO_CLUB_LADDER[0] : "",
-        timesToAchieve: "1",
-        attempts: [""],
-        notes: "",
-      },
-    ]),
+    DRILLS.map((d) => [d.type, emptyEntry(d)]),
   ) as Record<DrillType, DrillEntry>;
-
   const [drills, setDrills] = useState(initial);
 
-  // Cargar niveles actuales + plan de la última ronda
   useEffect(() => {
     Promise.all([
       fetch("/api/pp/levels").then((r) => r.json()),
@@ -75,14 +101,20 @@ export default function NuevaPPPage() {
           for (const drill of DRILLS) {
             const lvl = levelsData[drill.type];
             const planTarget = targets[drill.type];
-            // Pre-llenar distancias/palos con nivel actual
+            // Pre-llenar distancia inicial con nivel actual
             if (lvl?.currentDistance != null) {
-              next[drill.type] = { ...next[drill.type], distance: String(lvl.currentDistance) };
+              const dStr = String(lvl.currentDistance);
+              next[drill.type] = { ...next[drill.type], distance: dStr };
+              if (drill.format === "STREAK_BY_DIST") {
+                next[drill.type].streakRows = [{ distance: dStr, streak: "" }];
+              }
+              if (drill.format === "RATIO_LOWER_BY_DIST") {
+                next[drill.type].ratioLowerRows = [{ distance: dStr, strokes: "", balls: "" }];
+              }
             }
             if (lvl?.currentClub) {
               next[drill.type] = { ...next[drill.type], club: lvl.currentClub };
             }
-            // Pre-tildar y setear timesToAchieve si está en el plan
             if (planTarget) {
               next[drill.type] = {
                 ...next[drill.type],
@@ -97,33 +129,97 @@ export default function NuevaPPPage() {
       .catch(() => {});
   }, []);
 
-  function update(type: DrillType, field: keyof DrillEntry, value: string | boolean | string[]) {
-    setDrills((prev) => ({
-      ...prev,
-      [type]: { ...prev[type], [field]: value },
-    }));
+  function update<T extends keyof DrillEntry>(type: DrillType, field: T, value: DrillEntry[T]) {
+    setDrills((prev) => ({ ...prev, [type]: { ...prev[type], [field]: value } }));
   }
 
-  function setAttempt(type: DrillType, idx: number, value: string) {
-    const next = [...drills[type].attempts];
-    next[idx] = value;
-    update(type, "attempts", next);
+  // ===== Streak rows =====
+  function addStreakRow(type: DrillType) {
+    const e = drills[type];
+    const last = e.streakRows?.[e.streakRows.length - 1];
+    update(type, "streakRows", [...(e.streakRows ?? []), { distance: last?.distance ?? e.distance, streak: "" }]);
   }
-  function addAttempt(type: DrillType) {
-    update(type, "attempts", [...drills[type].attempts, ""]);
+  function setStreakRow(type: DrillType, idx: number, field: keyof StreakRow, value: string) {
+    const next = [...(drills[type].streakRows ?? [])];
+    next[idx] = { ...next[idx], [field]: value };
+    update(type, "streakRows", next);
   }
-  function removeAttempt(type: DrillType, idx: number) {
-    const next = drills[type].attempts.filter((_, i) => i !== idx);
-    update(type, "attempts", next.length > 0 ? next : [""]);
+  function removeStreakRow(type: DrillType, idx: number) {
+    const next = (drills[type].streakRows ?? []).filter((_, i) => i !== idx);
+    update(type, "streakRows", next.length > 0 ? next : [{ distance: drills[type].distance, streak: "" }]);
+  }
+
+  // ===== Ratio Lower rows =====
+  function addRatioLowerRow(type: DrillType) {
+    const e = drills[type];
+    const last = e.ratioLowerRows?.[e.ratioLowerRows.length - 1];
+    update(type, "ratioLowerRows", [...(e.ratioLowerRows ?? []), { distance: last?.distance ?? e.distance, strokes: "", balls: "" }]);
+  }
+  function setRatioLowerRow(type: DrillType, idx: number, field: keyof RatioLowerRow, value: string) {
+    const next = [...(drills[type].ratioLowerRows ?? [])];
+    next[idx] = { ...next[idx], [field]: value };
+    update(type, "ratioLowerRows", next);
+  }
+  function removeRatioLowerRow(type: DrillType, idx: number) {
+    const next = (drills[type].ratioLowerRows ?? []).filter((_, i) => i !== idx);
+    update(type, "ratioLowerRows", next.length > 0 ? next : [{ distance: drills[type].distance, strokes: "", balls: "" }]);
+  }
+
+  // ===== Ratio Higher rows =====
+  function addRatioHigherRow(type: DrillType) {
+    update(type, "ratioHigherRows", [...(drills[type].ratioHigherRows ?? []), { inTarget: "", balls: "" }]);
+  }
+  function setRatioHigherRow(type: DrillType, idx: number, field: keyof RatioHigherRow, value: string) {
+    const next = [...(drills[type].ratioHigherRows ?? [])];
+    next[idx] = { ...next[idx], [field]: value };
+    update(type, "ratioHigherRows", next);
+  }
+  function removeRatioHigherRow(type: DrillType, idx: number) {
+    const next = (drills[type].ratioHigherRows ?? []).filter((_, i) => i !== idx);
+    update(type, "ratioHigherRows", next.length > 0 ? next : [{ inTarget: "", balls: "" }]);
+  }
+
+  // ===== Legacy rows (Go-To Club) =====
+  function addLegacyRow(type: DrillType) {
+    update(type, "legacyRows", [...(drills[type].legacyRows ?? []), { value: "" }]);
+  }
+  function setLegacyRow(type: DrillType, idx: number, value: string) {
+    const next = [...(drills[type].legacyRows ?? [])];
+    next[idx] = { value };
+    update(type, "legacyRows", next);
+  }
+  function removeLegacyRow(type: DrillType, idx: number) {
+    const next = (drills[type].legacyRows ?? []).filter((_, i) => i !== idx);
+    update(type, "legacyRows", next.length > 0 ? next : [{ value: "" }]);
   }
 
   async function save() {
     setBusy(true);
     const drillsArr = DRILLS.filter((d) => drills[d.type].enabled).map((d) => {
       const e = drills[d.type];
-      const attempts = e.attempts
-        .map((a) => parseFloat(a))
-        .filter((n) => !isNaN(n));
+      let attempts: object | number[] = [];
+
+      if (d.format === "STREAK_BY_DIST") {
+        const rows = (e.streakRows ?? [])
+          .map((r) => ({ distance: parseFloat(r.distance), streak: parseInt(r.streak) }))
+          .filter((r) => !isNaN(r.distance) && !isNaN(r.streak));
+        attempts = { type: "STREAK_BY_DIST", attempts: rows };
+      } else if (d.format === "RATIO_LOWER_BY_DIST") {
+        const rows = (e.ratioLowerRows ?? [])
+          .map((r) => ({ distance: parseFloat(r.distance), strokes: parseInt(r.strokes), balls: parseInt(r.balls) }))
+          .filter((r) => !isNaN(r.distance) && !isNaN(r.strokes) && !isNaN(r.balls) && r.balls > 0);
+        attempts = { type: "RATIO_LOWER_BY_DIST", attempts: rows };
+      } else if (d.format === "RATIO_HIGHER") {
+        const rows = (e.ratioHigherRows ?? [])
+          .map((r) => ({ inTarget: parseInt(r.inTarget), balls: parseInt(r.balls) }))
+          .filter((r) => !isNaN(r.inTarget) && !isNaN(r.balls) && r.balls > 0);
+        attempts = { type: "RATIO_HIGHER", attempts: rows };
+      } else {
+        // Legacy (Go-To Club)
+        const arr = (e.legacyRows ?? []).map((r) => parseInt(r.value)).filter((n) => !isNaN(n));
+        attempts = arr;
+      }
+
       return {
         drillType: d.type,
         distance: e.distance ? parseInt(e.distance) : null,
@@ -162,11 +258,9 @@ export default function NuevaPPPage() {
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
       <header>
-        <h1 className="gf-display text-3xl text-[var(--fairway)]">
-          Nueva sesión PP
-        </h1>
+        <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva sesión PP</h1>
         <p className="text-sm text-[var(--muted)]">
-          Marcá los drills, agregá tantos intentos como hagas. La app detecta si cumpliste el plan.
+          Marcá los drills, agregá tantos intentos como hagas.
         </p>
       </header>
 
@@ -185,16 +279,11 @@ export default function NuevaPPPage() {
               return (
                 <div key={type} className="flex justify-between">
                   <span>{def.shortLabel} (PP {t.ppCode})</span>
-                  <span className="gf-mono font-bold">
-                    {t.timesToAchieve}× lograr target
-                  </span>
+                  <span className="gf-mono font-bold">{t.timesToAchieve}× lograr target</span>
                 </div>
               );
             })}
           </div>
-          <p className="text-[10px] text-[var(--muted)] mt-2">
-            Los drills sugeridos están pre-tildados. Si compartís un PP code (ej B), elegí cuál de los drills hacer.
-          </p>
         </Card>
       )}
 
@@ -222,21 +311,19 @@ export default function NuevaPPPage() {
       {(() => {
         const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
         const complementarios = DRILLS.filter((d) => !plan.drillTargets[d.type]);
-        const orderedDrills = [...obligatorios, ...complementarios];
+        const ordered = [...obligatorios, ...complementarios];
         return (
           <>
-            {orderedDrills.map((d, i) => {
-              const isFirstObligatorio = i === 0 && obligatorios.length > 0;
-              const isFirstComplementario = i === obligatorios.length;
+            {ordered.map((d, i) => {
+              const isFirstOblig = i === 0 && obligatorios.length > 0;
+              const isFirstComp = i === obligatorios.length;
               return (
                 <div key={d.type}>
-                  {isFirstObligatorio && (
-                    <SectionHeader>Obligatorios (del plan)</SectionHeader>
-                  )}
-                  {isFirstComplementario && obligatorios.length > 0 && (
+                  {isFirstOblig && <SectionHeader>Obligatorios (del plan)</SectionHeader>}
+                  {isFirstComp && obligatorios.length > 0 && (
                     <SectionHeader>Complementarios</SectionHeader>
                   )}
-                  {!isFirstObligatorio && !isFirstComplementario && obligatorios.length === 0 && i === 0 && (
+                  {!isFirstOblig && !isFirstComp && obligatorios.length === 0 && i === 0 && (
                     <SectionHeader>Drills</SectionHeader>
                   )}
                   {renderDrill(d)}
@@ -253,201 +340,387 @@ export default function NuevaPPPage() {
     </div>
   );
 
-  function renderDrill(d: typeof DRILLS[number]) {
-        const e = drills[d.type];
-        const lvl = levels[d.type];
-        const validAttempts = e.attempts.map((a) => parseFloat(a)).filter((n) => !isNaN(n));
-        const bestPrevious = lvl?.bestAtCurrent ?? null;
-        const score = setScore(d.scoring, validAttempts);
+  function renderDrill(d: DrillDef) {
+    const e = drills[d.type];
+    const lvl = levels[d.type];
+    const inPlan = !!plan.drillTargets[d.type];
 
-        // timesAchieved en vivo
-        let timesAchieved = 0;
-        if (d.scoring === "PCT_HITS_PERFECT") {
-          timesAchieved = validAttempts.filter((a) => a === d.scoreOf).length;
-        } else if (d.scoring === "BEAT_BEST_HIGHER") {
-          const threshold = bestPrevious ?? 0;
-          timesAchieved = validAttempts.filter((a) => a > threshold).length;
-        } else if (d.scoring === "BEAT_BEST_LOWER_BY_1") {
-          if (validAttempts.length > 0 && bestPrevious != null) {
-            const sum = validAttempts.reduce((a, b) => a + b, 0);
-            if (sum <= bestPrevious - 1) timesAchieved = 1;
-          }
-        }
-        const timesToAchieveNum = parseInt(e.timesToAchieve) || 1;
-        const planComplete = timesAchieved >= timesToAchieveNum;
-        const inPlan = !!plan.drillTargets[d.type];
+    return (
+      <Card
+        key={d.type}
+        className="space-y-2"
+        style={inPlan ? { borderLeft: "4px solid var(--accent)" } : undefined}
+      >
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={e.enabled}
+            onChange={(ev) => update(d.type, "enabled", ev.target.checked)}
+            className="mt-1"
+          />
+          <div className="flex-1">
+            <div className="font-semibold text-sm flex items-center gap-2">
+              {d.label}
+              <span className="gf-pill text-[10px]">PP {d.ppCode}</span>
+              {!d.hasLevelUp && (
+                <span className="gf-pill text-[10px]" style={{ background: "#eee", color: "#666" }}>
+                  sin level up
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-[var(--muted)]">{d.description}</div>
+            {renderLevelInfo(d, lvl)}
+          </div>
+        </label>
 
-        return (
-          <Card
-            key={d.type}
-            className="space-y-2"
-            style={
-              planComplete && validAttempts.length > 0
-                ? { borderLeft: "4px solid var(--green)" }
-                : inPlan
-                ? { borderLeft: "4px solid var(--accent)" }
-                : undefined
-            }
-          >
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={e.enabled}
-                onChange={(ev) => update(d.type, "enabled", ev.target.checked)}
-                className="mt-1"
-              />
-              <div className="flex-1">
-                <div className="font-semibold text-sm flex items-center gap-2">
-                  {d.label}
-                  <span className="gf-pill text-[10px]">PP {d.ppCode}</span>
-                </div>
-                <div className="text-[11px] text-[var(--muted)]">{d.description}</div>
-                {lvl && (
-                  <div className="text-[10px] mt-1 gf-mono">
-                    {d.type === "GO_TO_CLUB" ? (
-                      <span>
-                        Practicar con: <strong>{CLUB_LABEL[e.club] ?? e.club}</strong>
-                        {lvl.currentClub && (
-                          <span className="text-[var(--muted)] ml-1">
-                            (nivel actual: {CLUB_LABEL[lvl.currentClub]})
-                          </span>
-                        )}
-                      </span>
-                    ) : d.distanceStep ? (
-                      <span>
-                        Nivel actual: <strong>{lvl.currentDistance}{d.distanceUnit}</strong>
-                        {bestPrevious != null && (
-                          <span className="text-[var(--muted)] ml-1">
-                            · mejor a esta dist: {bestPrevious}/{d.scoreOf}
-                          </span>
-                        )}
-                      </span>
-                    ) : bestPrevious != null ? (
-                      <span>
-                        Mejor marca histórica:{" "}
-                        <strong>
-                          {bestPrevious}
-                          {d.scoring === "BEAT_BEST_HIGHER" && `/${d.scoreOf}`}
-                        </strong>
-                      </span>
-                    ) : (
-                      <span className="text-[var(--muted)]">Sin marca anterior</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </label>
+        {e.enabled && (
+          <div className="space-y-2 pl-6">
+            {d.format === "STREAK_BY_DIST" && renderStreakInputs(d, e)}
+            {d.format === "RATIO_LOWER_BY_DIST" && renderRatioLowerInputs(d, e)}
+            {d.format === "RATIO_HIGHER" && renderRatioHigherInputs(d, e)}
+            {d.format === "LEGACY_NUMBER_ARRAY" && renderLegacyInputs(d, e, lvl)}
+          </div>
+        )}
+      </Card>
+    );
+  }
 
-            {e.enabled && (
-              <div className="space-y-2 pl-6">
-                <div className="grid grid-cols-2 gap-2">
-                  {d.type === "GO_TO_CLUB" ? (
-                    <div className="col-span-2">
-                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                        Palo a practicar
-                      </label>
-                      <select
-                        className="gf-input mt-0.5"
-                        value={e.club}
-                        onChange={(ev) => update(d.type, "club", ev.target.value)}
-                      >
-                        {GO_TO_CLUB_LADDER.map((c) => (
-                          <option key={c} value={c}>
-                            {CLUB_LABEL[c] ?? c}
-                            {lvl?.currentClub === c ? " · nivel actual" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                        Distancia ({d.distanceUnit})
-                      </label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="gf-input mt-0.5 text-center"
-                        value={e.distance}
-                        onChange={(ev) => update(d.type, "distance", ev.target.value)}
-                      />
-                    </div>
-                  )}
-                </div>
+  function renderLevelInfo(d: DrillDef, lvl?: LevelInfo) {
+    if (!lvl) return null;
+    if (d.type === "GO_TO_CLUB") {
+      return (
+        <div className="text-[10px] mt-1 gf-mono">
+          Practicar con: <strong>{CLUB_LABEL[drills[d.type].club] ?? drills[d.type].club}</strong>
+          {lvl.currentClub && (
+            <span className="text-[var(--muted)] ml-1">
+              (nivel actual: {CLUB_LABEL[lvl.currentClub]})
+            </span>
+          )}
+        </div>
+      );
+    }
+    if (d.format === "STREAK_BY_DIST") {
+      const records = lvl.bestStreakByDist ?? {};
+      const dists = Object.keys(records).map(Number).sort((a, b) => a - b);
+      return (
+        <div className="text-[10px] mt-1 gf-mono">
+          Nivel actual: <strong>{lvl.currentDistance}{d.distanceUnit}</strong>
+          {dists.length > 0 && (
+            <div className="text-[var(--muted)]">
+              Récords: {dists.map((dd) => `${dd}${d.distanceUnit}: ${records[dd]}`).join(" · ")}
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (d.format === "RATIO_LOWER_BY_DIST") {
+      const records = lvl.bestRatioByDist ?? {};
+      const dists = Object.keys(records).map(Number).sort((a, b) => a - b);
+      return (
+        <div className="text-[10px] mt-1 gf-mono">
+          {dists.length === 0 ? (
+            <span className="text-[var(--muted)]">Sin marca anterior</span>
+          ) : (
+            <div className="text-[var(--muted)]">
+              Mejor por dist:{" "}
+              {dists
+                .map((dd) => `${dd}${d.distanceUnit}: ${records[dd].ratio.toFixed(2)} (${records[dd].strokes}/${records[dd].balls})`)
+                .join(" · ")}
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (d.format === "RATIO_HIGHER") {
+      const r = lvl.bestRatio;
+      return (
+        <div className="text-[10px] mt-1 gf-mono">
+          {r ? (
+            <span>
+              Mejor sesión: <strong>{(r.ratio * 100).toFixed(0)}%</strong> ({r.inTarget}/{r.balls})
+            </span>
+          ) : (
+            <span className="text-[var(--muted)]">Sin marca anterior</span>
+          )}
+        </div>
+      );
+    }
+    return null;
+  }
 
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                      Veces a lograr el target
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className="gf-input !w-16 !p-1 text-center text-sm"
-                      value={e.timesToAchieve}
-                      onChange={(ev) => update(d.type, "timesToAchieve", ev.target.value)}
-                    />
-                    <span
-                      className="ml-auto gf-pill text-[10px] gf-mono"
-                      style={{
-                        background: planComplete ? "#d4f4dd" : "var(--green-pale)",
-                        color: planComplete ? "var(--green)" : "var(--fairway)",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {timesAchieved}/{timesToAchieveNum} {planComplete ? "🎯" : ""}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                      Intentos · {d.scoreLabel}
-                    </label>
-                    {score != null && (
-                      <span className="text-[10px] gf-mono">
-                        {d.scoring === "BEAT_BEST_LOWER_BY_1" ? "Suma" : "Mejor"}: {score}
-                      </span>
-                    )}
-                  </div>
-                  {e.attempts.map((a, i) => (
-                    <div key={i} className="flex gap-2 mb-1">
-                      <span className="text-[10px] text-[var(--muted)] gf-mono w-6 self-center text-right">
-                        {d.scoring === "BEAT_BEST_LOWER_BY_1" ? `B${i + 1}` : `#${i + 1}`}
-                      </span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className="gf-input !p-2 text-center flex-1"
-                        placeholder={
-                          d.scoring === "BEAT_BEST_LOWER_BY_1"
-                            ? "golpes"
-                            : `0-${d.scoreOf}`
-                        }
-                        value={a}
-                        onChange={(ev) => setAttempt(d.type, i, ev.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAttempt(d.type, i)}
-                        className="text-[var(--red)] text-xs px-2"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addAttempt(d.type)}
-                    className="text-xs text-[var(--fairway)] mt-1"
-                  >
-                    + Agregar intento
-                  </button>
-                </div>
-              </div>
-            )}
-          </Card>
-        );
+  function renderStreakInputs(d: DrillDef, e: DrillEntry) {
+    const rows = e.streakRows ?? [];
+    // Live: max streak por distancia
+    const maxByDist: Record<number, number> = {};
+    rows.forEach((r) => {
+      const dd = parseFloat(r.distance);
+      const ss = parseInt(r.streak);
+      if (!isNaN(dd) && !isNaN(ss)) maxByDist[dd] = Math.max(maxByDist[dd] ?? 0, ss);
+    });
+    const dists = Object.keys(maxByDist).map(Number).sort((a, b) => a - b);
+
+    return (
+      <>
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            Intentos · {d.scoreLabel}
+          </label>
+          {dists.length > 0 && (
+            <span className="text-[10px] gf-mono">
+              Sesión: {dists.map((dd) => `${dd}${d.distanceUnit}: ${maxByDist[dd]}`).join(" · ")}
+            </span>
+          )}
+        </div>
+        {rows.map((r, i) => (
+          <div key={i} className="flex gap-2 mb-1 items-center">
+            <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center w-20"
+              placeholder={d.distanceUnit}
+              value={r.distance}
+              onChange={(ev) => setStreakRow(d.type, i, "distance", ev.target.value)}
+            />
+            <span className="text-[10px] text-[var(--muted)]">{d.distanceUnit}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center flex-1"
+              placeholder="racha"
+              value={r.streak}
+              onChange={(ev) => setStreakRow(d.type, i, "streak", ev.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => removeStreakRow(d.type, i)}
+              className="text-[var(--red)] text-xs px-2"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => addStreakRow(d.type)}
+          className="text-xs text-[var(--fairway)] mt-1"
+        >
+          + Agregar intento
+        </button>
+      </>
+    );
+  }
+
+  function renderRatioLowerInputs(d: DrillDef, e: DrillEntry) {
+    const rows = e.ratioLowerRows ?? [];
+    // Live: ratio agregado por distancia
+    const byDist: Record<number, { strokes: number; balls: number }> = {};
+    rows.forEach((r) => {
+      const dd = parseFloat(r.distance);
+      const ss = parseInt(r.strokes);
+      const bb = parseInt(r.balls);
+      if (!isNaN(dd) && !isNaN(ss) && !isNaN(bb) && bb > 0) {
+        const cur = byDist[dd] ?? { strokes: 0, balls: 0 };
+        cur.strokes += ss;
+        cur.balls += bb;
+        byDist[dd] = cur;
       }
+    });
+    const dists = Object.keys(byDist).map(Number).sort((a, b) => a - b);
+
+    return (
+      <>
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            Intentos · golpes / pelotas
+          </label>
+          {dists.length > 0 && (
+            <span className="text-[10px] gf-mono">
+              Sesión:{" "}
+              {dists
+                .map((dd) => {
+                  const r = byDist[dd];
+                  return `${dd}${d.distanceUnit}: ${(r.strokes / r.balls).toFixed(2)} (${r.strokes}/${r.balls})`;
+                })
+                .join(" · ")}
+            </span>
+          )}
+        </div>
+        {rows.map((r, i) => (
+          <div key={i} className="flex gap-2 mb-1 items-center">
+            <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center w-16"
+              placeholder="dist"
+              value={r.distance}
+              onChange={(ev) => setRatioLowerRow(d.type, i, "distance", ev.target.value)}
+            />
+            <span className="text-[10px] text-[var(--muted)]">{d.distanceUnit}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center flex-1"
+              placeholder="golpes"
+              value={r.strokes}
+              onChange={(ev) => setRatioLowerRow(d.type, i, "strokes", ev.target.value)}
+            />
+            <span className="text-[10px] text-[var(--muted)]">/</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center flex-1"
+              placeholder="pelotas"
+              value={r.balls}
+              onChange={(ev) => setRatioLowerRow(d.type, i, "balls", ev.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => removeRatioLowerRow(d.type, i)}
+              className="text-[var(--red)] text-xs px-2"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => addRatioLowerRow(d.type)}
+          className="text-xs text-[var(--fairway)] mt-1"
+        >
+          + Agregar intento
+        </button>
+      </>
+    );
+  }
+
+  function renderRatioHigherInputs(d: DrillDef, e: DrillEntry) {
+    const rows = e.ratioHigherRows ?? [];
+    // Live: ratio agregado total
+    let totIn = 0, totBalls = 0;
+    rows.forEach((r) => {
+      const it = parseInt(r.inTarget);
+      const bb = parseInt(r.balls);
+      if (!isNaN(it) && !isNaN(bb) && bb > 0) {
+        totIn += it;
+        totBalls += bb;
+      }
+    });
+    return (
+      <>
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            Intentos · dentro / pelotas (desde {d.defaultDistance}{d.distanceUnit})
+          </label>
+          {totBalls > 0 && (
+            <span className="text-[10px] gf-mono">
+              Sesión: {((totIn / totBalls) * 100).toFixed(0)}% ({totIn}/{totBalls})
+            </span>
+          )}
+        </div>
+        {rows.map((r, i) => (
+          <div key={i} className="flex gap-2 mb-1 items-center">
+            <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center flex-1"
+              placeholder="dentro 2PC"
+              value={r.inTarget}
+              onChange={(ev) => setRatioHigherRow(d.type, i, "inTarget", ev.target.value)}
+            />
+            <span className="text-[10px] text-[var(--muted)]">/</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input !p-2 text-center flex-1"
+              placeholder="pelotas"
+              value={r.balls}
+              onChange={(ev) => setRatioHigherRow(d.type, i, "balls", ev.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => removeRatioHigherRow(d.type, i)}
+              className="text-[var(--red)] text-xs px-2"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => addRatioHigherRow(d.type)}
+          className="text-xs text-[var(--fairway)] mt-1"
+        >
+          + Agregar intento
+        </button>
+      </>
+    );
+  }
+
+  function renderLegacyInputs(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
+    const rows = e.legacyRows ?? [];
+    return (
+      <>
+        {d.type === "GO_TO_CLUB" && (
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">Palo</label>
+            <select
+              className="gf-input mt-0.5"
+              value={e.club}
+              onChange={(ev) => update(d.type, "club", ev.target.value)}
+            >
+              {GO_TO_CLUB_LADDER.map((c) => (
+                <option key={c} value={c}>
+                  {CLUB_LABEL[c] ?? c}
+                  {lvl?.currentClub === c ? " · nivel actual" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            Intentos · {d.scoreLabel}
+          </label>
+          {rows.map((r, i) => (
+            <div key={i} className="flex gap-2 mb-1 items-center">
+              <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="gf-input !p-2 text-center flex-1"
+                placeholder={`0-${d.scoreOf}`}
+                value={r.value}
+                onChange={(ev) => setLegacyRow(d.type, i, ev.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => removeLegacyRow(d.type, i)}
+                className="text-[var(--red)] text-xs px-2"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => addLegacyRow(d.type)}
+            className="text-xs text-[var(--fairway)] mt-1"
+          >
+            + Agregar intento
+          </button>
+        </div>
+      </>
+    );
+  }
 }

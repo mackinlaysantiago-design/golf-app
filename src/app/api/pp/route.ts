@@ -3,10 +3,34 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import {
   DRILL_BY_TYPE,
+  parseAttempts,
+  leveledUpInSession,
   bestHistoricalScore,
-  meetsTarget,
   type DrillType,
+  type AttemptsData,
 } from "@/lib/pp-drills";
+
+// Acepta tanto el shape viejo (number[]) como los nuevos shapes
+const StreakAttemptSchema = z.object({
+  distance: z.number(),
+  streak: z.number().int().min(0),
+});
+const RatioLowerAttemptSchema = z.object({
+  distance: z.number(),
+  strokes: z.number().int().min(0),
+  balls: z.number().int().min(1),
+});
+const RatioHigherAttemptSchema = z.object({
+  inTarget: z.number().int().min(0),
+  balls: z.number().int().min(1),
+});
+const AttemptsDataSchema = z.union([
+  z.object({ type: z.literal("STREAK_BY_DIST"), attempts: z.array(StreakAttemptSchema) }),
+  z.object({ type: z.literal("RATIO_LOWER_BY_DIST"), attempts: z.array(RatioLowerAttemptSchema) }),
+  z.object({ type: z.literal("RATIO_HIGHER"), attempts: z.array(RatioHigherAttemptSchema) }),
+  z.object({ type: z.literal("LEGACY_NUMBER_ARRAY"), attempts: z.array(z.number()) }),
+  z.array(z.number()),
+]);
 
 const DrillSchema = z.object({
   drillType: z.string(),
@@ -14,7 +38,7 @@ const DrillSchema = z.object({
   club: z.string().nullable().optional(),
   ppCode: z.string().nullable().optional(),
   timesToAchieve: z.number().int().nullable().optional(),
-  attempts: z.array(z.number()).default([]),
+  attempts: AttemptsDataSchema,
   notes: z.string().nullable().optional(),
 });
 
@@ -32,11 +56,26 @@ export async function GET() {
   return NextResponse.json(sessions);
 }
 
+// Cuenta cuántos targets cumplió el drill en esta sesión (para feedback de plan)
+function countTargetsAchieved(
+  drill: { format: string; hasLevelUp: boolean; levelUpStreak?: number; scoreOf: number },
+  data: AttemptsData,
+): number {
+  if (data.type === "STREAK_BY_DIST") {
+    const target = drill.levelUpStreak ?? 10;
+    return data.attempts.filter((a) => a.streak >= target).length;
+  }
+  if (data.type === "LEGACY_NUMBER_ARRAY") {
+    return data.attempts.filter((a) => a === drill.scoreOf).length;
+  }
+  // Chipping/wedges: el drill "cumple" si superó el mejor previo (1 logro por sesión)
+  return 0;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = CreateSessionSchema.parse(body);
 
-  // Para cada drill, computar si "subió de nivel" comparando con marca anterior
   const pastSessions = await prisma.practiceSession.findMany({
     include: { drills: true },
   });
@@ -52,58 +91,49 @@ export async function POST(req: NextRequest) {
         target: null,
         timesToAchieve: d.timesToAchieve ?? null,
         timesAchieved: 0,
-        attemptsJson: d.attempts ?? [],
+        attemptsJson: Array.isArray(d.attempts) ? d.attempts : (d.attempts as object),
         leveledUp: false,
         notes: d.notes ?? null,
       };
     }
 
-    // Past attempts AT same distance/club
-    const past = pastSessions.flatMap((s) =>
-      s.drills
-        .filter((dr) => {
-          if (dr.drillType !== d.drillType) return false;
-          if (def.type === "GO_TO_CLUB") return dr.club === d.club;
-          if (def.distanceStep) return dr.distance === d.distance;
-          return true;
-        })
-        .map((dr) => (dr.attemptsJson as number[]) ?? []),
-    );
-    const bestPrevious = bestHistoricalScore(def, past);
+    // Normalizar attempts al shape correcto del drill
+    const attemptsRaw = d.attempts;
+    const data: AttemptsData = Array.isArray(attemptsRaw)
+      ? parseAttempts(attemptsRaw, def.format)
+      : (attemptsRaw as AttemptsData);
 
-    // timesAchieved: cuántos attempts cumplen target (cada intento es un set; el set "cumple" según meetsTarget)
-    // Para PCT_HITS_PERFECT: cada attempt cumple si === scoreOf
-    // Para BEAT_BEST_HIGHER: cada attempt cumple si > bestPrevious
-    // Para BEAT_BEST_LOWER_BY_1 (chipping): el SET completo es 1 intento; suma <= bestPrevious - 1
-    let timesAchieved = 0;
-    if (def.scoring === "PCT_HITS_PERFECT") {
-      timesAchieved = d.attempts.filter((a) => a === def.scoreOf).length;
-    } else if (def.scoring === "BEAT_BEST_HIGHER") {
-      const threshold = bestPrevious ?? 0;
-      timesAchieved = d.attempts.filter((a) => a > threshold).length;
-    } else if (def.scoring === "BEAT_BEST_LOWER_BY_1") {
-      // chipping: 1 set entero = 1 intento. d.attempts es la suma de los 9 hoyos.
-      // si la suma <= best - 1, cumple
-      if (d.attempts.length > 0 && bestPrevious != null) {
-        const sum = d.attempts.reduce((a, b) => a + b, 0);
-        if (sum <= bestPrevious - 1) timesAchieved = 1;
-      }
-    }
-
+    // Compute leveledUp + targets achieved
+    const { leveledUp: lu } = leveledUpInSession(def, data);
+    const timesAchieved = countTargetsAchieved(def, data);
     const timesToAchieve = d.timesToAchieve ?? null;
     const leveledUp = timesToAchieve != null
       ? timesAchieved >= timesToAchieve
-      : meetsTarget(def, d.attempts, bestPrevious);
+      : lu;
+
+    // target: para legacy/Go-To, mejor histórico; para nuevos formatos, dejamos null y se calcula on-the-fly
+    let target: number | null = null;
+    if (def.format === "LEGACY_NUMBER_ARRAY") {
+      const past = pastSessions.flatMap((s) =>
+        s.drills
+          .filter((dr) => dr.drillType === def.type && (def.type !== "GO_TO_CLUB" || dr.club === d.club))
+          .map((dr) => (dr.attemptsJson as number[]) ?? []),
+      );
+      target = bestHistoricalScore(def, past);
+    }
+
+    // Persistimos el shape nuevo como objeto (Prisma Json)
+    const attemptsJson = data;
 
     return {
       drillType: d.drillType,
       distance: d.distance ?? null,
       club: d.club ?? null,
       ppCode: d.ppCode ?? null,
-      target: bestPrevious,
+      target,
       timesToAchieve,
       timesAchieved,
-      attemptsJson: d.attempts ?? [],
+      attemptsJson: attemptsJson as object,
       leveledUp,
       notes: d.notes ?? null,
     };

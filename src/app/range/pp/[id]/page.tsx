@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
-import { DRILL_BY_TYPE, CLUB_LABEL, type DrillType } from "@/lib/pp-drills";
+import {
+  DRILL_BY_TYPE,
+  CLUB_LABEL,
+  parseAttempts,
+  ratioLowerByDistance,
+  ratioHigherTotal,
+  type DrillType,
+} from "@/lib/pp-drills";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -24,27 +31,18 @@ export default async function PPSessionPage({
         <Link href="/range/pp" className="text-xs text-[var(--muted)]">
           ‹ Volver
         </Link>
-        <h1 className="gf-display text-3xl text-[var(--fairway)] mt-1">
-          Sesión PP
-        </h1>
+        <h1 className="gf-display text-3xl text-[var(--fairway)] mt-1">Sesión PP</h1>
         <p className="text-xs text-[var(--muted)] gf-mono">
           {new Date(session.date).toLocaleDateString("es-AR")} · {session.drills.length} drills
         </p>
-        {session.notes && (
-          <p className="text-xs text-[var(--muted)] mt-1">{session.notes}</p>
-        )}
+        {session.notes && <p className="text-xs text-[var(--muted)] mt-1">{session.notes}</p>}
       </header>
 
       <SectionHeader>Resultados</SectionHeader>
       {session.drills.map((d) => {
         const def = DRILL_BY_TYPE[d.drillType as DrillType];
         if (!def) return null;
-        const attempts = (d.attemptsJson as number[] | null) ?? [];
-        const setBest = attempts.length === 0
-          ? null
-          : def.scoring === "BEAT_BEST_LOWER_BY_1"
-          ? attempts.reduce((a, b) => a + b, 0)
-          : Math.max(...attempts);
+        const data = parseAttempts(d.attemptsJson, def.format);
 
         return (
           <Card
@@ -59,51 +57,108 @@ export default async function PPSessionPage({
               </div>
               {d.leveledUp && <Pill variant="accent">🎯 Subió de nivel</Pill>}
             </div>
-            <div className="text-xs text-[var(--muted)]">
-              {d.club ? `Palo: ${CLUB_LABEL[d.club] ?? d.club} · ` : ""}
-              {d.distance != null ? `Distancia ${d.distance}${def.distanceUnit}` : ""}
-              {d.target != null && ` · Mejor anterior: ${d.target}${def.scoring !== "BEAT_BEST_LOWER_BY_1" ? `/${def.scoreOf}` : ""}`}
-            </div>
-
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
-                Intentos · {def.scoreLabel}
+            {d.club && (
+              <div className="text-xs text-[var(--muted)]">
+                Palo: {CLUB_LABEL[d.club] ?? d.club}
               </div>
-              {attempts.length === 0 ? (
-                <span className="text-xs text-[var(--muted)]">— sin intentos cargados</span>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {attempts.map((a, i) => {
-                    const isBest = def.scoring === "BEAT_BEST_LOWER_BY_1"
-                      ? false
-                      : a === setBest;
-                    return (
-                      <span
-                        key={i}
-                        className="gf-pill gf-mono"
-                        style={{
-                          background: isBest ? "var(--green-pale)" : undefined,
-                          color: isBest ? "var(--green)" : undefined,
-                          fontWeight: isBest ? 700 : 500,
-                        }}
-                      >
-                        {def.scoring === "BEAT_BEST_LOWER_BY_1" ? `B${i + 1}` : `#${i + 1}`}: {a}
-                      </span>
-                    );
-                  })}
+            )}
+
+            {data.type === "STREAK_BY_DIST" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Intentos · racha por distancia
                 </div>
-              )}
-            </div>
-
-            {setBest != null && (
-              <div className="text-xs gf-mono text-[var(--fairway)] font-bold">
-                {def.scoring === "BEAT_BEST_LOWER_BY_1" ? "Suma del set" : "Mejor del día"}: {setBest}
-                {def.scoring !== "BEAT_BEST_LOWER_BY_1" && ` / ${def.scoreOf}`}
+                {data.attempts.length === 0 ? (
+                  <span className="text-xs text-[var(--muted)]">— sin intentos</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {data.attempts.map((a, i) => (
+                      <span key={i} className="gf-pill gf-mono">
+                        #{i + 1}: {a.distance}{def.distanceUnit} → {a.streak}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-            {d.notes && (
-              <div className="text-xs text-[var(--muted)]">{d.notes}</div>
+
+            {data.type === "RATIO_LOWER_BY_DIST" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Intentos · golpes / pelotas
+                </div>
+                {data.attempts.length === 0 ? (
+                  <span className="text-xs text-[var(--muted)]">— sin intentos</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {data.attempts.map((a, i) => (
+                      <span key={i} className="gf-pill gf-mono">
+                        #{i + 1}: {a.distance}{def.distanceUnit} → {a.strokes}/{a.balls} ({(a.strokes / a.balls).toFixed(2)})
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(() => {
+                  const byDist = ratioLowerByDistance(data.attempts);
+                  const dists = Object.keys(byDist).map(Number).sort((a, b) => a - b);
+                  if (dists.length === 0) return null;
+                  return (
+                    <div className="text-xs gf-mono text-[var(--fairway)] font-bold mt-2">
+                      Sesión: {dists.map((dd) => `${dd}${def.distanceUnit}: ${byDist[dd].ratio.toFixed(2)}`).join(" · ")}
+                    </div>
+                  );
+                })()}
+              </div>
             )}
+
+            {data.type === "RATIO_HIGHER" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Intentos · dentro / pelotas
+                </div>
+                {data.attempts.length === 0 ? (
+                  <span className="text-xs text-[var(--muted)]">— sin intentos</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {data.attempts.map((a, i) => (
+                      <span key={i} className="gf-pill gf-mono">
+                        #{i + 1}: {a.inTarget}/{a.balls} ({((a.inTarget / a.balls) * 100).toFixed(0)}%)
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(() => {
+                  const t = ratioHigherTotal(data.attempts);
+                  if (!t) return null;
+                  return (
+                    <div className="text-xs gf-mono text-[var(--fairway)] font-bold mt-2">
+                      Sesión: {(t.ratio * 100).toFixed(0)}% ({t.inTarget}/{t.balls})
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {data.type === "LEGACY_NUMBER_ARRAY" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Intentos · {def.scoreLabel}
+                </div>
+                {data.attempts.length === 0 ? (
+                  <span className="text-xs text-[var(--muted)]">— sin intentos</span>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {data.attempts.map((a, i) => (
+                      <span key={i} className="gf-pill gf-mono">
+                        #{i + 1}: {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {d.notes && <div className="text-xs text-[var(--muted)]">{d.notes}</div>}
           </Card>
         );
       })}
