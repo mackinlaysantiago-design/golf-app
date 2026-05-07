@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
@@ -90,6 +90,19 @@ export default function RondaTracker({ round }: { round: Round }) {
     round.holesPlayed === 9 && round.nineWhich === "VUELTA" ? 10 : 1,
   );
   const [busy, setBusy] = useState(false);
+
+  // Ref para scroll automático al cambiar de hoyo (touch "siguiente" abajo
+  // → vuelve al header del hoyo arriba)
+  const holeHeaderRef = useRef<HTMLDivElement>(null);
+  // Track de cambios — evitar scroll en mount inicial
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    holeHeaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentHole]);
 
   // Estado local: { roundPlayerId: { holeNumber: { field: value } } }
   type CellValues = Partial<Record<FieldKey, number | null>> & {
@@ -859,9 +872,11 @@ export default function RondaTracker({ round }: { round: Round }) {
       {/* Tracker del hoyo actual: para Santi (siempre full datos) + score para los demás */}
       {currentHoleInfo && (
         <>
-          <SectionHeader>
-            Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
-          </SectionHeader>
+          <div ref={holeHeaderRef} style={{ scrollMarginTop: 16 }}>
+            <SectionHeader>
+              Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
+            </SectionHeader>
+          </div>
           {/* Quién tiene golpe en este hoyo (usa HCP Stableford = Match Play stroke allocation) */}
           {(() => {
             const strokesAt = round.players.map((rp) => {
@@ -903,9 +918,10 @@ export default function RondaTracker({ round }: { round: Round }) {
             );
           })()}
 
-          {round.players.map((rp) => {
+          {/* === BLOQUE PRINCIPAL: YO === */}
+          {(() => {
+            const rp = meRP;
             const cells = data[rp.id]?.[currentHole] ?? {};
-            const isMain = rp.id === meRP.id;
             const hasSmData = hasSmDataInHole(rp.id, currentHole);
             const showSm = (smExpanded[rp.id] ?? false) || hasSmData;
 
@@ -925,17 +941,38 @@ export default function RondaTracker({ round }: { round: Round }) {
                   )}
                 </div>
 
-                {/* Score siempre visible (input grande) */}
+                {/* 1. Score siempre arriba */}
                 <NumField
                   label="Score total"
                   value={cells.score ?? null}
                   onChange={(v) => setCell(rp.id, currentHole, "score", v)}
                   big
-                  isLast={!showSm}
                 />
 
-                {/* Stats Scoring Method colapsadas por default */}
-                {showSm && (
+                {/* 2. Gear de este hoyo (siempre visible) */}
+                <GearSelector
+                  currentHole={currentHole}
+                  roundGoal={
+                    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
+                    null
+                  }
+                  cells={data[rp.id] ?? {}}
+                  onSetGoal={(goal) => setTargetGoal(rp.id, currentHole, goal)}
+                />
+
+                {/* 3. DECADE pre-shot (siempre visible) */}
+                <DecadeInput
+                  pinColor={cells.pinColor ?? null}
+                  dangerSide={cells.dangerSide ?? null}
+                  aimedAtCenter={cells.aimedAtCenter ?? null}
+                  recoveryMode={cells.recoveryMode ?? null}
+                  onSet={(field, value) =>
+                    setDecade(rp.id, currentHole, field, value)
+                  }
+                />
+
+                {/* 4. Stats SM a completar (collapsable) */}
+                {showSm ? (
                   <>
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
                       <NumField
@@ -987,39 +1024,6 @@ export default function RondaTracker({ round }: { round: Round }) {
                         isLast
                       />
                     </div>
-                    {/* Gear (goal) por hoyo + recomendación dinámica — solo YO */}
-                    {rp.player.isMe && (
-                      <GearSelector
-                        currentHole={currentHole}
-                        roundGoal={
-                          findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
-                          null
-                        }
-                        cells={data[rp.id] ?? {}}
-                        onSetGoal={(goal) =>
-                          setTargetGoal(rp.id, currentHole, goal)
-                        }
-                      />
-                    )}
-                    {/* DECADE pre-shot decisions — solo YO */}
-                    {rp.player.isMe && (
-                      <DecadeInput
-                        pinColor={cells.pinColor ?? null}
-                        dangerSide={cells.dangerSide ?? null}
-                        aimedAtCenter={cells.aimedAtCenter ?? null}
-                        recoveryMode={cells.recoveryMode ?? null}
-                        onSet={(field, value) =>
-                          setDecade(rp.id, currentHole, field, value)
-                        }
-                      />
-                    )}
-                    {/* 10 Keys to Scoring — solo para "YO" */}
-                    {rp.player.isMe && (
-                      <KeysBrokenInput
-                        keysBroken={cells.keysBroken ?? []}
-                        onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
-                      />
-                    )}
                     <FlagRow
                       cells={cells}
                       config={{
@@ -1037,13 +1041,11 @@ export default function RondaTracker({ round }: { round: Round }) {
                         onClick={() => toggleSm(rp.id)}
                         className="text-[10px] text-[var(--muted)] underline"
                       >
-                        Ocultar stats
+                        Ocultar stats SM
                       </button>
                     )}
                   </>
-                )}
-
-                {!showSm && isMain && (
+                ) : (
                   <button
                     type="button"
                     onClick={() => toggleSm(rp.id)}
@@ -1052,18 +1054,95 @@ export default function RondaTracker({ round }: { round: Round }) {
                     + Agregar stats Scoring Method
                   </button>
                 )}
-                {!showSm && !isMain && (
-                  <button
-                    type="button"
-                    onClick={() => toggleSm(rp.id)}
-                    className="text-[10px] text-[var(--muted)] underline"
-                  >
-                    + Agregar stats SM
-                  </button>
-                )}
+
+                {/* 5. Keys rotas */}
+                <KeysBrokenInput
+                  keysBroken={cells.keysBroken ?? []}
+                  onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
+                />
               </Card>
             );
-          })}
+          })()}
+
+          {/* === SCORES DEL RESTO DE LOS JUGADORES === */}
+          {round.players
+            .filter((rp) => rp.id !== meRP.id)
+            .map((rp) => {
+              const cells = data[rp.id]?.[currentHole] ?? {};
+              const hasSmData = hasSmDataInHole(rp.id, currentHole);
+              const showSm = (smExpanded[rp.id] ?? false) || hasSmData;
+
+              return (
+                <Card key={rp.id} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">{rp.player.name}</span>
+                    {cells.score != null && (
+                      <span className="gf-display text-2xl text-[var(--fairway)]">
+                        {cells.score}
+                      </span>
+                    )}
+                  </div>
+
+                  <NumField
+                    label="Score total"
+                    value={cells.score ?? null}
+                    onChange={(v) => setCell(rp.id, currentHole, "score", v)}
+                    big
+                    isLast={!showSm}
+                  />
+
+                  {showSm && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
+                        <NumField
+                          label="Strokes to Enter SZ"
+                          value={cells.strokesToEnterSz ?? null}
+                          onChange={(v) => setCell(rp.id, currentHole, "strokesToEnterSz", v)}
+                        />
+                        <NumField
+                          label="Distancia REG (yds)"
+                          value={cells.distanceInRegYds ?? null}
+                          onChange={(v) => setCell(rp.id, currentHole, "distanceInRegYds", v)}
+                          showGir
+                        />
+                        <NumField
+                          label="Strokes inside SZ"
+                          value={cells.strokesInsideSz ?? null}
+                          onChange={(v) => setCell(rp.id, currentHole, "strokesInsideSz", v)}
+                        />
+                        <NumField
+                          label="Putts"
+                          value={cells.putts ?? null}
+                          onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
+                          isLast
+                        />
+                      </div>
+                      <FlagRow
+                        cells={cells}
+                        config={{
+                          enterSzYds: round.enterSzYds,
+                          downInSzStrokes: round.downInSzStrokes,
+                          onePuttCircleFt: round.onePuttCircleFt,
+                          twoPuttCircleYds: round.twoPuttCircleYds,
+                        }}
+                        par={currentHoleInfo.par}
+                        holeNumber={currentHole}
+                      />
+                    </>
+                  )}
+
+                  {!showSm && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSm(rp.id)}
+                      className="text-[10px] text-[var(--muted)] underline"
+                    >
+                      + Agregar stats SM
+                    </button>
+                  )}
+                </Card>
+              );
+            })}
 
           <div className="grid grid-cols-2 gap-2">
             <button onClick={saveAll} disabled={busy} className="gf-btn">
