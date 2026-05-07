@@ -941,15 +941,7 @@ export default function RondaTracker({ round }: { round: Round }) {
                   )}
                 </div>
 
-                {/* 1. Score siempre arriba */}
-                <NumField
-                  label="Score total"
-                  value={cells.score ?? null}
-                  onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                  big
-                />
-
-                {/* 2. Gear de este hoyo (siempre visible) */}
+                {/* 1. Decisiones PRE-shot: Gear + DECADE (van antes del swing) */}
                 <GearSelector
                   currentHole={currentHole}
                   roundGoal={
@@ -960,7 +952,6 @@ export default function RondaTracker({ round }: { round: Round }) {
                   onSetGoal={(goal) => setTargetGoal(rp.id, currentHole, goal)}
                 />
 
-                {/* 3. DECADE pre-shot (siempre visible) */}
                 <DecadeInput
                   pinColor={cells.pinColor ?? null}
                   dangerSide={cells.dangerSide ?? null}
@@ -971,7 +962,15 @@ export default function RondaTracker({ round }: { round: Round }) {
                   }
                 />
 
-                {/* 4. Stats SM a completar (collapsable) */}
+                {/* 2. Score total (post-swing) */}
+                <NumField
+                  label="Score total"
+                  value={cells.score ?? null}
+                  onChange={(v) => setCell(rp.id, currentHole, "score", v)}
+                  big
+                />
+
+                {/* 3. Stats SM a completar (collapsable) */}
                 {showSm ? (
                   <>
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
@@ -1055,7 +1054,7 @@ export default function RondaTracker({ round }: { round: Round }) {
                   </button>
                 )}
 
-                {/* 5. Keys rotas */}
+                {/* 4. Keys rotas (post-swing) */}
                 <KeysBrokenInput
                   keysBroken={cells.keysBroken ?? []}
                   onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
