@@ -5,12 +5,19 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function LabsMapsPage() {
-  const courses = await prisma.course.findMany({
-    include: {
-      mapPoints: { select: { holeNumber: true } },
-    },
-    orderBy: { name: "asc" },
-  });
+  const [coursesRaw, allPoints] = await Promise.all([
+    prisma.course.findMany({ orderBy: { name: "asc" } }),
+    prisma.courseMapPoint.findMany({ select: { courseId: true, holeNumber: true } }),
+  ]);
+  const pointsByCourse = new Map<string, number[]>();
+  for (const p of allPoints) {
+    if (!pointsByCourse.has(p.courseId)) pointsByCourse.set(p.courseId, []);
+    pointsByCourse.get(p.courseId)!.push(p.holeNumber);
+  }
+  const courses = coursesRaw.map((c) => ({
+    ...c,
+    mapPoints: (pointsByCourse.get(c.id) ?? []).map((holeNumber) => ({ holeNumber })),
+  }));
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
