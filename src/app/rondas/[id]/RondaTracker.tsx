@@ -521,6 +521,13 @@ export default function RondaTracker({ round }: { round: Round }) {
           >
             🧠 Briefing
           </Link>
+          <Link
+            href="/stats#palos"
+            className="text-[11px] text-[var(--muted)] underline"
+            title="Stats por palo (Safe/Avg/Lateral)"
+          >
+            📊 Palos
+          </Link>
         </div>
       </header>
 

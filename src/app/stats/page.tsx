@@ -289,30 +289,74 @@ export default async function StatsPage() {
     });
   }
 
-  // Palos: agregado FlightScope
-  const byClub = new Map<string, { shots: number; sessions: Set<string>; carrySum: number; smashSum: number; smashN: number }>();
+  // Palos: agregado FlightScope (agrupa por shot.club, fallback a sess.club)
+  const byClub = new Map<string, {
+    shots: number;
+    sessions: Set<string>;
+    carries: number[];
+    lats: number[];
+    smashes: number[];
+  }>();
   for (const sess of rangeSessions) {
     for (const sh of sess.shots) {
       if (sh.rowType !== "SHOT" || sh.carryYds == null) continue;
-      if (!byClub.has(sess.club)) byClub.set(sess.club, { shots: 0, sessions: new Set(), carrySum: 0, smashSum: 0, smashN: 0 });
-      const e = byClub.get(sess.club)!;
+      const club = sh.club ?? sess.club;
+      if (!byClub.has(club)) {
+        byClub.set(club, {
+          shots: 0,
+          sessions: new Set(),
+          carries: [],
+          lats: [],
+          smashes: [],
+        });
+      }
+      const e = byClub.get(club)!;
       e.shots++;
       e.sessions.add(sess.id);
-      e.carrySum += sh.carryYds;
-      if (sh.smashFactor != null) {
-        e.smashSum += sh.smashFactor;
-        e.smashN++;
+      e.carries.push(sh.carryYds);
+      if (sh.lateralYds != null) {
+        const lat = sh.lateralDir === "L" ? -sh.lateralYds : sh.lateralYds;
+        e.lats.push(lat);
       }
+      if (sh.smashFactor != null) e.smashes.push(sh.smashFactor);
     }
   }
+  function percentile(sorted: number[], p: number): number {
+    if (sorted.length === 0) return 0;
+    if (sorted.length === 1) return sorted[0];
+    const idx = (sorted.length - 1) * p;
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if (lo === hi) return sorted[lo];
+    return sorted[lo] * (hi - idx) + sorted[hi] * (idx - lo);
+  }
   const clubAgg = Array.from(byClub.entries())
-    .map(([club, v]) => ({
-      club,
-      shots: v.shots,
-      sessions: v.sessions.size,
-      avgCarry: v.shots > 0 ? v.carrySum / v.shots : 0,
-      avgSmash: v.smashN > 0 ? v.smashSum / v.smashN : null,
-    }))
+    .map(([club, v]) => {
+      const carriesSorted = [...v.carries].sort((a, b) => a - b);
+      const med = carriesSorted.length > 0 ? percentile(carriesSorted, 0.5) : 0;
+      const safe = percentile(carriesSorted, 0.25);
+      const good = percentile(carriesSorted, 0.9);
+      const insideBand = v.carries.filter((c) => Math.abs(c - med) <= 10).length;
+      const confidence = v.carries.length > 0 ? (insideBand / v.carries.length) * 100 : 0;
+      const latsSorted = [...v.lats].sort((a, b) => a - b);
+      const latMed = latsSorted.length > 0 ? percentile(latsSorted, 0.5) : 0;
+      const smashesSorted = [...v.smashes].sort((a, b) => a - b);
+      return {
+        club,
+        shots: v.shots,
+        sessions: v.sessions.size,
+        carrySafe: safe,
+        carryAvg: med,
+        carryGood: good,
+        confidence,
+        latMed,
+        latDisplay:
+          Math.abs(latMed) < 3
+            ? "—"
+            : `${Math.abs(latMed).toFixed(0)}y ${latMed > 0 ? "R" : "L"}`,
+        smash: smashesSorted.length > 0 ? percentile(smashesSorted, 0.5) : null,
+      };
+    })
     .sort((a, b) => {
       const ai = CLUB_ORDER.indexOf(a.club);
       const bi = CLUB_ORDER.indexOf(b.club);
@@ -660,34 +704,80 @@ export default async function StatsPage() {
         )}
       </Card>
 
-      {/* Tabla palos FlightScope */}
-      <SectionHeader>Palos (FlightScope)</SectionHeader>
+      {/* Tabla palos FlightScope — para decidir palo en cancha */}
+      <div id="palos" style={{ scrollMarginTop: 16 }}>
+        <SectionHeader>Palos (FlightScope) · decidir palo</SectionHeader>
+      </div>
       <Card className="!p-2 overflow-x-auto">
         {clubAgg.length === 0 ? (
-          <p className="text-center text-xs text-[var(--muted)] p-4">No hay sesiones FlightScope</p>
+          <p className="text-center text-xs text-[var(--muted)] p-4">
+            No hay sesiones FlightScope
+          </p>
         ) : (
-          <table className="w-full text-[11px]">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Palo</th>
-                <th className="text-right p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Avg Carry</th>
-                <th className="text-right p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Smash</th>
-                <th className="text-right p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Shots</th>
-                <th className="text-right p-1 text-[9px] uppercase tracking-wider text-[var(--muted)]">Ses</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clubAgg.map((c) => (
-                <tr key={c.club} className="border-b border-[var(--green-pale)]">
-                  <td className="p-1">{RANGE_CLUB_LABEL[c.club] ?? c.club}</td>
-                  <td className="p-1 text-right gf-mono font-semibold">{c.avgCarry.toFixed(0)}<span className="text-[var(--muted)] text-[9px]"> yds</span></td>
-                  <td className="p-1 text-right gf-mono">{c.avgSmash != null ? c.avgSmash.toFixed(2) : "—"}</td>
-                  <td className="p-1 text-right gf-mono">{c.shots}</td>
-                  <td className="p-1 text-right gf-mono">{c.sessions}</td>
+          <>
+            <table className="w-full text-[11px] gf-mono">
+              <thead>
+                <tr className="text-[var(--muted)] uppercase tracking-wider text-[9px]">
+                  <th className="text-left p-1">Palo</th>
+                  <th
+                    className="text-right p-1"
+                    title="P25 · casi siempre llegás"
+                  >
+                    Safe
+                  </th>
+                  <th
+                    className="text-right p-1"
+                    title="Mediana · distancia típica"
+                  >
+                    Avg
+                  </th>
+                  <th
+                    className="text-right p-1"
+                    title="Dirección típica · apuntá al lado opuesto"
+                  >
+                    Lateral
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {clubAgg.map((c) => (
+                  <tr
+                    key={c.club}
+                    className="border-t border-[var(--green-pale)]"
+                  >
+                    <td className="p-1.5 font-semibold">
+                      {RANGE_CLUB_LABEL[c.club] ?? c.club}
+                      <span className="text-[9px] text-[var(--muted)] font-normal ml-1">
+                        ({c.shots})
+                      </span>
+                    </td>
+                    <td className="p-1 text-right text-[var(--muted)]">
+                      {c.carrySafe.toFixed(0)}
+                    </td>
+                    <td className="p-1 text-right font-bold text-[var(--fairway)]">
+                      {c.carryAvg.toFixed(0)}
+                    </td>
+                    <td
+                      className="p-1 text-right"
+                      style={{
+                        color:
+                          c.latDisplay === "—"
+                            ? "var(--muted)"
+                            : "var(--accent)",
+                      }}
+                    >
+                      {c.latDisplay}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-[var(--muted)] mt-2 px-1">
+              <strong>Safe</strong>: P25 — casi siempre llegás ·{" "}
+              <strong>Avg</strong>: mediana — típico · <strong>Lateral</strong>:
+              dirección típica (R 10y = apuntá 10y a la izquierda)
+            </p>
+          </>
         )}
       </Card>
     </div>
