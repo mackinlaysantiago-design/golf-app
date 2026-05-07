@@ -41,16 +41,35 @@ export default async function ResumenPage({
 
   const me = r.players.find((rp) => rp.player.isMe) ?? r.players[0];
 
+  // Detectar auto qué vueltas tienen scores cargados (para rondas viejas
+  // marcadas como 18 pero donde solo se jugaron 9)
+  const playedNumbers = new Set(
+    me.holes.filter((h) => h.score != null && h.score > 0).map((h) => h.holeNumber),
+  );
+  const hasIdaScores = Array.from(playedNumbers).some((n) => n <= 9);
+  const hasVueltaScores = Array.from(playedNumbers).some((n) => n >= 10);
+  const autoDetectedNine =
+    hasIdaScores && !hasVueltaScores
+      ? "IDA"
+      : hasVueltaScores && !hasIdaScores
+      ? "VUELTA"
+      : null;
+
   // Hoyos jugados según config de la ronda (9 ida / 9 vuelta / 18)
+  // o auto-detectado si la ronda quedó mal etiquetada
+  const effectiveNineWhich =
+    round.holesPlayed === 9
+      ? round.nineWhich === "VUELTA"
+        ? "VUELTA"
+        : "IDA"
+      : autoDetectedNine;
+  const isNineOnly = round.holesPlayed === 9 || autoDetectedNine !== null;
+  const ninePlayed = effectiveNineWhich === "VUELTA" ? "VUELTA" : "IDA";
+
   const playableHoles = round.course.holes.filter((h) => {
-    if (round.holesPlayed === 9) {
-      if (round.nineWhich === "VUELTA") return h.number >= 10;
-      return h.number <= 9; // default IDA
-    }
-    return true; // 18 hoyos
+    if (!isNineOnly) return true;
+    return effectiveNineWhich === "VUELTA" ? h.number >= 10 : h.number <= 9;
   });
-  const isNineOnly = round.holesPlayed === 9;
-  const ninePlayed = round.nineWhich === "VUELTA" ? "VUELTA" : "IDA";
 
   const parByNumber = new Map(round.course.holes.map((h) => [h.number, h.par]));
   const holes: HoleData[] = me.holes.map((h) => ({
@@ -410,8 +429,8 @@ export default async function ResumenPage({
       <StandingsTabs
         individual={standingsBySec}
         pairs={pairsBySec}
-        holesPlayed={round.holesPlayed}
-        nineWhich={round.nineWhich as "IDA" | "VUELTA" | null}
+        holesPlayed={isNineOnly ? 9 : 18}
+        nineWhich={effectiveNineWhich}
       />
 
       {perfectRuns.length > 0 && (
