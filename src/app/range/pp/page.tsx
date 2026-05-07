@@ -99,12 +99,19 @@ async function getLevels(): Promise<Record<string, LvlInfo>> {
       const bestByDist: Record<number, { strokes: number; balls: number; ratio: number }> = {};
       for (const s of drillSessions) {
         const data = parseAttempts(s.attemptsJson, "RATIO_LOWER_BY_DIST");
-        if (data.type !== "RATIO_LOWER_BY_DIST") continue;
-        const m = ratioLowerByDistance(data.attempts);
-        for (const [k, v] of Object.entries(m)) {
-          const d = Number(k);
-          const cur = bestByDist[d];
-          if (!cur || v.ratio < cur.ratio) bestByDist[d] = v;
+        if (data.type === "RATIO_LOWER_BY_DIST") {
+          const m = ratioLowerByDistance(data.attempts);
+          for (const [k, v] of Object.entries(m)) {
+            const d = Number(k);
+            const cur = bestByDist[d];
+            if (!cur || v.ratio < cur.ratio) bestByDist[d] = v;
+          }
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && data.attempts.length > 0 && s.distance != null) {
+          const strokes = data.attempts.reduce((a, b) => a + b, 0);
+          const balls = data.attempts.length;
+          const ratio = strokes / balls;
+          const cur = bestByDist[s.distance];
+          if (!cur || ratio < cur.ratio) bestByDist[s.distance] = { strokes, balls, ratio };
         }
       }
       result[drill.type] = {
@@ -120,9 +127,15 @@ async function getLevels(): Promise<Record<string, LvlInfo>> {
       let best: { inTarget: number; balls: number; ratio: number } | null = null;
       for (const s of drillSessions) {
         const data = parseAttempts(s.attemptsJson, "RATIO_HIGHER");
-        if (data.type !== "RATIO_HIGHER") continue;
-        const t = ratioHigherTotal(data.attempts);
-        if (t && (!best || t.ratio > best.ratio)) best = t;
+        if (data.type === "RATIO_HIGHER") {
+          const t = ratioHigherTotal(data.attempts);
+          if (t && (!best || t.ratio > best.ratio)) best = t;
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && data.attempts.length > 0) {
+          const inTarget = data.attempts.reduce((a, b) => a + b, 0);
+          const balls = data.attempts.length * 9;
+          const ratio = inTarget / balls;
+          if (!best || ratio > best.ratio) best = { inTarget, balls, ratio };
+        }
       }
       result[drill.type] = {
         currentDistance: drill.defaultDistance,
