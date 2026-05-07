@@ -26,34 +26,50 @@ type Section = "IDA" | "VUELTA" | "TOTAL";
 export default function StandingsTabs({
   individual,
   pairs,
+  holesPlayed = 18,
+  nineWhich = null,
 }: {
   individual: Record<Section, StandingRow[]>;
   pairs?: Record<Section, [PairRow, PairRow]> | null;
+  holesPlayed?: number;
+  nineWhich?: "IDA" | "VUELTA" | null;
 }) {
-  const [sec, setSec] = useState<Section>("TOTAL");
+  // Si juega 9 hoyos, mostrar solo esa sección (sin tabs)
+  const isNineOnly = holesPlayed === 9;
+  const initialSec: Section = isNineOnly
+    ? nineWhich === "VUELTA"
+      ? "VUELTA"
+      : "IDA"
+    : "TOTAL";
+  const [sec, setSec] = useState<Section>(initialSec);
   const usePairs = !!pairs;
+  const sections: Section[] = isNineOnly
+    ? [initialSec]
+    : ["IDA", "VUELTA", "TOTAL"];
 
   return (
     <>
       <SectionHeader>Standings</SectionHeader>
       <Card className="!p-3">
-        <div className="flex gap-1 mb-2">
-          {(["IDA", "VUELTA", "TOTAL"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSec(s)}
-              className="flex-1 text-[10px] uppercase tracking-wider py-1 rounded"
-              style={{
-                background: sec === s ? "var(--fairway)" : "var(--green-pale)",
-                color: sec === s ? "white" : "var(--fairway)",
-                fontWeight: sec === s ? 700 : 500,
-              }}
-            >
-              {s === "IDA" ? "Ida (1-9)" : s === "VUELTA" ? "Vuelta (10-18)" : "Total"}
-            </button>
-          ))}
-        </div>
+        {!isNineOnly && (
+          <div className="flex gap-1 mb-2">
+            {sections.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSec(s)}
+                className="flex-1 text-[10px] uppercase tracking-wider py-1 rounded"
+                style={{
+                  background: sec === s ? "var(--fairway)" : "var(--green-pale)",
+                  color: sec === s ? "white" : "var(--fairway)",
+                  fontWeight: sec === s ? 700 : 500,
+                }}
+              >
+                {s === "IDA" ? "Ida (1-9)" : s === "VUELTA" ? "Vuelta (10-18)" : "Total"}
+              </button>
+            ))}
+          </div>
+        )}
 
         {usePairs && pairs ? (
           <table className="gf-table">

@@ -40,6 +40,18 @@ export default async function ResumenPage({
   const r = round; // narrow non-null
 
   const me = r.players.find((rp) => rp.player.isMe) ?? r.players[0];
+
+  // Hoyos jugados según config de la ronda (9 ida / 9 vuelta / 18)
+  const playableHoles = round.course.holes.filter((h) => {
+    if (round.holesPlayed === 9) {
+      if (round.nineWhich === "VUELTA") return h.number >= 10;
+      return h.number <= 9; // default IDA
+    }
+    return true; // 18 hoyos
+  });
+  const isNineOnly = round.holesPlayed === 9;
+  const ninePlayed = round.nineWhich === "VUELTA" ? "VUELTA" : "IDA";
+
   const parByNumber = new Map(round.course.holes.map((h) => [h.number, h.par]));
   const holes: HoleData[] = me.holes.map((h) => ({
     holeNumber: h.holeNumber,
@@ -172,7 +184,7 @@ export default async function ResumenPage({
   function holesForSection(sec: Section) {
     if (sec === "IDA") return allCourseHoles.filter((h) => h.number <= 9);
     if (sec === "VUELTA") return allCourseHoles.filter((h) => h.number >= 10);
-    return allCourseHoles;
+    return playableHoles; // TOTAL respeta los 9 jugados si corresponde
   }
   function chForSection(rp: typeof r.players[number], sec: Section) {
     const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
@@ -398,6 +410,8 @@ export default async function ResumenPage({
       <StandingsTabs
         individual={standingsBySec}
         pairs={pairsBySec}
+        holesPlayed={round.holesPlayed}
+        nineWhich={round.nineWhich as "IDA" | "VUELTA" | null}
       />
 
       {perfectRuns.length > 0 && (
@@ -766,7 +780,7 @@ export default async function ResumenPage({
             </tr>
           </thead>
           <tbody>
-            {round.course.holes.map((h) => (
+            {playableHoles.map((h) => (
               <tr key={h.number} className="border-b border-[var(--green-pale)]">
                 <td className="p-1 gf-mono">{h.number}</td>
                 <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
@@ -782,15 +796,54 @@ export default async function ResumenPage({
               </tr>
             ))}
             <tr className="font-bold border-t-2 border-[var(--fairway)]">
-              <td className="p-1">T</td>
+              <td className="p-1">{isNineOnly ? (ninePlayed === "VUELTA" ? "In" : "Out") : "T"}</td>
               <td className="p-1 text-center gf-mono">
-                {round.course.holes.reduce((s, h) => s + h.par, 0)}
+                {playableHoles.reduce((s, h) => s + h.par, 0)}
               </td>
-              {standings.map((s) => (
-                <td key={s.rp.id} className="p-1 text-center gf-mono">
-                  {s.bruto || "—"}
-                </td>
-              ))}
+              {round.players.map((rp) => {
+                let total = 0;
+                let parPlayed = 0;
+                let played = 0;
+                for (const h of playableHoles) {
+                  const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+                  const sc = hd?.score;
+                  if (sc != null && sc > 0) {
+                    total += sc;
+                    parPlayed += h.par;
+                    played++;
+                  }
+                }
+                const vsPar = total - parPlayed;
+                const vsLabel =
+                  played === 0
+                    ? ""
+                    : vsPar === 0
+                    ? "E"
+                    : vsPar > 0
+                    ? `+${vsPar}`
+                    : `${vsPar}`;
+                const vsColor =
+                  vsPar === 0
+                    ? "var(--muted)"
+                    : vsPar > 0
+                    ? vsPar <= 6
+                      ? "var(--accent)"
+                      : "var(--red)"
+                    : "var(--green)";
+                return (
+                  <td key={rp.id} className="p-1 text-center gf-mono">
+                    <div>{total > 0 ? total : "—"}</div>
+                    {rp.player.isMe && played > 0 && (
+                      <div
+                        className="text-[9px] font-bold"
+                        style={{ color: vsColor }}
+                      >
+                        {vsLabel}
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           </tbody>
         </table>
