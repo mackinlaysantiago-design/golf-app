@@ -64,7 +64,6 @@ export default async function ResumenPage({
         : "IDA"
       : autoDetectedNine;
   const isNineOnly = round.holesPlayed === 9 || autoDetectedNine !== null;
-  const ninePlayed = effectiveNineWhich === "VUELTA" ? "VUELTA" : "IDA";
 
   const playableHoles = round.course.holes.filter((h) => {
     if (!isNineOnly) return true;
@@ -808,7 +807,7 @@ export default async function ResumenPage({
                   <tr key={h.number} className="border-b border-[var(--green-pale)]">
                     <td className="p-1 gf-mono">{h.number}</td>
                     <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
-                    {round.players.map((rp) => {
+                    {r.players.map((rp) => {
                       const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
                       const score = hd?.score ?? null;
                       return (
@@ -833,7 +832,7 @@ export default async function ResumenPage({
                     <td className="p-1 text-center gf-mono text-[10px] text-[var(--muted)]">
                       {totalPar}
                     </td>
-                    {round.players.map((rp) => {
+                    {r.players.map((rp) => {
                       let total = 0;
                       let parPlayed = 0;
                       let played = 0;

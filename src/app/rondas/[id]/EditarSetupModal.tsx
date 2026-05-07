@@ -20,6 +20,8 @@ type Round = {
   id: string;
   courseId: string;
   tee: string;
+  holesPlayed: number;
+  nineWhich: string | null;
   players: RoundPlayer[];
   bets: Bet[];
 };
@@ -83,7 +85,13 @@ export default function EditarSetupModal({
   round: Round;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"HCP" | "BETS">("HCP");
+  const [tab, setTab] = useState<"FORMAT" | "HCP" | "BETS">("FORMAT");
+  const [holesPlayed, setHolesPlayed] = useState<9 | 18>(
+    (round.holesPlayed as 9 | 18) ?? 18,
+  );
+  const [nineWhich, setNineWhich] = useState<"IDA" | "VUELTA">(
+    (round.nineWhich as "IDA" | "VUELTA") ?? "IDA",
+  );
   const [hcps, setHcps] = useState<HcpsState>(() => loadInitialHcps(round));
   const [bets, setBets] = useState<BetsState>(() => loadInitialBets(round.bets));
   const [busy, setBusy] = useState(false);
@@ -192,7 +200,14 @@ export default function EditarSetupModal({
     const res = await fetch(`/api/rondas/${round.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ players: playersPayload, bets: betsPayload }),
+      body: JSON.stringify({
+        players: playersPayload,
+        bets: betsPayload,
+        format: {
+          holesPlayed,
+          nineWhich: holesPlayed === 9 ? nineWhich : null,
+        },
+      }),
     });
     if (res.ok) {
       // Reload completo: el tracker tiene state local (data) que useState no
@@ -220,29 +235,77 @@ export default function EditarSetupModal({
         </div>
 
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setTab("HCP")}
-            className="flex-1 py-2 rounded text-sm font-semibold"
-            style={{
-              background: tab === "HCP" ? "var(--fairway)" : "var(--green-pale)",
-              color: tab === "HCP" ? "white" : "var(--fairway)",
-            }}
-          >
-            HCPs
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("BETS")}
-            className="flex-1 py-2 rounded text-sm font-semibold"
-            style={{
-              background: tab === "BETS" ? "var(--fairway)" : "var(--green-pale)",
-              color: tab === "BETS" ? "white" : "var(--fairway)",
-            }}
-          >
-            Apuestas
-          </button>
+          {(["FORMAT", "HCP", "BETS"] as const).map((t) => {
+            const label = t === "FORMAT" ? "Formato" : t === "HCP" ? "HCPs" : "Apuestas";
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className="flex-1 py-2 rounded text-sm font-semibold"
+                style={{
+                  background: tab === t ? "var(--fairway)" : "var(--green-pale)",
+                  color: tab === t ? "white" : "var(--fairway)",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
+
+        {tab === "FORMAT" && (
+          <div className="space-y-3">
+            <p className="text-[10px] text-[var(--muted)]">
+              ¿Cuántos hoyos jugaste? Si fueron 9, indicá si fue la primera o
+              la segunda vuelta.
+            </p>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                Hoyos
+              </label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {([9, 18] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setHolesPlayed(n)}
+                    className="py-2 rounded font-semibold gf-mono"
+                    style={{
+                      background: holesPlayed === n ? "var(--fairway)" : "var(--green-pale)",
+                      color: holesPlayed === n ? "white" : "var(--fairway)",
+                    }}
+                  >
+                    {n} hoyos
+                  </button>
+                ))}
+              </div>
+            </div>
+            {holesPlayed === 9 && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                  Vuelta
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {(["IDA", "VUELTA"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setNineWhich(v)}
+                      className="py-2 rounded font-semibold gf-mono"
+                      style={{
+                        background: nineWhich === v ? "var(--fairway)" : "var(--green-pale)",
+                        color: nineWhich === v ? "white" : "var(--fairway)",
+                      }}
+                    >
+                      {v === "IDA" ? "Ida (1-9)" : "Vuelta (10-18)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {tab === "HCP" && (
           <div className="space-y-3">

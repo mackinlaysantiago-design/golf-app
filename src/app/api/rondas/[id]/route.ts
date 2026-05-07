@@ -32,6 +32,12 @@ const PatchSchema = z.object({
       emotionalStateBefore: z.array(z.string()).nullable().optional(),
     })
     .optional(),
+  format: z
+    .object({
+      holesPlayed: z.union([z.literal(9), z.literal(18)]).optional(),
+      nineWhich: z.enum(["IDA", "VUELTA"]).nullable().optional(),
+    })
+    .optional(),
 });
 
 export async function PATCH(
@@ -64,6 +70,15 @@ export async function PATCH(
             modalityHcps: cleanHcps !== undefined ? cleanHcps : undefined,
           },
         });
+      }
+    }
+
+    if (parsed.format) {
+      const data: Record<string, unknown> = {};
+      if (parsed.format.holesPlayed !== undefined) data.holesPlayed = parsed.format.holesPlayed;
+      if (parsed.format.nineWhich !== undefined) data.nineWhich = parsed.format.nineWhich;
+      if (Object.keys(data).length > 0) {
+        await tx.round.update({ where: { id }, data });
       }
     }
 
