@@ -1440,33 +1440,14 @@ function DecadeInput({
         🧠 DECADE · decisiones de este hoyo
       </div>
 
-      {/* Pin color */}
+      {/* 1. Danger Zone (desde el tee — pre-drive) */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-[var(--muted)] gf-mono w-12">Pin</span>
-        {pinOpts.map((o) => {
-          const active = pinColor === o.v;
-          return (
-            <button
-              key={o.v}
-              type="button"
-              onClick={() => onSet("pinColor", active ? null : o.v)}
-              className="text-[10px] px-2 py-1 rounded gf-mono"
-              style={{
-                background: active ? "var(--fairway)" : "var(--green-pale)",
-                color: active ? "white" : "var(--fairway)",
-                fontWeight: active ? 700 : 500,
-              }}
-              title={`Bandera ${o.label}`}
-            >
-              {o.emoji} {o.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Danger side */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-[var(--muted)] gf-mono w-12">Peor</span>
+        <span
+          className="text-[10px] text-[var(--muted)] gf-mono w-20"
+          title="Lado peligroso del hoyo desde el tee"
+        >
+          Danger Zone
+        </span>
         {sideOpts.map((o) => {
           const active = dangerSide === o.v;
           return (
@@ -1488,7 +1469,31 @@ function DecadeInput({
         })}
       </div>
 
-      {/* Toggles aimed/recovery */}
+      {/* 2. Pin (al llegar al green — pre-approach) */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-[var(--muted)] gf-mono w-20">Pin</span>
+        {pinOpts.map((o) => {
+          const active = pinColor === o.v;
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => onSet("pinColor", active ? null : o.v)}
+              className="text-[10px] px-2 py-1 rounded gf-mono"
+              style={{
+                background: active ? "var(--fairway)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+              title={`Bandera ${o.label}`}
+            >
+              {o.emoji} {o.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 3. Apunté al centro + 4. Recovery (post-shot) */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
