@@ -4,6 +4,7 @@ import { computeRoundKPIs, computePPPlan, computePuttBuckets, puttsMadeOver4ft, 
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
+import ScoreMark from "@/components/ui/ScoreMark";
 import Link from "next/link";
 import DeleteButton from "./DeleteButton";
 import ResumenActions from "./ResumenActions";
@@ -771,17 +772,10 @@ export default async function ResumenPage({
                 <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
                 {round.players.map((rp) => {
                   const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
-                  const score = hd?.score;
-                  const vsPar = score && score > 0 ? score - h.par : null;
-                  const cls = vsPar == null
-                    ? "text-[var(--muted)]"
-                    : vsPar < 0 ? "text-[var(--green)] font-bold"
-                    : vsPar === 0 ? ""
-                    : vsPar === 1 ? "text-[var(--accent)]"
-                    : "text-[var(--red)] font-bold";
+                  const score = hd?.score ?? null;
                   return (
-                    <td key={rp.id} className={`p-1 text-center gf-mono ${cls}`}>
-                      {score && score > 0 ? score : "—"}
+                    <td key={rp.id} className="p-1 text-center">
+                      <ScoreMark score={score} par={h.par} />
                     </td>
                   );
                 })}

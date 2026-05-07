@@ -7,6 +7,7 @@ import { Card, SectionHeader, Pill } from "@/components/ui/Card";
 import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
+import ScoreMark from "@/components/ui/ScoreMark";
 import { SM_KEYS } from "@/lib/sm-keys";
 import {
   GOAL_LADDER,
@@ -770,16 +771,9 @@ export default function RondaTracker({
                           <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
                           {round.players.map((rp) => {
                             const score = data[rp.id]?.[h.number]?.score;
-                            const vsPar = score && score > 0 ? score - h.par : null;
-                            const cls = vsPar == null
-                              ? "text-[var(--muted)]"
-                              : vsPar < 0 ? "text-[var(--green)] font-bold"
-                              : vsPar === 0 ? ""
-                              : vsPar === 1 ? "text-[var(--accent)]"
-                              : "text-[var(--red)] font-bold";
                             return (
-                              <td key={rp.id} className={`p-1 text-center gf-mono ${cls}`}>
-                                {score && score > 0 ? score : "—"}
+                              <td key={rp.id} className="p-1 text-center">
+                                <ScoreMark score={score} par={h.par} />
                               </td>
                             );
                           })}
