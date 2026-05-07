@@ -1,7 +1,16 @@
 import { prisma } from "@/lib/db";
 import { Card, KPI, SectionHeader } from "@/components/ui/Card";
 import { computeRoundKPIs, type HoleData } from "@/lib/scoring-method";
-import { DRILL_BY_TYPE, CLUB_LABEL as PP_CLUB_LABEL, type DrillType } from "@/lib/pp-drills";
+import {
+  DRILL_BY_TYPE,
+  CLUB_LABEL as PP_CLUB_LABEL,
+  GO_TO_CLUB_LADDER,
+  parseAttempts,
+  maxStreakByDistance,
+  ratioLowerByDistance,
+  ratioHigherTotal,
+  type DrillType,
+} from "@/lib/pp-drills";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -97,7 +106,7 @@ export default async function StatsPage() {
     label: string;
     sessions: number;
     achievements: number;
-    bestScore: number | null;
+    bestDisplay: string;       // texto formateado del mejor récord
     lastDate: Date | null;
     currentLevel: string;
   };
@@ -112,15 +121,6 @@ export default async function StatsPage() {
   for (const [type, drills] of Array.from(drillsByType.entries())) {
     const def = DRILL_BY_TYPE[type as DrillType];
     if (!def) continue;
-    const allAttempts = drills.flatMap((d) => (d.attemptsJson as number[] | null) ?? []);
-    const best = allAttempts.length === 0
-      ? null
-      : def.scoring === "BEAT_BEST_LOWER_BY_1"
-      ? Math.min(...drills.map((d) => {
-          const att = (d.attemptsJson as number[] | null) ?? [];
-          return att.reduce((a, b) => a + b, 0);
-        }).filter((s) => s > 0))
-      : Math.max(...allAttempts);
     let lastDate: Date | null = null;
     for (const s of ppSessions) {
       for (const d of s.drills) {
@@ -128,43 +128,108 @@ export default async function StatsPage() {
         if (!lastDate || s.date > lastDate) lastDate = s.date;
       }
     }
+
     let currentLevel = "—";
+    let bestDisplay = "—";
+    const target = def.levelUpStreak ?? def.scoreOf;
+
     if (def.type === "GO_TO_CLUB") {
-      // último palo logrado 9/9
-      const { GO_TO_CLUB_LADDER } = await import("@/lib/pp-drills");
       let bestRank = -1;
+      let bestScore = 0;
       for (const d of drills) {
         if (!d.club) continue;
-        const att = (d.attemptsJson as number[] | null) ?? [];
-        const score = att.length > 0 ? Math.max(...att) : 0;
-        if (score === def.scoreOf) {
+        const data = parseAttempts(d.attemptsJson, "LEGACY_NUMBER_ARRAY");
+        if (data.type !== "LEGACY_NUMBER_ARRAY") continue;
+        const max = data.attempts.length > 0 ? Math.max(...data.attempts) : 0;
+        bestScore = Math.max(bestScore, max);
+        if (max === def.scoreOf) {
           const rank = GO_TO_CLUB_LADDER.indexOf(d.club);
           if (rank > bestRank) bestRank = rank;
         }
       }
-      // Nivel actual = el último palo donde completaste 9/9 (no el siguiente)
       const club = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[bestRank];
       currentLevel = PP_CLUB_LABEL[club] ?? club;
-    } else if (def.distanceStep) {
-      let bestDist = -Infinity;
+      bestDisplay = bestScore > 0 ? `${bestScore}/9` : "—";
+    } else if (def.format === "STREAK_BY_DIST") {
+      // Mejor streak por distancia + currentLevel = passedDist + step
+      const allByDist: Record<number, number> = {};
+      let bestPassedDist = -Infinity;
       for (const d of drills) {
-        if (d.distance == null) continue;
-        const att = (d.attemptsJson as number[] | null) ?? [];
-        const score = att.length > 0 ? Math.max(...att) : 0;
-        if (score === def.scoreOf && d.distance > bestDist) bestDist = d.distance;
+        const data = parseAttempts(d.attemptsJson, "STREAK_BY_DIST");
+        if (data.type === "STREAK_BY_DIST") {
+          const m = maxStreakByDistance(data.attempts);
+          for (const [k, v] of Object.entries(m)) {
+            const dd = Number(k);
+            allByDist[dd] = Math.max(allByDist[dd] ?? 0, v);
+            if (v >= target && dd > bestPassedDist) bestPassedDist = dd;
+          }
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && d.distance != null) {
+          const max = data.attempts.length > 0 ? Math.max(...data.attempts) : 0;
+          allByDist[d.distance] = Math.max(allByDist[d.distance] ?? 0, max);
+          if (max >= target && d.distance > bestPassedDist) bestPassedDist = d.distance;
+        }
       }
-      // Nivel actual = última distancia donde completaste el target (no la siguiente)
-      const dist = bestDist === -Infinity ? def.defaultDistance : bestDist;
+      const passed = bestPassedDist === -Infinity ? null : bestPassedDist;
+      const dist = passed != null && def.distanceStep
+        ? passed + def.distanceStep
+        : (passed ?? def.defaultDistance);
       currentLevel = `${dist}${def.distanceUnit}`;
-    } else {
+      const records = Object.entries(allByDist)
+        .map(([k, v]) => [Number(k), v] as const)
+        .sort((a, b) => b[1] - a[1]);
+      if (records.length > 0) {
+        bestDisplay = `${records[0][1]}@${records[0][0]}${def.distanceUnit}`;
+      }
+    } else if (def.format === "RATIO_LOWER_BY_DIST") {
+      const bestByDist: Record<number, { strokes: number; balls: number; ratio: number }> = {};
+      for (const d of drills) {
+        const data = parseAttempts(d.attemptsJson, "RATIO_LOWER_BY_DIST");
+        if (data.type === "RATIO_LOWER_BY_DIST") {
+          const m = ratioLowerByDistance(data.attempts);
+          for (const [k, v] of Object.entries(m)) {
+            const dd = Number(k);
+            const cur = bestByDist[dd];
+            if (!cur || v.ratio < cur.ratio) bestByDist[dd] = v;
+          }
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && d.distance != null && data.attempts.length > 0) {
+          const strokes = data.attempts.reduce((a, b) => a + b, 0);
+          const balls = data.attempts.length;
+          const ratio = strokes / balls;
+          const cur = bestByDist[d.distance];
+          if (!cur || ratio < cur.ratio) bestByDist[d.distance] = { strokes, balls, ratio };
+        }
+      }
       currentLevel = `${def.defaultDistance}${def.distanceUnit}`;
+      const records = Object.entries(bestByDist)
+        .map(([k, v]) => [Number(k), v] as const)
+        .sort((a, b) => a[1].ratio - b[1].ratio);
+      if (records.length > 0) {
+        bestDisplay = `${records[0][1].ratio.toFixed(2)}@${records[0][0]}${def.distanceUnit}`;
+      }
+    } else if (def.format === "RATIO_HIGHER") {
+      let best: { inTarget: number; balls: number; ratio: number } | null = null;
+      for (const d of drills) {
+        const data = parseAttempts(d.attemptsJson, "RATIO_HIGHER");
+        if (data.type === "RATIO_HIGHER") {
+          const t = ratioHigherTotal(data.attempts);
+          if (t && (!best || t.ratio > best.ratio)) best = t;
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && data.attempts.length > 0) {
+          const inTarget = data.attempts.reduce((a, b) => a + b, 0);
+          const balls = data.attempts.length * 9;
+          const ratio = inTarget / balls;
+          if (!best || ratio > best.ratio) best = { inTarget, balls, ratio };
+        }
+      }
+      currentLevel = `${def.defaultDistance}${def.distanceUnit}`;
+      if (best) bestDisplay = `${(best.ratio * 100).toFixed(0)}%`;
     }
+
     drillStats.push({
       type: def.type,
       label: def.shortLabel,
       sessions: drills.length,
       achievements: drills.filter((d) => d.leveledUp).length,
-      bestScore: best,
+      bestDisplay,
       lastDate,
       currentLevel,
     });
@@ -321,7 +386,7 @@ export default async function StatsPage() {
                 <tr key={d.type} className="border-b border-[var(--green-pale)]">
                   <td className="p-1">{d.label}</td>
                   <td className="p-1 text-right gf-mono font-semibold">{d.currentLevel}</td>
-                  <td className="p-1 text-right gf-mono">{d.bestScore ?? "—"}</td>
+                  <td className="p-1 text-right gf-mono">{d.bestDisplay}</td>
                   <td className="p-1 text-right gf-mono">{d.sessions}</td>
                   <td className="p-1 text-right gf-mono">{d.achievements}</td>
                   <td className="p-1 text-right gf-mono text-[10px]">

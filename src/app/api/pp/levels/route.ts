@@ -113,7 +113,11 @@ export async function GET() {
         }
       }
 
-      const currentDistance = bestLevelUpDist === -Infinity ? drill.defaultDistance : bestLevelUpDist;
+      // Nivel actual = la próxima distancia después de la última pasada con 10/10
+      const passedDistance = bestLevelUpDist === -Infinity ? null : bestLevelUpDist;
+      const currentDistance = passedDistance != null && drill.distanceStep
+        ? passedDistance + drill.distanceStep
+        : (passedDistance ?? drill.defaultDistance);
       const bestAtCurrent = allByDist[currentDistance] ?? null;
       const bestEver = Object.values(allByDist).length > 0 ? Math.max(...Object.values(allByDist)) : null;
 

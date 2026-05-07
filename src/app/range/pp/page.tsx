@@ -85,7 +85,10 @@ async function getLevels(): Promise<Record<string, LvlInfo>> {
           if (max >= target && s.distance > bestLevelUpDist) bestLevelUpDist = s.distance;
         }
       }
-      const currentDistance = bestLevelUpDist === -Infinity ? drill.defaultDistance : bestLevelUpDist;
+      const passedDistance = bestLevelUpDist === -Infinity ? null : bestLevelUpDist;
+      const currentDistance = passedDistance != null && drill.distanceStep
+        ? passedDistance + drill.distanceStep
+        : (passedDistance ?? drill.defaultDistance);
       result[drill.type] = {
         currentDistance,
         bestStreakByDist: allByDist,
