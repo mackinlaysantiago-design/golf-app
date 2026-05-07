@@ -758,46 +758,135 @@ export default function RondaTracker({
                     </tr>
                   </thead>
                   <tbody>
-                    {courseHoles.map((h) => {
-                      const isCurrent = h.number === currentHole;
+                    {(() => {
+                      // Ida = hoyos 1-9 dentro del set jugado, Vuelta = 10-18
+                      const idaHoles = courseHoles.filter((h) => h.number <= 9);
+                      const vueltaHoles = courseHoles.filter((h) => h.number >= 10);
+
+                      function totalRow(
+                        label: string,
+                        holes: typeof courseHoles,
+                        showVsPar: boolean,
+                      ) {
+                        const totalPar = holes.reduce((s, h) => s + h.par, 0);
+                        return (
+                          <tr
+                            key={`total-${label}`}
+                            className="font-bold border-t-2 border-[var(--fairway)]"
+                            style={{ background: "var(--green-pale)" }}
+                          >
+                            <td className="p-1 text-[10px] uppercase">{label}</td>
+                            <td className="p-1 text-center gf-mono text-[10px] text-[var(--muted)]">
+                              {totalPar}
+                            </td>
+                            {round.players.map((rp) => {
+                              let total = 0;
+                              let parPlayed = 0;
+                              let played = 0;
+                              for (const h of holes) {
+                                const sc = data[rp.id]?.[h.number]?.score;
+                                if (sc != null && sc > 0) {
+                                  total += sc;
+                                  parPlayed += h.par;
+                                  played++;
+                                }
+                              }
+                              const vsPar = total - parPlayed;
+                              const vsLabel =
+                                played === 0
+                                  ? ""
+                                  : vsPar === 0
+                                  ? "E"
+                                  : vsPar > 0
+                                  ? `+${vsPar}`
+                                  : `${vsPar}`;
+                              const vsColor =
+                                vsPar === 0
+                                  ? "var(--muted)"
+                                  : vsPar > 0
+                                  ? vsPar <= 6
+                                    ? "var(--accent)"
+                                    : "var(--red)"
+                                  : "var(--green)";
+                              return (
+                                <td key={rp.id} className="p-1 text-center gf-mono">
+                                  <div>{total > 0 ? total : "—"}</div>
+                                  {showVsPar && rp.player.isMe && played > 0 && (
+                                    <div
+                                      className="text-[9px] font-bold"
+                                      style={{ color: vsColor }}
+                                    >
+                                      {vsLabel}
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      }
+
                       return (
-                        <tr
-                          key={h.number}
-                          className="border-b border-[var(--green-pale)] cursor-pointer"
-                          onClick={() => setCurrentHole(h.number)}
-                          style={{ background: isCurrent ? "var(--green-pale)" : undefined }}
-                        >
-                          <td className="p-1 gf-mono font-semibold">{h.number}</td>
-                          <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
-                          {round.players.map((rp) => {
-                            const score = data[rp.id]?.[h.number]?.score;
+                        <>
+                          {/* Hoyos 1-9 */}
+                          {idaHoles.map((h) => {
+                            const isCurrent = h.number === currentHole;
                             return (
-                              <td key={rp.id} className="p-1 text-center">
-                                <ScoreMark score={score} par={h.par} />
-                              </td>
+                              <tr
+                                key={h.number}
+                                className="border-b border-[var(--green-pale)] cursor-pointer"
+                                onClick={() => setCurrentHole(h.number)}
+                                style={{ background: isCurrent ? "var(--green-pale)" : undefined }}
+                              >
+                                <td className="p-1 gf-mono font-semibold">{h.number}</td>
+                                <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
+                                {round.players.map((rp) => {
+                                  const score = data[rp.id]?.[h.number]?.score;
+                                  return (
+                                    <td key={rp.id} className="p-1 text-center">
+                                      <ScoreMark score={score} par={h.par} />
+                                    </td>
+                                  );
+                                })}
+                              </tr>
                             );
                           })}
-                        </tr>
+                          {/* Out (1-9) total — solo si hay hoyos 1-9 */}
+                          {idaHoles.length > 0 && totalRow("Out", idaHoles, true)}
+
+                          {/* Hoyos 10-18 */}
+                          {vueltaHoles.map((h) => {
+                            const isCurrent = h.number === currentHole;
+                            return (
+                              <tr
+                                key={h.number}
+                                className="border-b border-[var(--green-pale)] cursor-pointer"
+                                onClick={() => setCurrentHole(h.number)}
+                                style={{ background: isCurrent ? "var(--green-pale)" : undefined }}
+                              >
+                                <td className="p-1 gf-mono font-semibold">{h.number}</td>
+                                <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
+                                {round.players.map((rp) => {
+                                  const score = data[rp.id]?.[h.number]?.score;
+                                  return (
+                                    <td key={rp.id} className="p-1 text-center">
+                                      <ScoreMark score={score} par={h.par} />
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                          {/* In (10-18) total — solo si hay hoyos 10-18 */}
+                          {vueltaHoles.length > 0 && totalRow("In", vueltaHoles, true)}
+
+                          {/* Total general — solo si tiene ambas vueltas */}
+                          {idaHoles.length > 0 &&
+                            vueltaHoles.length > 0 &&
+                            totalRow("Total", courseHoles, true)}
+                        </>
                       );
-                    })}
-                    {/* Total row */}
-                    <tr className="font-bold border-t-2 border-[var(--fairway)]">
-                      <td className="p-1">T</td>
-                      <td className="p-1 text-center gf-mono">
-                        {courseHoles.reduce((s, h) => s + h.par, 0)}
-                      </td>
-                      {round.players.map((rp) => {
-                        const total = courseHoles.reduce((s, h) => {
-                          const sc = data[rp.id]?.[h.number]?.score;
-                          return s + (sc && sc > 0 ? sc : 0);
-                        }, 0);
-                        return (
-                          <td key={rp.id} className="p-1 text-center gf-mono">
-                            {total > 0 ? total : "—"}
-                          </td>
-                        );
-                      })}
-                    </tr>
+                    })()}
 
                     {/* Puntos Match BB+WB por hoyo en parejas */}
                     {pairsPointsByHole.length > 0 && (
@@ -1029,13 +1118,20 @@ export default function RondaTracker({
                   }
                 />
 
-                {/* 2. Score total (post-swing) */}
-                <NumField
-                  label="Score total"
-                  value={cells.score ?? null}
-                  onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                  big
-                />
+                {/* 2. Score total (post-swing) + indicador vsPar */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <NumField
+                      label="Score total"
+                      value={cells.score ?? null}
+                      onChange={(v) => setCell(rp.id, currentHole, "score", v)}
+                      big
+                    />
+                  </div>
+                  {cells.score != null && cells.score > 0 && currentHoleInfo && (
+                    <VsParPill score={cells.score} par={currentHoleInfo.par} />
+                  )}
+                </div>
 
                 {/* 3. Stats SM a completar (collapsable) */}
                 {showSm ? (
@@ -1149,13 +1245,20 @@ export default function RondaTracker({
                     )}
                   </div>
 
-                  <NumField
-                    label="Score total"
-                    value={cells.score ?? null}
-                    onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                    big
-                    isLast={!showSm}
-                  />
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <NumField
+                        label="Score total"
+                        value={cells.score ?? null}
+                        onChange={(v) => setCell(rp.id, currentHole, "score", v)}
+                        big
+                        isLast={!showSm}
+                      />
+                    </div>
+                    {cells.score != null && cells.score > 0 && currentHoleInfo && (
+                      <VsParPill score={cells.score} par={currentHoleInfo.par} />
+                    )}
+                  </div>
 
                   {showSm && (
                     <>
@@ -1353,6 +1456,47 @@ function FlagRow({
       {f("3 putts", flags.threePutts)}
       {f("1PC", flags.missedIn1PuttCircle)}
     </div>
+  );
+}
+
+// Indicador vs par junto al score input
+function VsParPill({ score, par }: { score: number; par: number }) {
+  const vs = score - par;
+  let label = "PAR";
+  let color = "var(--muted)";
+  let bg = "var(--green-pale)";
+  if (vs <= -2) {
+    label = "EAGLE";
+    color = "white";
+    bg = "var(--green)";
+  } else if (vs === -1) {
+    label = "BIRDIE";
+    color = "white";
+    bg = "var(--green)";
+  } else if (vs === 0) {
+    label = "PAR";
+    color = "var(--fairway)";
+    bg = "var(--green-pale)";
+  } else if (vs === 1) {
+    label = "+1";
+    color = "white";
+    bg = "var(--accent)";
+  } else if (vs === 2) {
+    label = "+2";
+    color = "white";
+    bg = "var(--red)";
+  } else {
+    label = `+${vs}`;
+    color = "white";
+    bg = "var(--red)";
+  }
+  return (
+    <span
+      className="gf-pill gf-mono text-[11px] mb-1 shrink-0"
+      style={{ background: bg, color, fontWeight: 700, padding: "4px 10px" }}
+    >
+      {label}
+    </span>
   );
 }
 
