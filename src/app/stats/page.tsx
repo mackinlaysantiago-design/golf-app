@@ -508,6 +508,81 @@ export default async function StatsPage() {
         </>
       )}
 
+      {/* 🌡️ Golfing Thermostat */}
+      {(me.scoreThermostatMin || me.scoreThermostatMax || me.scoreDesired) && (
+        <>
+          <SectionHeader>🌡️ Golfing Thermostat</SectionHeader>
+          <Card className="!p-3">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-[var(--muted)]">
+                  Min habitual
+                </div>
+                <div className="gf-display text-2xl text-[var(--fairway)]">
+                  {me.scoreThermostatMin ?? "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-[var(--muted)]">
+                  Max habitual
+                </div>
+                <div className="gf-display text-2xl text-[var(--fairway)]">
+                  {me.scoreThermostatMax ?? "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] uppercase tracking-wider text-[var(--muted)]">
+                  Score deseado
+                </div>
+                <div className="gf-display text-2xl text-[var(--accent)]">
+                  {me.scoreDesired ?? "—"}
+                </div>
+              </div>
+            </div>
+            {/* Comparativa con últimas rondas */}
+            {completed.length > 0 && me.scoreThermostatMin != null && me.scoreThermostatMax != null && (
+              <div className="mt-3 pt-2 border-t border-[var(--green-pale)]">
+                <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider mb-1">
+                  Últimas {Math.min(completed.length, 5)} rondas
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {completed.slice(0, 5).map((s) => {
+                    const score = s.kpis.totalScore;
+                    const inRange =
+                      score >= me.scoreThermostatMin! && score <= me.scoreThermostatMax!;
+                    const beatDesired = me.scoreDesired != null && score <= me.scoreDesired;
+                    return (
+                      <span
+                        key={s.round.id}
+                        className="gf-pill gf-mono text-[10px]"
+                        style={{
+                          background: beatDesired
+                            ? "var(--green)"
+                            : inRange
+                            ? "var(--green-pale)"
+                            : "#fde0dc",
+                          color: beatDesired
+                            ? "white"
+                            : inRange
+                            ? "var(--fairway)"
+                            : "var(--red)",
+                        }}
+                      >
+                        {score}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-[var(--muted)] mt-2">
+              Tu rango habitual. Para bajarlo, primero hay que creerlo: visualizá
+              tu ronda antes de jugar.
+            </p>
+          </Card>
+        </>
+      )}
+
       {/* Niveles Scoring Method del jugador */}
       <SectionHeader>Niveles Scoring Method</SectionHeader>
       <Card className="!p-3">

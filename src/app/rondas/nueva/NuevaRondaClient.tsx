@@ -262,7 +262,9 @@ export default function NuevaRondaClient({
 
     if (res.ok) {
       const round = await res.json();
-      router.push(`/rondas/${round.id}`);
+      // Solo si YO juego: paso por el briefing pre-ronda. Si no, va directo al tracker.
+      const meIsPlaying = me && selectedPlayers.some((p) => p.id === me.id);
+      router.push(meIsPlaying ? `/rondas/${round.id}/briefing` : `/rondas/${round.id}`);
       router.refresh();
     } else {
       alert("Error creando ronda");

@@ -36,9 +36,17 @@ export function computeTiger5Round(holes: HoleForTiger5[]): Tiger5RoundMetrics {
     ) {
       shortApproachBogeys++;
     }
-    // Double chips proxy: strokesInsideSz >= 3 sugiere múltiples chips
-    // (en SZ < 100 yds, con strokesInsideSz=3 normal hicieron 2 chips + 1 putt)
-    if (h.strokesInsideSz != null && h.strokesInsideSz >= 3) doubleChips++;
+    // Double chips: chips = strokesInsideSz - putts (los strokes en SZ que no
+    // fueron putts son chips/pitches). >= 2 = double chip.
+    // Si no hay putts cargados, fallback a strokesInsideSz >= 3 (menos preciso).
+    if (h.strokesInsideSz != null) {
+      if (h.putts != null) {
+        const chips = h.strokesInsideSz - h.putts;
+        if (chips >= 2) doubleChips++;
+      } else if (h.strokesInsideSz >= 3) {
+        doubleChips++;
+      }
+    }
   }
 
   return { threePutts, doubleBogeys, parFiveBogeys, shortApproachBogeys, doubleChips };
@@ -80,5 +88,5 @@ export const TIGER5_LABELS: { key: keyof Tiger5RoundMetrics; label: string; hint
   { key: "doubleBogeys", label: "Doble bogeys", hint: "Hoyos con +2 o peor" },
   { key: "parFiveBogeys", label: "Bogeys par 5", hint: "Par 5 jugados +1 o peor" },
   { key: "shortApproachBogeys", label: "Bogeys <150 yds", hint: "Bogeys con approach corto" },
-  { key: "doubleChips", label: "Double chips", hint: "Hoyos con 3+ golpes en SZ" },
+  { key: "doubleChips", label: "Double chips", hint: "Hoyos con 2+ chips (strokes en SZ menos putts)" },
 ];

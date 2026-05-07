@@ -515,6 +515,12 @@ export default function RondaTracker({ round }: { round: Round }) {
           >
             ⚙️ Editar setup
           </button>
+          <Link
+            href={`/rondas/${round.id}/briefing`}
+            className="text-[11px] text-[var(--muted)] underline"
+          >
+            🧠 Briefing
+          </Link>
         </div>
       </header>
 
