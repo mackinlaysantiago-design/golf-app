@@ -645,6 +645,7 @@ export default async function ResumenPage({
             initialBestShot={round.bestShot ?? ""}
             initialCommitment={round.commitmentScore}
             initialEmotion={round.emotionPlayed}
+            initialProblemArea={round.problemArea}
           />
         </>
       )}

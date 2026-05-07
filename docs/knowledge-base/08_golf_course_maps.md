@@ -66,3 +66,47 @@ Empezar con OSM + Mapbox:
 4. Si OSM no tiene tu campo, dibujás en `geojson.io` y lo pegás manual
 
 Estimación: ~5-8 hs para tener la primera versión con 1-2 campos cargados.
+
+---
+
+## Opciones 100% GRATIS (sin tarjeta, sin tier pago)
+
+### Opción A — ESRI World Imagery + OSM Overpass ⭐ RECOMENDADA
+- **Tiles satelitales**: ESRI ArcGIS World Imagery vía XYZ directo, **sin API key, sin signup**
+  - URL: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}`
+  - Listado en `leaflet-providers` como `Esri.WorldImagery`
+  - Cobertura global alta resolución (Maxar/Vivid en zonas urbanas, hasta zoom 19)
+  - Sin límite documentado para uso no comercial; solo requiere atribución
+    "Esri, Maxar, Earthstar Geographics"
+- **Polígonos**: Overpass API con `leisure=golf_course` + `golf=fairway|green|tee|bunker|rough|water_hazard`
+- **Sacrificio vs Mapbox pago**: no vector tiles (sin styling custom), tiles a
+  veces desactualizados 1-3 años en zonas rurales, no 3D/terrain
+
+### Opción B — IGN Argentina + Overpass (solo AR)
+- **Tiles**: IGN Argentina TMS público sin key:
+  `https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG:3857@png/{z}/{x}/{-y}.png`
+- 100% gratis, datos oficiales del estado argentino
+- Sacrificio: zoom máximo y resolución menor que ESRI (mejor capa secundaria
+  con toponimia oficial sobre ESRI World Imagery)
+
+### Opción C — geojson.io a mano + servir overlay
+- **geojson.io** (gratis, sin signup, capa Satellite embebida) — trazás
+  fairway/green/bunker manualmente y exportás GeoJSON
+- Para hoyos donde OSM no tiene polígonos detallados
+- Alternativa desktop: **QGIS** (profesional, gratis)
+
+### Datasets pre-armados
+- https://github.com/TheMapSmith/GeoJSON-GolfCourses — boundaries de courses OSM listos
+- Geofabrik exports por país (incluye Argentina) para bulk
+
+### Combinación recomendada (cero signup, cero tarjeta)
+**Leaflet o MapLibre** + **ESRI World Imagery** como base + **GeoJSON de Overpass** (o dibujado en geojson.io) como overlay vectorial coloreado.
+
+Lo único que se sacrifica vs Mapbox: vector tiles styling, terrain 3D, refresh del satelital.
+
+**URLs clave**:
+- https://github.com/leaflet-extras/leaflet-providers
+- https://overpass-turbo.eu
+- https://geojson.io
+- https://www.ign.gob.ar/AreaServicios/Geoservicios
+- https://github.com/TheMapSmith/GeoJSON-GolfCourses

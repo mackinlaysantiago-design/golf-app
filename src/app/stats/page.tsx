@@ -154,6 +154,31 @@ export default async function StatsPage() {
   const keysTop3 = topKeys(keysCount, 3);
   const totalKeysLast5 = Object.values(keysCount).reduce((s, v) => s + v, 0);
 
+  // Patrones cross-rondas — problemArea + emoción + commitment
+  const problemAreaCounts: Record<string, number> = {};
+  const emotionCounts: Record<string, number> = {};
+  let commitmentSum = 0;
+  let commitmentN = 0;
+  for (const s of last5Completed) {
+    if (s.round.problemArea) {
+      problemAreaCounts[s.round.problemArea] = (problemAreaCounts[s.round.problemArea] ?? 0) + 1;
+    }
+    if (s.round.emotionPlayed) {
+      emotionCounts[s.round.emotionPlayed] = (emotionCounts[s.round.emotionPlayed] ?? 0) + 1;
+    }
+    if (s.round.commitmentScore != null) {
+      commitmentSum += s.round.commitmentScore;
+      commitmentN++;
+    }
+  }
+  const commitmentAvg = commitmentN > 0 ? commitmentSum / commitmentN : null;
+  const PROBLEM_AREA_LABEL: Record<string, string> = {
+    LONG_GAME: "Long game",
+    SHORT_GAME: "Short game",
+    BOTH: "Ambos",
+    UNSURE: "No identificado",
+  };
+
   // Drills aggregations por tipo
   type DrillStat = {
     type: DrillType;
@@ -549,6 +574,77 @@ export default async function StatsPage() {
               </div>
             </details>
           </div>
+        </>
+      )}
+
+      {/* 📓 Patrones cross-rondas (Sprint 5 — Journaling estructurado) */}
+      {(Object.keys(problemAreaCounts).length > 0 ||
+        Object.keys(emotionCounts).length > 0 ||
+        commitmentAvg != null) && (
+        <>
+          <SectionHeader>📓 Patrones · últimas {last5Completed.length} rondas</SectionHeader>
+          <Card className="!p-3 space-y-3">
+            {commitmentAvg != null && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-xs text-[var(--muted)]">
+                  Compromiso promedio
+                </span>
+                <span className="gf-display text-2xl text-[var(--fairway)]">
+                  {commitmentAvg.toFixed(1)}
+                  <span className="text-xs text-[var(--muted)]">/10</span>
+                </span>
+              </div>
+            )}
+            {Object.keys(problemAreaCounts).length > 0 && (
+              <div className="border-t border-[var(--green-pale)] pt-2">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Dónde te sentiste flojo
+                </div>
+                <div className="space-y-1">
+                  {Object.entries(problemAreaCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([area, count]) => (
+                      <div
+                        key={area}
+                        className="flex justify-between items-center text-[11px] gf-mono"
+                      >
+                        <span>{PROBLEM_AREA_LABEL[area] ?? area}</span>
+                        <span
+                          className="gf-pill text-[10px]"
+                          style={{
+                            background:
+                              area === "SHORT_GAME"
+                                ? "var(--accent)"
+                                : area === "LONG_GAME"
+                                ? "var(--fairway)"
+                                : "var(--muted)",
+                            color: "white",
+                          }}
+                        >
+                          {count}× rondas
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            {Object.keys(emotionCounts).length > 0 && (
+              <div className="border-t border-[var(--green-pale)] pt-2">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Emociones dominantes
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(emotionCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([emo, count]) => (
+                      <span key={emo} className="gf-pill text-[10px] gf-mono">
+                        {emo} ×{count}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+          </Card>
         </>
       )}
 

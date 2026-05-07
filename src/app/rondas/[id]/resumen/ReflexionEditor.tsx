@@ -15,6 +15,15 @@ const EMOTION_OPTIONS = [
   "DISTRAÍDO",
 ];
 
+const PROBLEM_AREAS = [
+  { v: "LONG_GAME" as const, label: "Long game", hint: "Driver / hierros largos / approach" },
+  { v: "SHORT_GAME" as const, label: "Short game", hint: "Wedges / chipping / putting" },
+  { v: "BOTH" as const, label: "Ambos", hint: "Falló todo" },
+  { v: "UNSURE" as const, label: "No sé", hint: "Día rara, no encuentro patrón" },
+];
+
+type ProblemArea = "LONG_GAME" | "SHORT_GAME" | "BOTH" | "UNSURE";
+
 export default function ReflexionEditor({
   roundId,
   playerId,
@@ -22,6 +31,7 @@ export default function ReflexionEditor({
   initialBestShot,
   initialCommitment,
   initialEmotion,
+  initialProblemArea,
 }: {
   roundId: string;
   playerId: string | null;
@@ -29,6 +39,7 @@ export default function ReflexionEditor({
   initialBestShot: string;
   initialCommitment: number | null;
   initialEmotion: string | null;
+  initialProblemArea: string | null;
 }) {
   const router = useRouter();
   const [parts, setParts] = useState<string[]>([
@@ -39,6 +50,9 @@ export default function ReflexionEditor({
   const [bestShot, setBestShot] = useState(initialBestShot);
   const [commitment, setCommitment] = useState(initialCommitment ?? 7);
   const [emotion, setEmotion] = useState<string>(initialEmotion ?? "");
+  const [problemArea, setProblemArea] = useState<ProblemArea | "">(
+    (initialProblemArea as ProblemArea | null) ?? "",
+  );
   const [storyNote, setStoryNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -55,6 +69,7 @@ export default function ReflexionEditor({
       bestShot: bestShot.trim() || null,
       commitmentScore: commitment,
       emotionPlayed: emotion || null,
+      problemArea: problemArea || null,
     };
     const res = await fetch(`/api/rondas/${roundId}`, {
       method: "PATCH",
@@ -91,8 +106,41 @@ export default function ReflexionEditor({
 
   return (
     <Card className="!p-3 space-y-3">
-      {/* Compromiso (slider) */}
+      {/* Problem area */}
       <div>
+        <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
+          Dónde te sentiste flojo
+        </label>
+        <div className="grid grid-cols-2 gap-1 mt-1">
+          {PROBLEM_AREAS.map((p) => {
+            const active = problemArea === p.v;
+            return (
+              <button
+                key={p.v}
+                type="button"
+                onClick={() => setProblemArea(active ? "" : p.v)}
+                className="text-left p-2 rounded gf-mono text-[11px]"
+                style={{
+                  background: active ? "var(--fairway)" : "var(--green-pale)",
+                  color: active ? "white" : "var(--fairway)",
+                  fontWeight: active ? 700 : 500,
+                }}
+              >
+                <div>{p.label}</div>
+                <div
+                  className="text-[9px] opacity-80 font-normal"
+                  style={{ color: active ? "rgba(255,255,255,0.85)" : "var(--muted)" }}
+                >
+                  {p.hint}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Compromiso (slider) */}
+      <div className="border-t border-[var(--green-pale)] pt-3">
         <div className="flex justify-between items-baseline">
           <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
             Compromiso promedio del día

@@ -28,6 +28,8 @@ const PatchSchema = z.object({
       bestShot: z.string().nullable().optional(),
       commitmentScore: z.number().int().min(1).max(10).nullable().optional(),
       emotionPlayed: z.string().nullable().optional(),
+      problemArea: z.enum(["LONG_GAME", "SHORT_GAME", "BOTH", "UNSURE"]).nullable().optional(),
+      emotionalStateBefore: z.array(z.string()).nullable().optional(),
     })
     .optional(),
 });

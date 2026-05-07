@@ -162,6 +162,9 @@ model Round {
   // Mental Mastery — compromiso promedio del día (1-10)
   commitmentScore Int? // qué tan comprometido estuviste con cada shot
   emotionPlayed   String? // emoción dominante de la ronda (CONFIANZA, NERVIOS, etc.)
+  // Journaling estructurado (Sprint 5)
+  problemArea     String? // LONG_GAME | SHORT_GAME | BOTH | UNSURE — dónde te sentiste flojo
+  emotionalStateBefore Json? // array de emociones pre-ronda (chips)
   createdAt DateTime @default(now())
 
   players RoundPlayer[]
@@ -251,6 +254,8 @@ model RoundHole {
   dangerSide      String?  // L | R | NONE — lado peor del fairway (OB/agua)
   aimedAtCenter   Boolean? // ¿apuntaste al centro del green (no a la bandera)?
   recoveryMode    Boolean? // ¿estuviste en problemas y jugaste solo para volver?
+  // Journaling — diagnóstico de putts fallados (Sprint 5)
+  puttAnalysis    String?  // PACE | LINE | BOTH | OTHER — solo para 3-putts o miss <4ft
 
   @@unique([roundPlayerId, holeNumber])
 }
