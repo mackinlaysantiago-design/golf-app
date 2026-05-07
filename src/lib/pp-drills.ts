@@ -8,7 +8,25 @@ export type DrillType =
   | "WEDGES_50"
   | "WEDGES_70"
   | "WEDGES_100"
-  | "GO_TO_CLUB";
+  | "GO_TO_CLUB"
+  // SM Level 2 / Chipping Protocol / 7-Day Putting Challenge
+  | "CHIPPING_ONE_HAND"
+  | "CHIPPING_CLUB_FRONT"
+  | "PUTTING_START_LINE"
+  | "PUTTING_SWORD"
+  | "PUTTING_LAG_STAKES"
+  | "GREEN_READING"
+  | "SHORT_PUTTING_STREAK";
+
+// Áreas de juego para agrupar drills en la UI
+export type DrillArea = "PUTTING" | "CHIPPING" | "WEDGES" | "LONG_GAME";
+
+export const DRILL_AREA_LABEL: Record<DrillArea, string> = {
+  PUTTING: "🟢 Putting",
+  CHIPPING: "🪶 Chipping",
+  WEDGES: "🎯 Wedges",
+  LONG_GAME: "🏌️ Long Game",
+};
 
 // Formato del attemptsJson por tipo de drill
 //   STREAK_BY_DIST     — 1-putt, 2-putt: cada intento es {distance, streak} (cuántas seguidas embocaste antes de errar)
@@ -42,6 +60,7 @@ export type DrillDef = {
   label: string;
   shortLabel: string;
   description: string;
+  area: DrillArea;
   defaultDistance: number;
   distanceUnit: "ft" | "yds";
   scoreOf: number;
@@ -93,6 +112,7 @@ export const DRILLS: DrillDef[] = [
     label: "1-putt circle (short putts)",
     shortLabel: "1-Putt",
     description: "Cada intento: cuántos putts embocás seguidos antes de errar. Si en algún intento metés 10 seguidos a la distancia actual, subís de nivel.",
+    area: "PUTTING",
     defaultDistance: 3,
     distanceUnit: "ft",
     scoreOf: 10,
@@ -110,6 +130,7 @@ export const DRILLS: DrillDef[] = [
     label: "2-putt circle (lag putts)",
     shortLabel: "2-Putt",
     description: "Cada intento: cuántos lag putts dejás dentro del 1-putt circle seguidos antes de quedar afuera. 10 seguidos a la distancia actual = subís de nivel.",
+    area: "PUTTING",
     defaultDistance: 30,
     distanceUnit: "ft",
     scoreOf: 10,
@@ -127,6 +148,7 @@ export const DRILLS: DrillDef[] = [
     label: "Chipping circle",
     shortLabel: "Chipping",
     description: "Cada intento: golpes totales para meter N pelotas a una distancia X. El ratio (golpes/pelota, más bajo es mejor) se compara contra el mejor previo a la misma distancia.",
+    area: "CHIPPING",
     defaultDistance: 20,
     distanceUnit: "yds",
     scoreOf: 0,
@@ -142,6 +164,7 @@ export const DRILLS: DrillDef[] = [
     label: "Wedges 50 yds",
     shortLabel: "Wedges 50",
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
+    area: "WEDGES",
     defaultDistance: 50,
     distanceUnit: "yds",
     scoreOf: 0,
@@ -157,6 +180,7 @@ export const DRILLS: DrillDef[] = [
     label: "Wedges 70 yds",
     shortLabel: "Wedges 70",
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
+    area: "WEDGES",
     defaultDistance: 70,
     distanceUnit: "yds",
     scoreOf: 0,
@@ -172,6 +196,7 @@ export const DRILLS: DrillDef[] = [
     label: "Wedges 100 yds",
     shortLabel: "Wedges 100",
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
+    area: "WEDGES",
     defaultDistance: 100,
     distanceUnit: "yds",
     scoreOf: 0,
@@ -187,6 +212,7 @@ export const DRILLS: DrillDef[] = [
     label: "Go-To Club",
     shortLabel: "Go-To Club",
     description: "9 tiros con un palo (driver/madera/hierro). Score = cuántos en fairway. Empezás con Hierro 7. Para subir al siguiente palo: meter 9/9 en fairway. Tu Go-To Club = el palo más alto donde lograste 9/9.",
+    area: "LONG_GAME",
     defaultDistance: 0,
     distanceUnit: "yds",
     scoreOf: 9,
@@ -197,6 +223,122 @@ export const DRILLS: DrillDef[] = [
     ppCode: "A",
     ppLabel: "No entró a SZ",
     clubLadder: GO_TO_CLUB_LADDER,
+  },
+  // ============ Chipping Protocol drills ============
+  {
+    type: "CHIPPING_ONE_HAND",
+    label: "Chipping mano derecha",
+    shortLabel: "Chip 1H",
+    description: "3 bolas, solo con la mano derecha, 30-40 ft. Cada intento es tu sensación 1-5 sobre mantener el ángulo de muñeca durante el stroke ('tocar el clavo').",
+    area: "CHIPPING",
+    defaultDistance: 35,
+    distanceUnit: "ft",
+    scoreOf: 5,
+    scoreLabel: "rating 1-5",
+    scoring: "BEAT_BEST_HIGHER",
+    format: "LEGACY_NUMBER_ARRAY",
+    hasLevelUp: false,
+    ppCode: "B",
+    ppLabel: "Chipping protocol",
+  },
+  {
+    type: "CHIPPING_CLUB_FRONT",
+    label: "Chipping con palo delante",
+    shortLabel: "Chip CF",
+    description: "3 bolas con un palo en el suelo 8-12 pulgadas delante de la bola, solo mano derecha. Fuerza un ángulo de ataque pronunciado. Rating 1-5 por intento.",
+    area: "CHIPPING",
+    defaultDistance: 30,
+    distanceUnit: "ft",
+    scoreOf: 5,
+    scoreLabel: "rating 1-5",
+    scoring: "BEAT_BEST_HIGHER",
+    format: "LEGACY_NUMBER_ARRAY",
+    hasLevelUp: false,
+    ppCode: "B",
+    ppLabel: "Chipping protocol",
+  },
+  // ============ 7-Day Putting Challenge drills ============
+  {
+    type: "PUTTING_START_LINE",
+    label: "Start line (línea de tiza)",
+    shortLabel: "Start Line",
+    description: "Línea de tiza en el green, bola con línea marcada. Objetivo: rodar la bola 'end over end' sobre la línea. Rating 1-5 sobre cuántos rodaron rectos.",
+    area: "PUTTING",
+    defaultDistance: 5,
+    distanceUnit: "ft",
+    scoreOf: 5,
+    scoreLabel: "rating 1-5",
+    scoring: "BEAT_BEST_HIGHER",
+    format: "LEGACY_NUMBER_ARRAY",
+    hasLevelUp: false,
+    ppCode: "1",
+    ppLabel: "Putting Challenge",
+  },
+  {
+    type: "PUTTING_SWORD",
+    label: "Putting sword (regla metálica)",
+    shortLabel: "Sword",
+    description: "Bola sobre regla metálica. Objetivo: rodarla sin que se caiga. Rating 1-5 por intentos.",
+    area: "PUTTING",
+    defaultDistance: 3,
+    distanceUnit: "ft",
+    scoreOf: 5,
+    scoreLabel: "rating 1-5",
+    scoring: "BEAT_BEST_HIGHER",
+    format: "LEGACY_NUMBER_ARRAY",
+    hasLevelUp: false,
+    ppCode: "1",
+    ppLabel: "Putting Challenge",
+  },
+  {
+    type: "PUTTING_LAG_STAKES",
+    label: "Lag putting con estacas",
+    shortLabel: "Lag Stakes",
+    description: "Estacas a 15/20/30 ft (cuesta arriba/abajo). 3 bolas por distancia. Objetivo: pasar el tee pero no la estaca. Score = cuántos quedaron en la zona.",
+    area: "PUTTING",
+    defaultDistance: 15,
+    distanceUnit: "ft",
+    scoreOf: 3,
+    scoreLabel: "bolas en zona de 3",
+    scoring: "PCT_HITS_PERFECT",
+    format: "STREAK_BY_DIST",
+    hasLevelUp: false,
+    ppCode: "2",
+    ppLabel: "Putting Challenge",
+    distanceStep: 5,
+  },
+  {
+    type: "GREEN_READING",
+    label: "Lectura de greens",
+    shortLabel: "Green Reading",
+    description: "Putts con pendientes de 1°, 2°, 3° (L-R y R-L). Objetivo: 3 seguidos por pendiente. Distance = grados de pendiente.",
+    area: "PUTTING",
+    defaultDistance: 1,
+    distanceUnit: "ft",
+    scoreOf: 3,
+    scoreLabel: "rachas de 3",
+    scoring: "PCT_HITS_PERFECT",
+    format: "STREAK_BY_DIST",
+    hasLevelUp: false,
+    ppCode: "1",
+    ppLabel: "Putting Challenge",
+  },
+  {
+    type: "SHORT_PUTTING_STREAK",
+    label: "Short Putting 10-in-a-row",
+    shortLabel: "Streak 10",
+    description: "5 tees a 3-6 ft en pendiente de 2°. Objetivo: 10 putts consecutivos sin fallar. Cada intento es tu mejor racha en la sesión.",
+    area: "PUTTING",
+    defaultDistance: 4,
+    distanceUnit: "ft",
+    scoreOf: 10,
+    scoreLabel: "racha de putts seguidos",
+    scoring: "PCT_HITS_PERFECT",
+    format: "STREAK_BY_DIST",
+    hasLevelUp: true,
+    levelUpStreak: 10,
+    ppCode: "1",
+    ppLabel: "Short putting streak",
   },
 ];
 

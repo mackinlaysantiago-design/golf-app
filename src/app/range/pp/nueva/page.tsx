@@ -7,8 +7,10 @@ import {
   DRILLS,
   GO_TO_CLUB_LADDER,
   CLUB_LABEL,
+  DRILL_AREA_LABEL,
   type DrillType,
   type DrillDef,
+  type DrillArea,
 } from "@/lib/pp-drills";
 
 // Estado de input por drill: vamos a usar shapes distintos por formato.
@@ -310,23 +312,27 @@ export default function NuevaPPPage() {
 
       {(() => {
         const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
-        const complementarios = DRILLS.filter((d) => !plan.drillTargets[d.type]);
-        const ordered = [...obligatorios, ...complementarios];
+        // Áreas en orden: Putting → Chipping → Wedges → Long Game
+        const AREA_ORDER: DrillArea[] = ["PUTTING", "CHIPPING", "WEDGES", "LONG_GAME"];
         return (
           <>
-            {ordered.map((d, i) => {
-              const isFirstOblig = i === 0 && obligatorios.length > 0;
-              const isFirstComp = i === obligatorios.length;
+            {/* Obligatorios primero (si hay) — del plan de la última ronda */}
+            {obligatorios.length > 0 && (
+              <>
+                <SectionHeader>Obligatorios (del plan)</SectionHeader>
+                {obligatorios.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
+              </>
+            )}
+            {/* Por área */}
+            {AREA_ORDER.map((area) => {
+              const drillsInArea = DRILLS.filter(
+                (d) => d.area === area && !plan.drillTargets[d.type],
+              );
+              if (drillsInArea.length === 0) return null;
               return (
-                <div key={d.type}>
-                  {isFirstOblig && <SectionHeader>Obligatorios (del plan)</SectionHeader>}
-                  {isFirstComp && obligatorios.length > 0 && (
-                    <SectionHeader>Complementarios</SectionHeader>
-                  )}
-                  {!isFirstOblig && !isFirstComp && obligatorios.length === 0 && i === 0 && (
-                    <SectionHeader>Drills</SectionHeader>
-                  )}
-                  {renderDrill(d)}
+                <div key={area}>
+                  <SectionHeader>{DRILL_AREA_LABEL[area]}</SectionHeader>
+                  {drillsInArea.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
                 </div>
               );
             })}
