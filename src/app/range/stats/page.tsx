@@ -9,6 +9,7 @@ const CLUB_ORDER = [
   "DRIVER", "WOOD_3", "WOOD_5", "HYBRID",
   "IRON_3", "IRON_4", "IRON_5", "IRON_6", "IRON_7", "IRON_8", "IRON_9",
   "PW", "GW", "SW", "LW",
+  "WEDGE_50", "WEDGE_52", "WEDGE_54", "WEDGE_56", "WEDGE_58", "WEDGE_60",
 ];
 
 function percentile(sorted: number[], p: number): number {

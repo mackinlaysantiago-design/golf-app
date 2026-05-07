@@ -22,12 +22,15 @@ const RANGE_CLUB_LABEL: Record<string, string> = {
   IRON_3: "Hierro 3", IRON_4: "Hierro 4", IRON_5: "Hierro 5", IRON_6: "Hierro 6",
   IRON_7: "Hierro 7", IRON_8: "Hierro 8", IRON_9: "Hierro 9",
   PW: "PW", GW: "GW", SW: "SW", LW: "LW",
+  WEDGE_50: "Wedge 50°", WEDGE_52: "Wedge 52°", WEDGE_54: "Wedge 54°",
+  WEDGE_56: "Wedge 56°", WEDGE_58: "Wedge 58°", WEDGE_60: "Wedge 60°",
 };
 
 const CLUB_ORDER = [
   "DRIVER", "WOOD_3", "WOOD_5", "HYBRID",
   "IRON_3", "IRON_4", "IRON_5", "IRON_6", "IRON_7", "IRON_8", "IRON_9",
   "PW", "GW", "SW", "LW",
+  "WEDGE_50", "WEDGE_52", "WEDGE_54", "WEDGE_56", "WEDGE_58", "WEDGE_60",
 ];
 
 export default async function StatsPage() {

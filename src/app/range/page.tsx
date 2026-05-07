@@ -22,6 +22,12 @@ const CLUB_LABEL: Record<string, string> = {
   GW: "GW",
   SW: "SW",
   LW: "LW",
+  WEDGE_50: "Wedge 50°",
+  WEDGE_52: "Wedge 52°",
+  WEDGE_54: "Wedge 54°",
+  WEDGE_56: "Wedge 56°",
+  WEDGE_58: "Wedge 58°",
+  WEDGE_60: "Wedge 60°",
 };
 
 export default async function RangePage() {

@@ -20,6 +20,12 @@ const CLUBS = [
   { value: "GW", label: "GW" },
   { value: "SW", label: "SW" },
   { value: "LW", label: "LW" },
+  { value: "WEDGE_50", label: "Wedge 50°" },
+  { value: "WEDGE_52", label: "Wedge 52°" },
+  { value: "WEDGE_54", label: "Wedge 54°" },
+  { value: "WEDGE_56", label: "Wedge 56°" },
+  { value: "WEDGE_58", label: "Wedge 58°" },
+  { value: "WEDGE_60", label: "Wedge 60°" },
 ];
 
 export default function EditarRangeSesion({
