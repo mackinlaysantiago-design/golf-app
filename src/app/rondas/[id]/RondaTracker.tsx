@@ -8,6 +8,14 @@ import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
 import { SM_KEYS } from "@/lib/sm-keys";
+import {
+  GOAL_LADDER,
+  findGoalByConfig,
+  findGoalByLabel,
+  previousGoal,
+  nextGoal,
+  holeAchievedGoal,
+} from "@/lib/sm-goals";
 
 type Hole = {
   number: number;
@@ -29,6 +37,7 @@ type RoundHoleData = {
   score: number | null;
   penaltyStrokes: number | null;
   keysBroken: unknown; // JsonValue desde Prisma — se cast a number[] al usar
+  targetGoal: string | null;
 };
 
 type RoundPlayer = {
@@ -79,7 +88,10 @@ export default function RondaTracker({ round }: { round: Round }) {
   const [busy, setBusy] = useState(false);
 
   // Estado local: { roundPlayerId: { holeNumber: { field: value } } }
-  type CellValues = Partial<Record<FieldKey, number | null>> & { keysBroken?: number[] | null };
+  type CellValues = Partial<Record<FieldKey, number | null>> & {
+    keysBroken?: number[] | null;
+    targetGoal?: string | null;
+  };
   type CellState = Record<string, Record<number, CellValues>>;
 
   const initial: CellState = useMemo(() => {
@@ -98,6 +110,7 @@ export default function RondaTracker({ round }: { round: Round }) {
           score: h.score,
           penaltyStrokes: h.penaltyStrokes,
           keysBroken: Array.isArray(h.keysBroken) ? (h.keysBroken as number[]) : null,
+          targetGoal: h.targetGoal,
         };
       }
     }
@@ -124,7 +137,8 @@ export default function RondaTracker({ round }: { round: Round }) {
       c.puttMadeDistanceFt != null ||
       c.puttsInside1PuttCircle != null ||
       c.penaltyStrokes != null ||
-      (Array.isArray(c.keysBroken) && c.keysBroken.length > 0)
+      (Array.isArray(c.keysBroken) && c.keysBroken.length > 0) ||
+      c.targetGoal != null
     );
   }
 
@@ -140,6 +154,16 @@ export default function RondaTracker({ round }: { round: Round }) {
   const minHole = courseHoles[0]?.number ?? 1;
   const maxHole = courseHoles[courseHoles.length - 1]?.number ?? 18;
   const currentHoleInfo = courseHoles.find((h) => h.number === currentHole);
+
+  function setTargetGoal(rpId: string, hole: number, goal: string | null) {
+    setData((prev) => {
+      const cur = prev[rpId]?.[hole] ?? {};
+      return {
+        ...prev,
+        [rpId]: { ...prev[rpId], [hole]: { ...cur, targetGoal: goal } },
+      };
+    });
+  }
 
   function toggleKey(rpId: string, hole: number, keyId: number) {
     setData((prev) => {
@@ -932,6 +956,20 @@ export default function RondaTracker({ round }: { round: Round }) {
                         isLast
                       />
                     </div>
+                    {/* Gear (goal) por hoyo + recomendación dinámica — solo YO */}
+                    {rp.player.isMe && (
+                      <GearSelector
+                        currentHole={currentHole}
+                        roundGoal={
+                          findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
+                          null
+                        }
+                        cells={data[rp.id] ?? {}}
+                        onSetGoal={(goal) =>
+                          setTargetGoal(rp.id, currentHole, goal)
+                        }
+                      />
+                    )}
                     {/* 10 Keys to Scoring — solo para "YO" */}
                     {rp.player.isMe && (
                       <KeysBrokenInput
@@ -1126,6 +1164,123 @@ function FlagRow({
       {f("Down in SZ", flags.downInSz)}
       {f("3 putts", flags.threePutts)}
       {f("1PC", flags.missedIn1PuttCircle)}
+    </div>
+  );
+}
+
+// Gear (goal) selector por hoyo con recomendación dinámica.
+// Lógica:
+//  - Default = goal de la ronda (si está en GOAL_LADDER) o el último elegido
+//  - Si los 2 hoyos previos NO lograron el goal → recomienda BAJAR
+//  - Si los 2 hoyos previos SÍ lograron el goal bajado → recomienda VOLVER A SUBIR
+function GearSelector({
+  currentHole,
+  roundGoal,
+  cells,
+  onSetGoal,
+}: {
+  currentHole: number;
+  roundGoal: string | null;
+  cells: Record<number, {
+    targetGoal?: string | null;
+    distanceInRegYds?: number | null;
+    strokesInsideSz?: number | null;
+  }>;
+  onSetGoal: (goal: string | null) => void;
+}) {
+  const currentEntry = cells[currentHole] ?? {};
+  // Goal "efectivo" del hoyo: el guardado, o el de la ronda si no hay
+  const effectiveGoal = currentEntry.targetGoal ?? roundGoal;
+
+  // Mirar los 2 hoyos previos consecutivos
+  const prevHoles = [currentHole - 1, currentHole - 2]
+    .filter((n) => n >= 1)
+    .map((n) => ({ holeNumber: n, ...cells[n] }))
+    .filter((h) => h.distanceInRegYds != null && h.strokesInsideSz != null);
+
+  let recommendation: { type: "DOWN" | "UP"; from: string; to: string } | null = null;
+  if (prevHoles.length >= 2 && effectiveGoal) {
+    const goal = findGoalByLabel(effectiveGoal);
+    if (goal) {
+      const last2Achieved = prevHoles.slice(0, 2).map((h) =>
+        holeAchievedGoal(goal, {
+          distanceInRegYds: h.distanceInRegYds ?? null,
+          strokesInsideSz: h.strokesInsideSz ?? null,
+        }),
+      );
+      const allFailed = last2Achieved.every((r) => r === false);
+      const allOk = last2Achieved.every((r) => r === true);
+
+      if (allFailed) {
+        const prev = previousGoal(effectiveGoal);
+        if (prev) recommendation = { type: "DOWN", from: effectiveGoal, to: prev.label };
+      } else if (allOk && roundGoal && effectiveGoal !== roundGoal) {
+        // Si está jugando bajo el roundGoal y le pegó 2 seguidas, sugerir volver
+        const next = nextGoal(effectiveGoal);
+        if (next) recommendation = { type: "UP", from: effectiveGoal, to: next.label };
+      }
+    }
+  }
+
+  return (
+    <div className="pt-2 border-t border-[var(--green-pale)] mt-2">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1.5">
+        ⛳ Gear de este hoyo
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {GOAL_LADDER.map((g) => {
+          const active = effectiveGoal === g.label;
+          return (
+            <button
+              key={g.label}
+              type="button"
+              onClick={() => onSetGoal(g.label === roundGoal ? null : g.label)}
+              className="text-[10px] px-2 py-1 rounded gf-mono"
+              style={{
+                background: active ? "var(--fairway)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+              title={g.description}
+            >
+              {g.label}
+            </button>
+          );
+        })}
+        {currentEntry.targetGoal && (
+          <button
+            type="button"
+            onClick={() => onSetGoal(null)}
+            className="text-[10px] px-2 py-1 rounded text-[var(--muted)] underline"
+            title="Volver al goal de la ronda"
+          >
+            ↺ ronda
+          </button>
+        )}
+      </div>
+      {recommendation && (
+        <div
+          className="mt-2 p-2 rounded text-[11px]"
+          style={{
+            background:
+              recommendation.type === "DOWN"
+                ? "var(--accent)"
+                : "var(--green)",
+            color: "white",
+          }}
+        >
+          💡 {recommendation.type === "DOWN" ? "Bajá" : "Volvé a subir"} a{" "}
+          <strong>{recommendation.to}</strong> — venís de 2 hoyos seguidos{" "}
+          {recommendation.type === "DOWN" ? "sin lograr" : "logrando"} {recommendation.from}.
+          <button
+            type="button"
+            onClick={() => onSetGoal(recommendation!.to)}
+            className="ml-2 underline font-semibold"
+          >
+            Aplicar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ const HoleEntrySchema = z.object({
   score: z.number().int().nullable().optional(),
   penaltyStrokes: z.number().int().nullable().optional(),
   keysBroken: z.array(z.number().int().min(1).max(10)).nullable().optional(),
+  targetGoal: z.string().nullable().optional(),
 });
 
 const PutSchema = z.object({
@@ -66,6 +67,7 @@ export async function PUT(
           score: e.score ?? null,
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,
+          targetGoal: e.targetGoal ?? null,
         },
         update: {
           strokesToEnterSz: e.strokesToEnterSz ?? null,
@@ -78,6 +80,7 @@ export async function PUT(
           score: e.score ?? null,
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,
+          targetGoal: e.targetGoal ?? null,
         },
       }),
     ),

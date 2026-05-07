@@ -620,59 +620,76 @@ export default function NuevaRondaClient({
 
       {step === 5 && (
         <>
-          <SectionHeader>Niveles Scoring Method</SectionHeader>
+          <SectionHeader>Goal del día (Scoring Method)</SectionHeader>
           <Card className="space-y-3">
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Enter SZ
-              </label>
-              <select
-                className="gf-input mt-1"
-                value={enterSzYds}
-                onChange={(e) => setEnterSzYds(parseInt(e.target.value))}
-              >
-                <option value={0}>GIR (en green)</option>
-                <option value={25}>≤ 25 yds</option>
-                <option value={50}>≤ 50 yds</option>
-                <option value={100}>≤ 100 yds</option>
-              </select>
+            <p className="text-xs text-[var(--muted)]">
+              Elegí tu <strong>goal combinado</strong>: distancia para entrar a SZ + golpes desde
+              SZ. Es UN solo objetivo por hoyo. Si lográs perfect run, subí al
+              siguiente.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "100/3", enter: 100, down: 3, hint: "Bogey golfer" },
+                { label: "100/2", enter: 100, down: 2, hint: "Mid-handicap" },
+                { label: "125/2", enter: 125, down: 2, hint: "Single digit" },
+                { label: "150/2", enter: 150, down: 2, hint: "Scratch" },
+              ].map((g) => {
+                const isSelected =
+                  enterSzYds === g.enter && parseInt(downInSzStrokes) === g.down;
+                return (
+                  <button
+                    key={g.label}
+                    type="button"
+                    onClick={() => {
+                      setEnterSzYds(g.enter);
+                      setDownInSzStrokes(String(g.down));
+                    }}
+                    className="rounded-lg p-3 text-left"
+                    style={{
+                      background: isSelected ? "var(--fairway)" : "var(--green-pale)",
+                      color: isSelected ? "white" : "var(--fairway)",
+                    }}
+                  >
+                    <div className="gf-display text-2xl font-bold">{g.label}</div>
+                    <div className="text-[10px] mt-0.5 opacity-80">
+                      {g.enter} yds + {g.down} golpes
+                    </div>
+                    <div className="text-[10px] opacity-70 italic">{g.hint}</div>
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                Down in SZ (golpes desde SZ)
-              </label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="gf-input mt-1"
-                value={downInSzStrokes}
-                onChange={(e) => setDownInSzStrokes(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                1-putt circle (ft)
-              </label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="gf-input mt-1"
-                value={onePuttCircleFt}
-                onChange={(e) => setOnePuttCircleFt(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                2-putt circle (yds)
-              </label>
-              <input
-                type="number"
-                inputMode="numeric"
-                className="gf-input mt-1"
-                value={twoPuttCircleYds}
-                onChange={(e) => setTwoPuttCircleYds(e.target.value)}
-              />
-            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-[var(--muted)]">
+                Ajuste avanzado de putts (1PC / 2PC)
+              </summary>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                    1-putt circle (ft)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="gf-input mt-0.5"
+                    value={onePuttCircleFt}
+                    onChange={(e) => setOnePuttCircleFt(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                    2-putt circle (yds)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="gf-input mt-0.5"
+                    value={twoPuttCircleYds}
+                    onChange={(e) => setTwoPuttCircleYds(e.target.value)}
+                  />
+                </div>
+              </div>
+            </details>
           </Card>
           <div className="flex gap-2">
             <button

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { computeRoundKPIs, computePPPlan, type HoleData } from "@/lib/scoring-method";
+import { computeRoundKPIs, computePPPlan, computePuttBuckets, puttsMadeOver4ft, type HoleData } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
@@ -13,6 +13,7 @@ import { nextLevel, type SmField } from "@/lib/sm-levels";
 import { tallyKeys, topKeys, SM_KEYS, KEY_BY_ID } from "@/lib/sm-keys";
 import ReflexionEditor from "./ReflexionEditor";
 import { ensureRoundTasks } from "@/lib/practice-tasks";
+import { findGoalByConfig, findGoalByLabel, holeAchievedGoal } from "@/lib/sm-goals";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,32 @@ export default async function ResumenPage({
   };
   const kpis = computeRoundKPIs(holes, config);
   const ppPlan = computePPPlan(holes, config, kpis);
+  const puttBuckets = computePuttBuckets(holes);
+  const puttsOver4ft = puttsMadeOver4ft(holes);
+
+  // Goal achievement por hoyo (Gears of the Game)
+  const roundGoalLabel =
+    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ?? null;
+  type GoalEval = {
+    holeNumber: number;
+    goalLabel: string;
+    achieved: boolean | null;
+  };
+  const goalEvals: GoalEval[] = me.holes
+    .map((h) => {
+      const usedLabel = h.targetGoal ?? roundGoalLabel;
+      if (!usedLabel) return null;
+      const goal = findGoalByLabel(usedLabel);
+      if (!goal) return null;
+      const result = holeAchievedGoal(goal, {
+        distanceInRegYds: h.distanceInRegYds,
+        strokesInsideSz: h.strokesInsideSz,
+      });
+      return { holeNumber: h.holeNumber, goalLabel: usedLabel, achieved: result };
+    })
+    .filter((x): x is GoalEval => x !== null);
+  const goalsAttempted = goalEvals.filter((g) => g.achieved !== null).length;
+  const goalsAchieved = goalEvals.filter((g) => g.achieved === true).length;
 
   // Generar PracticeTasks pendientes para los items del PP plan (idempotente)
   await ensureRoundTasks(round.id, ppPlan);
@@ -427,6 +454,108 @@ export default async function ResumenPage({
           tone={totalKeysBroken === 0 ? "good" : totalKeysBroken < 5 ? "neutral" : "warn"}
         />
       </div>
+
+      {/* Goal achievement por hoyo (Gears of the Game) */}
+      {roundGoalLabel && goalsAttempted > 0 && (
+        <>
+          <SectionHeader>
+            🎯 Goal {roundGoalLabel} · {goalsAchieved}/{goalsAttempted} hoyos
+          </SectionHeader>
+          <Card className="!p-3">
+            <div className="grid grid-cols-9 gap-1">
+              {goalEvals.map((g) => (
+                <div
+                  key={g.holeNumber}
+                  className="rounded text-center text-[10px] gf-mono py-1"
+                  style={{
+                    background:
+                      g.achieved === true
+                        ? "var(--green)"
+                        : g.achieved === false
+                        ? "var(--red)"
+                        : "var(--green-pale)",
+                    color: g.achieved == null ? "var(--muted)" : "white",
+                  }}
+                  title={`Hoyo ${g.holeNumber} · Goal ${g.goalLabel}`}
+                >
+                  H{g.holeNumber}
+                  {g.goalLabel !== roundGoalLabel && (
+                    <div className="text-[8px] opacity-80">{g.goalLabel}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-[var(--muted)] mt-2">
+              Verde = goal logrado (entró a SZ + bajó en target). Rojo = no. Si bajaste de gear táctico (ej 100/2 → 125/2), aparece chico bajo el #.
+            </p>
+          </Card>
+        </>
+      )}
+
+      {/* Putts MADE/MISSED por bucket de distancia */}
+      {puttBuckets.some((b) => b.attempts > 0) && (
+        <>
+          <SectionHeader>Putts por distancia (made/attempts)</SectionHeader>
+          <Card className="!p-3">
+            <div className="grid grid-cols-4 gap-2">
+              {puttBuckets.map((b) => {
+                const tone =
+                  b.attempts === 0
+                    ? "var(--muted)"
+                    : b.pct >= 80
+                    ? "var(--green)"
+                    : b.pct >= 50
+                    ? "var(--accent)"
+                    : "var(--red)";
+                return (
+                  <div
+                    key={b.label}
+                    className="text-center p-2 rounded"
+                    style={{ background: "var(--green-pale)" }}
+                  >
+                    <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                      {b.label}
+                    </div>
+                    <div className="gf-display text-lg" style={{ color: tone }}>
+                      {b.attempts > 0 ? `${b.made}/${b.attempts}` : "—"}
+                    </div>
+                    <div className="text-[9px] gf-mono" style={{ color: tone }}>
+                      {b.attempts > 0 ? `${b.pct.toFixed(0)}%` : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-[var(--muted)] mt-2">
+              Make rate por rango del 1er putt — útil para diagnosticar putting corto/medio/largo.
+            </p>
+          </Card>
+        </>
+      )}
+
+      {/* Putts hechos > 4ft (símbolo "+" del Level 1) */}
+      {puttsOver4ft.count > 0 && (
+        <Card
+          className="!p-3"
+          style={{ borderLeft: "4px solid var(--green)" }}
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="font-semibold text-sm">
+                🎯 Putts embocados &gt; 4ft
+              </div>
+              <div className="text-[11px] text-[var(--muted)] mt-0.5">
+                {puttsOver4ft.details
+                  .map((d) => `H${d.holeNumber}: ${d.distance}ft`)
+                  .join(" · ")}
+              </div>
+            </div>
+            <div className="gf-display text-3xl text-[var(--green)]">
+              {puttsOver4ft.count}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Distribución Enter SZ */}
       <SectionHeader>Distribución Enter SZ (yds al hoyo)</SectionHeader>

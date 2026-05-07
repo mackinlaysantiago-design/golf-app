@@ -194,6 +194,10 @@ model RoundHole {
   // The Scoring Method — Level 2
   penaltyStrokes  Int?  // golpes de penalidad en el hoyo (key #2)
   keysBroken      Json? // array de números 1-10 — keys del método rotas
+  // Gears of the Game — goal específico que el jugador eligió para este hoyo
+  // (puede diferir del goal de la ronda si bajó/subió táctico)
+  // Formato: "100/3" | "100/2" | "125/2" | "150/2"
+  targetGoal      String?
 
   @@unique([roundPlayerId, holeNumber])
 }

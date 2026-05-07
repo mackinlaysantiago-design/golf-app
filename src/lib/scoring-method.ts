@@ -315,3 +315,64 @@ export function computePPPlan(
     },
   ];
 }
+
+// ====================================================================
+// Putts MADE/MISSED por bucket de distancia (Level 2 Advanced Scorecard)
+// ====================================================================
+
+export type PuttBucket = {
+  label: string;       // "0-3'" | "3-6'" | "6-10'" | "10+'"
+  rangeFt: [number, number]; // [min, max] inclusive
+  attempts: number;    // hoyos donde firstPuttDistanceFt cae en este rango
+  made: number;        // hoyos donde además putts === 1
+  pct: number;         // made/attempts (0-100)
+};
+
+export const PUTT_BUCKETS_DEF: { label: string; range: [number, number] }[] = [
+  { label: "0-3'", range: [0, 3] },
+  { label: "3-6'", range: [3, 6] },
+  { label: "6-10'", range: [6, 10] },
+  { label: "10+'", range: [10, 9999] },
+];
+
+export function computePuttBuckets(holes: HoleData[]): PuttBucket[] {
+  return PUTT_BUCKETS_DEF.map(({ label, range }) => {
+    const [min, max] = range;
+    let attempts = 0;
+    let made = 0;
+    for (const h of holes) {
+      if (h.firstPuttDistanceFt == null) continue;
+      const d = h.firstPuttDistanceFt;
+      // Range exclusivo en min, inclusivo en max (excepto 0-3 que incluye 0)
+      const inRange = label === "0-3'" ? d >= min && d <= max : d > min && d <= max;
+      if (!inRange) continue;
+      attempts++;
+      if (h.putts === 1) made++;
+    }
+    return {
+      label,
+      rangeFt: range,
+      attempts,
+      made,
+      pct: attempts > 0 ? (made / attempts) * 100 : 0,
+    };
+  });
+}
+
+// ====================================================================
+// Putts hechos > 4ft (símbolo "+" del Level 1 — métrica positiva)
+// ====================================================================
+
+// Hoyos donde el putt embocado fue de más de 4ft
+export function puttsMadeOver4ft(holes: HoleData[]): {
+  count: number;
+  details: { holeNumber: number; distance: number }[];
+} {
+  const details: { holeNumber: number; distance: number }[] = [];
+  for (const h of holes) {
+    if (h.puttMadeDistanceFt != null && h.puttMadeDistanceFt > 4) {
+      details.push({ holeNumber: h.holeNumber, distance: h.puttMadeDistanceFt });
+    }
+  }
+  return { count: details.length, details };
+}
