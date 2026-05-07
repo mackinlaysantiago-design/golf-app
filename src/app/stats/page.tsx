@@ -93,12 +93,23 @@ export default async function StatsPage() {
     })
     .filter((x): x is NonNullable<typeof x> => x !== null && x.kpis.holesPlayed > 0);
 
-  const last5 = summaries.slice(0, 5);
-  const avgScore = last5.length > 0 ? last5.reduce((s, x) => s + x.kpis.totalScore, 0) / last5.length : 0;
-  const avgNoDouble = last5.length > 0 ? last5.reduce((s, x) => s + x.kpis.pctNoDoubleBogey, 0) / last5.length : 0;
-  const avgPutts = last5.length > 0
-    ? last5.reduce((s, x) => s + (x.kpis.puttsDataHoles > 0 ? x.kpis.avgPuttsPerHole : 0), 0) / last5.length
-    : 0;
+  // Solo rondas completadas: holesPlayed cargados coincide con la planeada de la ronda
+  function isComplete(s: typeof summaries[number]) {
+    return s.kpis.holesPlayed >= s.round.holesPlayed;
+  }
+  const completed = summaries.filter(isComplete);
+  const completed18 = completed.filter((s) => s.round.holesPlayed === 18);
+  const completed9 = completed.filter((s) => s.round.holesPlayed === 9);
+
+  function avgs(items: typeof summaries) {
+    if (items.length === 0) return null;
+    const score = items.reduce((s, x) => s + x.kpis.totalScore, 0) / items.length;
+    const noDouble = items.reduce((s, x) => s + x.kpis.pctNoDoubleBogey, 0) / items.length;
+    const putts = items.reduce((s, x) => s + (x.kpis.puttsDataHoles > 0 ? x.kpis.avgPuttsPerHole : 0), 0) / items.length;
+    return { score, noDouble, putts };
+  }
+  const avg18 = avgs(completed18.slice(0, 5));
+  const avg9 = avgs(completed9.slice(0, 5));
 
   // Drills aggregations por tipo
   type DrillStat = {
@@ -276,12 +287,35 @@ export default async function StatsPage() {
         🏌️ Stats por hoyo (cross-rondas)
       </Link>
 
-      <SectionHeader>Promedios últimas 5 rondas</SectionHeader>
-      <div className="grid grid-cols-3 gap-3">
-        <KPI label="Score" value={avgScore.toFixed(0)} />
-        <KPI label="Sin 2x" value={`${avgNoDouble.toFixed(0)}%`} />
-        <KPI label="Putts/h" value={avgPutts.toFixed(1)} />
-      </div>
+      {avg18 ? (
+        <>
+          <SectionHeader>
+            Promedios últimas 5 rondas (18 hoyos · {completed18.length} ronda{completed18.length === 1 ? "" : "s"} completas)
+          </SectionHeader>
+          <div className="grid grid-cols-3 gap-3">
+            <KPI label="Score" value={avg18.score.toFixed(0)} />
+            <KPI label="Sin 2x" value={`${avg18.noDouble.toFixed(0)}%`} />
+            <KPI label="Putts/h" value={avg18.putts.toFixed(1)} />
+          </div>
+        </>
+      ) : (
+        <Card className="text-center text-xs text-[var(--muted)] !p-3">
+          Sin rondas de 18 hoyos completadas todavía
+        </Card>
+      )}
+
+      {avg9 && (
+        <>
+          <SectionHeader>
+            Promedios últimas 5 rondas (9 hoyos · {completed9.length} ronda{completed9.length === 1 ? "" : "s"} completas)
+          </SectionHeader>
+          <div className="grid grid-cols-3 gap-3">
+            <KPI label="Score" value={avg9.score.toFixed(0)} />
+            <KPI label="Sin 2x" value={`${avg9.noDouble.toFixed(0)}%`} />
+            <KPI label="Putts/h" value={avg9.putts.toFixed(1)} />
+          </div>
+        </>
+      )}
 
       {/* Tabla rondas */}
       <SectionHeader>Rondas</SectionHeader>
@@ -311,7 +345,9 @@ export default async function StatsPage() {
                   <td className="p-1">{round.course.name}</td>
                   <td className="p-1 text-right gf-mono font-semibold">{kpis.totalScore || "—"}</td>
                   <td className="p-1 text-right gf-mono">
-                    {kpis.holesPlayed === 18 ? `${kpis.scoreVsPar >= 0 ? "+" : ""}${kpis.scoreVsPar}` : `${kpis.holesPlayed}h`}
+                    {kpis.holesPlayed >= round.holesPlayed
+                      ? `${kpis.scoreVsPar >= 0 ? "+" : ""}${kpis.scoreVsPar}`
+                      : `${kpis.holesPlayed}/${round.holesPlayed}h`}
                   </td>
                   <td className="p-1 text-right gf-mono">{kpis.pctNoDoubleBogey.toFixed(0)}%</td>
                   <td className="p-1 text-right gf-mono">{kpis.totalPutts || "—"}</td>
