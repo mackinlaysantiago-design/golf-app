@@ -288,6 +288,14 @@ export default async function HomePage() {
           </div>
         </>
       )}
+
+      {/* Labs (experimental) */}
+      <Link
+        href="/labs/maps"
+        className="text-[10px] text-[var(--muted)] underline text-center block pt-4"
+      >
+        🧪 Labs · Mapas GPS
+      </Link>
     </div>
   );
 }

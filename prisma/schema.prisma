@@ -19,7 +19,27 @@ model Course {
   rounds    Round[]
   hcpTable  CourseHcpRange[]
   tees      CourseTee[]
+  mapPoints CourseMapPoint[]
   createdAt DateTime         @default(now())
+}
+
+// LABS — coords GPS de greens por hoyo (frente / centro / fondo).
+// Independiente de CourseHole para no romper nada existente.
+model CourseMapPoint {
+  id         String  @id @default(cuid())
+  course     Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId   String
+  holeNumber Int     // 1..18
+  frontLat   Float?
+  frontLng   Float?
+  centerLat  Float?
+  centerLng  Float?
+  backLat    Float?
+  backLng    Float?
+  notes      String?
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([courseId, holeNumber])
 }
 
 // Tees con Slope / Course Rating / Par — para fórmula WHS cuando no hay tabla pre-cargada
