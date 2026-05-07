@@ -16,6 +16,15 @@ import {
   nextGoal,
   holeAchievedGoal,
 } from "@/lib/sm-goals";
+import CLUB_LABEL_RANGE from "@/lib/club-labels";
+
+type ClubStat = {
+  club: string;
+  n: number;
+  safe: number;
+  avg: number;
+  latDisplay: string;
+};
 
 type Hole = {
   number: number;
@@ -84,7 +93,13 @@ type FieldKey =
   | "score"
   | "penaltyStrokes";
 
-export default function RondaTracker({ round }: { round: Round }) {
+export default function RondaTracker({
+  round,
+  clubStats = [],
+}: {
+  round: Round;
+  clubStats?: ClubStat[];
+}) {
   const router = useRouter();
   const [currentHole, setCurrentHole] = useState(
     round.holesPlayed === 9 && round.nineWhich === "VUELTA" ? 10 : 1,
@@ -144,6 +159,7 @@ export default function RondaTracker({ round }: { round: Round }) {
 
   const [data, setData] = useState<CellState>(initial);
   const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [palosOpen, setPalosOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
@@ -521,13 +537,6 @@ export default function RondaTracker({ round }: { round: Round }) {
           >
             🧠 Briefing
           </Link>
-          <Link
-            href="/stats#palos"
-            className="text-[11px] text-[var(--muted)] underline"
-            title="Stats por palo (Safe/Avg/Lateral)"
-          >
-            📊 Palos
-          </Link>
         </div>
       </header>
 
@@ -879,6 +888,57 @@ export default function RondaTracker({ round }: { round: Round }) {
           </Card>
         );
       })()}
+
+      {/* Panel Palos (FlightScope) — abajo del scorecard, accordion para decidir palo */}
+      {clubStats.length > 0 && (
+        <Card className="!p-0 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setPalosOpen(!palosOpen)}
+            className="w-full flex justify-between items-center p-3 text-sm font-semibold text-[var(--fairway)]"
+          >
+            <span>📊 Palos · decidir en cancha</span>
+            <span>{palosOpen ? "▾" : "▸"}</span>
+          </button>
+          {palosOpen && (
+            <div className="!p-2 overflow-x-auto border-t border-[var(--green-pale)]">
+              <table className="w-full text-[11px] gf-mono">
+                <thead>
+                  <tr className="text-[var(--muted)] uppercase tracking-wider text-[9px]">
+                    <th className="text-left p-1">Palo</th>
+                    <th className="text-right p-1" title="P25 · casi siempre llegás">Safe</th>
+                    <th className="text-right p-1" title="Mediana · típico">Avg</th>
+                    <th className="text-right p-1" title="Dirección · apuntá al lado opuesto">Lateral</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clubStats.map((c) => (
+                    <tr key={c.club} className="border-t border-[var(--green-pale)]">
+                      <td className="p-1.5 font-semibold">
+                        {CLUB_LABEL_RANGE[c.club] ?? c.club}
+                        <span className="text-[9px] text-[var(--muted)] font-normal ml-1">({c.n})</span>
+                      </td>
+                      <td className="p-1 text-right text-[var(--muted)]">{c.safe.toFixed(0)}</td>
+                      <td className="p-1 text-right font-bold text-[var(--fairway)]">{c.avg.toFixed(0)}</td>
+                      <td
+                        className="p-1 text-right"
+                        style={{
+                          color: c.latDisplay === "—" ? "var(--muted)" : "var(--accent)",
+                        }}
+                      >
+                        {c.latDisplay}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-[var(--muted)] mt-1 px-1">
+                <strong>Safe</strong> casi siempre llegás · <strong>Avg</strong> típico · <strong>Lateral</strong>: R 10y = apuntá 10y a la izq
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
 
       {nav}
 
