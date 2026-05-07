@@ -89,9 +89,34 @@ model Player {
   scoreThermostatMin Int? // ej 78 — score más bajo que solés hacer
   scoreThermostatMax Int? // ej 88 — score más alto típico
   scoreDesired       Int? // score aspiracional (debería estar BAJO el thermostat)
+  // Mental — Identidad (Be/Do/Have)
+  limitingBelief     String? // historia limitante actual
+  empoweringBelief   String? // historia opuesta que querés contarte
+  admiredGolfer      String? // golfista que admirás (modelado)
+  beDoHave           String? // qué "es", "hace", "tiene" + cómo empezar a serlo
+  // Mental — Rutinas
+  preShotRoutine     String? // descripción de tu rutina pre-shot
+  postShotRoutine    String? // descripción de tu rutina post-shot
   createdAt       DateTime      @default(now())
   roundEntries    RoundPlayer[]
   visualizations  VisualizationSession[]
+  mentalNotes     MentalNote[]
+}
+
+// Notas mentales — creencias, self-talk, emociones (Mental Mastery del SM)
+model MentalNote {
+  id        String   @id @default(cuid())
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String
+  type      String   // BELIEF | SELF_TALK | EMOTION | STORY
+  context   String?  // ROUND | PRACTICE | GENERAL
+  contextId String?  // id de la ronda/sesión si aplica
+  content   String   // el pensamiento/creencia/emoción
+  positive  Boolean? // true si es positivo, false si negativo, null si neutro
+  createdAt DateTime @default(now())
+
+  @@index([playerId])
+  @@index([type])
 }
 
 // Sesión de visualización pre-ronda (Mental Mastery del SM)
@@ -134,6 +159,9 @@ model Round {
   // The Scoring Method — reflexión post-ronda (Level 2)
   bestParts String?  // JSON array de strings — qué jugaste mejor hoy
   bestShot  String?  // descripción del mejor tiro del día
+  // Mental Mastery — compromiso promedio del día (1-10)
+  commitmentScore Int? // qué tan comprometido estuviste con cada shot
+  emotionPlayed   String? // emoción dominante de la ronda (CONFIANZA, NERVIOS, etc.)
   createdAt DateTime @default(now())
 
   players RoundPlayer[]

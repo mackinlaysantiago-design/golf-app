@@ -634,6 +634,7 @@ export default async function ResumenPage({
           <SectionHeader>Reflexión</SectionHeader>
           <ReflexionEditor
             roundId={round.id}
+            playerId={me.player.id}
             initialBestParts={(() => {
               try {
                 return round.bestParts ? (JSON.parse(round.bestParts) as string[]) : [];
@@ -642,6 +643,8 @@ export default async function ResumenPage({
               }
             })()}
             initialBestShot={round.bestShot ?? ""}
+            initialCommitment={round.commitmentScore}
+            initialEmotion={round.emotionPlayed}
           />
         </>
       )}

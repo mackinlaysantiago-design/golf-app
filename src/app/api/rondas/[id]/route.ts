@@ -26,6 +26,8 @@ const PatchSchema = z.object({
     .object({
       bestParts: z.string().nullable().optional(),
       bestShot: z.string().nullable().optional(),
+      commitmentScore: z.number().int().min(1).max(10).nullable().optional(),
+      emotionPlayed: z.string().nullable().optional(),
     })
     .optional(),
 });
@@ -64,13 +66,14 @@ export async function PATCH(
     }
 
     if (parsed.reflexion) {
-      await tx.round.update({
-        where: { id },
-        data: {
-          bestParts: parsed.reflexion.bestParts ?? null,
-          bestShot: parsed.reflexion.bestShot ?? null,
-        },
-      });
+      const data: Record<string, unknown> = {};
+      if (parsed.reflexion.bestParts !== undefined) data.bestParts = parsed.reflexion.bestParts ?? null;
+      if (parsed.reflexion.bestShot !== undefined) data.bestShot = parsed.reflexion.bestShot ?? null;
+      if (parsed.reflexion.commitmentScore !== undefined) data.commitmentScore = parsed.reflexion.commitmentScore ?? null;
+      if (parsed.reflexion.emotionPlayed !== undefined) data.emotionPlayed = parsed.reflexion.emotionPlayed ?? null;
+      if (Object.keys(data).length > 0) {
+        await tx.round.update({ where: { id }, data });
+      }
     }
 
     if (parsed.bets) {
