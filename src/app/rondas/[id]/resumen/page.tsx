@@ -799,71 +799,100 @@ export default async function ResumenPage({
             </tr>
           </thead>
           <tbody>
-            {playableHoles.map((h) => (
-              <tr key={h.number} className="border-b border-[var(--green-pale)]">
-                <td className="p-1 gf-mono">{h.number}</td>
-                <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
-                {round.players.map((rp) => {
-                  const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
-                  const score = hd?.score ?? null;
-                  return (
-                    <td key={rp.id} className="p-1 text-center">
-                      <ScoreMark score={score} par={h.par} />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            <tr className="font-bold border-t-2 border-[var(--fairway)]">
-              <td className="p-1">{isNineOnly ? (ninePlayed === "VUELTA" ? "In" : "Out") : "T"}</td>
-              <td className="p-1 text-center gf-mono">
-                {playableHoles.reduce((s, h) => s + h.par, 0)}
-              </td>
-              {round.players.map((rp) => {
-                let total = 0;
-                let parPlayed = 0;
-                let played = 0;
-                for (const h of playableHoles) {
-                  const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
-                  const sc = hd?.score;
-                  if (sc != null && sc > 0) {
-                    total += sc;
-                    parPlayed += h.par;
-                    played++;
-                  }
-                }
-                const vsPar = total - parPlayed;
-                const vsLabel =
-                  played === 0
-                    ? ""
-                    : vsPar === 0
-                    ? "E"
-                    : vsPar > 0
-                    ? `+${vsPar}`
-                    : `${vsPar}`;
-                const vsColor =
-                  vsPar === 0
-                    ? "var(--muted)"
-                    : vsPar > 0
-                    ? vsPar <= 6
-                      ? "var(--accent)"
-                      : "var(--red)"
-                    : "var(--green)";
+            {(() => {
+              const idaHoles = playableHoles.filter((h) => h.number <= 9);
+              const vueltaHoles = playableHoles.filter((h) => h.number >= 10);
+
+              function renderRow(h: typeof playableHoles[number]) {
                 return (
-                  <td key={rp.id} className="p-1 text-center gf-mono">
-                    <div>{total > 0 ? total : "—"}</div>
-                    {rp.player.isMe && played > 0 && (
-                      <div
-                        className="text-[9px] font-bold"
-                        style={{ color: vsColor }}
-                      >
-                        {vsLabel}
-                      </div>
-                    )}
-                  </td>
+                  <tr key={h.number} className="border-b border-[var(--green-pale)]">
+                    <td className="p-1 gf-mono">{h.number}</td>
+                    <td className="p-1 gf-mono text-center text-[var(--muted)]">{h.par}</td>
+                    {round.players.map((rp) => {
+                      const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+                      const score = hd?.score ?? null;
+                      return (
+                        <td key={rp.id} className="p-1 text-center">
+                          <ScoreMark score={score} par={h.par} />
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
-              })}
-            </tr>
+              }
+
+              function renderTotalRow(label: string, holes: typeof playableHoles) {
+                const totalPar = holes.reduce((s, h) => s + h.par, 0);
+                return (
+                  <tr
+                    key={`total-${label}`}
+                    className="font-bold border-t-2 border-[var(--fairway)]"
+                    style={{ background: "var(--green-pale)" }}
+                  >
+                    <td className="p-1 text-[10px] uppercase">{label}</td>
+                    <td className="p-1 text-center gf-mono text-[10px] text-[var(--muted)]">
+                      {totalPar}
+                    </td>
+                    {round.players.map((rp) => {
+                      let total = 0;
+                      let parPlayed = 0;
+                      let played = 0;
+                      for (const h of holes) {
+                        const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+                        const sc = hd?.score;
+                        if (sc != null && sc > 0) {
+                          total += sc;
+                          parPlayed += h.par;
+                          played++;
+                        }
+                      }
+                      const vsPar = total - parPlayed;
+                      const vsLabel =
+                        played === 0
+                          ? ""
+                          : vsPar === 0
+                          ? "E"
+                          : vsPar > 0
+                          ? `+${vsPar}`
+                          : `${vsPar}`;
+                      const vsColor =
+                        vsPar === 0
+                          ? "var(--muted)"
+                          : vsPar > 0
+                          ? vsPar <= 6
+                            ? "var(--accent)"
+                            : "var(--red)"
+                          : "var(--green)";
+                      return (
+                        <td key={rp.id} className="p-1 text-center gf-mono">
+                          <div>{total > 0 ? total : "—"}</div>
+                          {rp.player.isMe && played > 0 && (
+                            <div
+                              className="text-[9px] font-bold"
+                              style={{ color: vsColor }}
+                            >
+                              {vsLabel}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              }
+
+              return (
+                <>
+                  {idaHoles.map(renderRow)}
+                  {idaHoles.length > 0 && renderTotalRow("Out", idaHoles)}
+                  {vueltaHoles.map(renderRow)}
+                  {vueltaHoles.length > 0 && renderTotalRow("In", vueltaHoles)}
+                  {idaHoles.length > 0 &&
+                    vueltaHoles.length > 0 &&
+                    renderTotalRow("Total", playableHoles)}
+                </>
+              );
+            })()}
           </tbody>
         </table>
       </Card>
