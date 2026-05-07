@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ALL_CHALLENGES } from "@/lib/sm-challenges";
 import { Card, SectionHeader } from "@/components/ui/Card";
 import {
   DRILLS,
@@ -76,8 +77,35 @@ function emptyEntry(d: DrillDef): DrillEntry {
 
 export default function NuevaPPPage() {
   const router = useRouter();
+  // Leer query params client-side sin useSearchParams (que rompe prerender)
+  const [challengeCtx, setChallengeCtx] = useState<{
+    challengeId: string | null;
+    day: number | null;
+  }>({ challengeId: null, day: null });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    setChallengeCtx({
+      challengeId: url.searchParams.get("challenge"),
+      day: url.searchParams.get("day") ? parseInt(url.searchParams.get("day")!) : null,
+    });
+  }, []);
+  const challenge = challengeCtx.challengeId
+    ? ALL_CHALLENGES.find((c) => c.id === challengeCtx.challengeId)
+    : null;
+  const challengeDayInfo = challenge && challengeCtx.day != null
+    ? challenge.days.find((d) => d.day === challengeCtx.day)
+    : null;
+
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  // Cuando se cargue el contexto del challenge, pre-rellenar las notas
+  useEffect(() => {
+    if (challengeDayInfo && challenge && !notes) {
+      setNotes(`Challenge: ${challenge.title} · ${challengeDayInfo.title}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeDayInfo?.day, challenge?.id]);
   const [busy, setBusy] = useState(false);
   const [levels, setLevels] = useState<Record<string, LevelInfo>>({});
   const [plan, setPlan] = useState<PlanInfo>({ drillTargets: {} });
@@ -122,6 +150,13 @@ export default function NuevaPPPage() {
                 ...next[drill.type],
                 enabled: true,
                 timesToAchieve: String(planTarget.timesToAchieve),
+              };
+            }
+            // Pre-tildar drills del challenge si entró por ese flujo
+            if (challengeDayInfo && challengeDayInfo.drills.includes(drill.type)) {
+              next[drill.type] = {
+                ...next[drill.type],
+                enabled: true,
               };
             }
           }

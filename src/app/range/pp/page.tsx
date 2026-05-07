@@ -289,9 +289,14 @@ export default async function PPListPage() {
         })}
       </div>
 
-      <Link href="/range/pp/nueva" className="gf-btn w-full">
-        + Nueva sesión PP
-      </Link>
+      <div className="grid grid-cols-2 gap-2">
+        <Link href="/range/pp/nueva" className="gf-btn">
+          + Sesión libre
+        </Link>
+        <Link href="/range/pp/challenges" className="gf-btn gf-btn-secondary">
+          🎯 Challenges
+        </Link>
+      </div>
 
       <SectionHeader>Sesiones</SectionHeader>
       {sessions.length === 0 && (
