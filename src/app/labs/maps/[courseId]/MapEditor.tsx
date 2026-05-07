@@ -39,8 +39,37 @@ export default function MapEditor({
   const pointsMap = new Map<number, Point>();
   for (const p of initialPoints) pointsMap.set(p.holeNumber, p);
 
+  const hasIda = initialPoints.some(
+    (p) =>
+      p.holeNumber >= 1 &&
+      p.holeNumber <= 9 &&
+      (p.frontLat != null || p.centerLat != null || p.backLat != null),
+  );
+
+  async function duplicate9to18() {
+    if (!confirm("Copiar coords de hoyos 1-9 a 10-18? Sobreescribe los 10-18 si ya tenían algo.")) return;
+    const res = await fetch(`/api/labs/course-map/${courseId}/duplicate-9`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      alert(`Copiados ${data.copied} hoyos`);
+      router.refresh();
+    } else {
+      alert("Error");
+    }
+  }
+
   return (
     <div className="space-y-2">
+      {hasIda && (
+        <button
+          onClick={duplicate9to18}
+          className="gf-btn gf-btn-secondary w-full !text-xs"
+        >
+          📋 Copiar coords 1-9 → 10-18 (mismo recorrido, distinta salida)
+        </button>
+      )}
       {courseHoles.map((h) => {
         const point = pointsMap.get(h.number);
         const hasAny = point && (point.frontLat != null || point.centerLat != null || point.backLat != null);

@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card } from "@/components/ui/Card";
 import { yardsBetween } from "@/lib/geo";
+
+// Leaflet no es SSR-friendly — load client-side
+const HoleMap = dynamic(() => import("./HoleMap"), { ssr: false });
 
 type Point = {
   holeNumber: number;
@@ -28,6 +32,7 @@ export default function GpsView({
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [watching, setWatching] = useState(false);
+  const [view, setView] = useState<"MAP" | "LIST">("MAP");
 
   useEffect(() => {
     if (!watching) return;
@@ -132,14 +137,40 @@ export default function GpsView({
         </div>
       </Card>
 
-      {/* Distancias */}
+      {/* Toggle Mapa / Lista */}
+      {hasCoords && (
+        <div className="flex gap-1">
+          {(["MAP", "LIST"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className="flex-1 text-[10px] uppercase tracking-wider py-1.5 rounded"
+              style={{
+                background: view === v ? "var(--fairway)" : "var(--green-pale)",
+                color: view === v ? "white" : "var(--fairway)",
+                fontWeight: view === v ? 700 : 500,
+              }}
+            >
+              {v === "MAP" ? "🗺️ Mapa" : "📋 Lista"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Mapa */}
+      {hasCoords && view === "MAP" && currentPoint && (
+        <HoleMap point={currentPoint} userLat={lat} userLng={lng} />
+      )}
+
+      {/* Distancias en lista */}
       {!hasCoords ? (
         <Card className="text-center !p-4">
           <p className="text-sm text-[var(--muted)]">
             No hay coords cargadas para el hoyo {currentHole}
           </p>
         </Card>
-      ) : (
+      ) : view === "LIST" ? (
         <div className="space-y-2">
           <DistanceCard
             label="🔵 Fondo"
@@ -161,7 +192,7 @@ export default function GpsView({
             available={currentPoint!.frontLat != null}
           />
         </div>
-      )}
+      ) : null}
 
       {currentPoint?.notes && (
         <Card className="!p-2">
