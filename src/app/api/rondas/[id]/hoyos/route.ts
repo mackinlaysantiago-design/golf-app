@@ -16,6 +16,10 @@ const HoleEntrySchema = z.object({
   penaltyStrokes: z.number().int().nullable().optional(),
   keysBroken: z.array(z.number().int().min(1).max(10)).nullable().optional(),
   targetGoal: z.string().nullable().optional(),
+  pinColor: z.enum(["GREEN", "YELLOW", "RED"]).nullable().optional(),
+  dangerSide: z.enum(["L", "R", "NONE"]).nullable().optional(),
+  aimedAtCenter: z.boolean().nullable().optional(),
+  recoveryMode: z.boolean().nullable().optional(),
 });
 
 const PutSchema = z.object({
@@ -68,6 +72,10 @@ export async function PUT(
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,
           targetGoal: e.targetGoal ?? null,
+          pinColor: e.pinColor ?? null,
+          dangerSide: e.dangerSide ?? null,
+          aimedAtCenter: e.aimedAtCenter ?? null,
+          recoveryMode: e.recoveryMode ?? null,
         },
         update: {
           strokesToEnterSz: e.strokesToEnterSz ?? null,
@@ -81,6 +89,10 @@ export async function PUT(
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,
           targetGoal: e.targetGoal ?? null,
+          pinColor: e.pinColor ?? null,
+          dangerSide: e.dangerSide ?? null,
+          aimedAtCenter: e.aimedAtCenter ?? null,
+          recoveryMode: e.recoveryMode ?? null,
         },
       }),
     ),

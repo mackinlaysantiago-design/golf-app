@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Card, KPI, Pill, SectionHeader } from "@/components/ui/Card";
 import { computeRoundKPIs, type HoleData } from "@/lib/scoring-method";
+import { computeTiger5Round, TIGER5_LABELS } from "@/lib/tiger5";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,21 @@ export default async function HomePage() {
       onePuttCircleFt: lastRound.onePuttCircleFt,
       twoPuttCircleYds: lastRound.twoPuttCircleYds,
     });
+  }
+
+  // Tiger 5 preview de la última ronda
+  let tiger5Preview: ReturnType<typeof computeTiger5Round> | null = null;
+  if (lastRound && lastRound.players[0]) {
+    const parByNumber = new Map(lastCourseHoles.map((h) => [h.number, h.par]));
+    tiger5Preview = computeTiger5Round(
+      lastRound.players[0].holes.map((h) => ({
+        par: parByNumber.get(h.holeNumber) ?? 4,
+        score: h.score,
+        putts: h.putts,
+        distanceInRegYds: h.distanceInRegYds,
+        strokesInsideSz: h.strokesInsideSz,
+      })),
+    );
   }
 
   return (
@@ -186,6 +202,32 @@ export default async function HomePage() {
             Cargar primera ronda
           </Link>
         </Card>
+      )}
+
+      {/* Tiger 5 preview de la última ronda */}
+      {tiger5Preview && (
+        <Link href="/stats" className="block">
+          <Card className="!p-3" style={{ borderLeft: "4px solid var(--accent)" }}>
+            <div className="flex justify-between items-center">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                🐅 Tiger 5 · última ronda
+              </div>
+              <span className="text-[10px] text-[var(--muted)]">ver detalle ›</span>
+            </div>
+            <div className="grid grid-cols-5 gap-1 mt-2">
+              {TIGER5_LABELS.map(({ key, label }) => (
+                <div key={key} className="text-center">
+                  <div className="gf-display text-xl text-[var(--fairway)]">
+                    {tiger5Preview![key]}
+                  </div>
+                  <div className="text-[9px] text-[var(--muted)] leading-tight">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </Link>
       )}
 
       {/* Última range session */}

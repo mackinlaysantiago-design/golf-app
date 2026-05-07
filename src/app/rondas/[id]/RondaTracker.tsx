@@ -38,6 +38,10 @@ type RoundHoleData = {
   penaltyStrokes: number | null;
   keysBroken: unknown; // JsonValue desde Prisma — se cast a number[] al usar
   targetGoal: string | null;
+  pinColor: string | null;
+  dangerSide: string | null;
+  aimedAtCenter: boolean | null;
+  recoveryMode: boolean | null;
 };
 
 type RoundPlayer = {
@@ -91,6 +95,10 @@ export default function RondaTracker({ round }: { round: Round }) {
   type CellValues = Partial<Record<FieldKey, number | null>> & {
     keysBroken?: number[] | null;
     targetGoal?: string | null;
+    pinColor?: "GREEN" | "YELLOW" | "RED" | null;
+    dangerSide?: "L" | "R" | "NONE" | null;
+    aimedAtCenter?: boolean | null;
+    recoveryMode?: boolean | null;
   };
   type CellState = Record<string, Record<number, CellValues>>;
 
@@ -111,6 +119,10 @@ export default function RondaTracker({ round }: { round: Round }) {
           penaltyStrokes: h.penaltyStrokes,
           keysBroken: Array.isArray(h.keysBroken) ? (h.keysBroken as number[]) : null,
           targetGoal: h.targetGoal,
+          pinColor: (h.pinColor as "GREEN" | "YELLOW" | "RED" | null) ?? null,
+          dangerSide: (h.dangerSide as "L" | "R" | "NONE" | null) ?? null,
+          aimedAtCenter: h.aimedAtCenter,
+          recoveryMode: h.recoveryMode,
         };
       }
     }
@@ -138,7 +150,11 @@ export default function RondaTracker({ round }: { round: Round }) {
       c.puttsInside1PuttCircle != null ||
       c.penaltyStrokes != null ||
       (Array.isArray(c.keysBroken) && c.keysBroken.length > 0) ||
-      c.targetGoal != null
+      c.targetGoal != null ||
+      c.pinColor != null ||
+      c.dangerSide != null ||
+      c.aimedAtCenter != null ||
+      c.recoveryMode != null
     );
   }
 
@@ -154,6 +170,21 @@ export default function RondaTracker({ round }: { round: Round }) {
   const minHole = courseHoles[0]?.number ?? 1;
   const maxHole = courseHoles[courseHoles.length - 1]?.number ?? 18;
   const currentHoleInfo = courseHoles.find((h) => h.number === currentHole);
+
+  function setDecade(
+    rpId: string,
+    hole: number,
+    field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode",
+    value: string | boolean | null,
+  ) {
+    setData((prev) => {
+      const cur = prev[rpId]?.[hole] ?? {};
+      return {
+        ...prev,
+        [rpId]: { ...prev[rpId], [hole]: { ...cur, [field]: value } },
+      };
+    });
+  }
 
   function setTargetGoal(rpId: string, hole: number, goal: string | null) {
     setData((prev) => {
@@ -970,6 +1001,18 @@ export default function RondaTracker({ round }: { round: Round }) {
                         }
                       />
                     )}
+                    {/* DECADE pre-shot decisions — solo YO */}
+                    {rp.player.isMe && (
+                      <DecadeInput
+                        pinColor={cells.pinColor ?? null}
+                        dangerSide={cells.dangerSide ?? null}
+                        aimedAtCenter={cells.aimedAtCenter ?? null}
+                        recoveryMode={cells.recoveryMode ?? null}
+                        onSet={(field, value) =>
+                          setDecade(rp.id, currentHole, field, value)
+                        }
+                      />
+                    )}
                     {/* 10 Keys to Scoring — solo para "YO" */}
                     {rp.player.isMe && (
                       <KeysBrokenInput
@@ -1281,6 +1324,121 @@ function GearSelector({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// DECADE — Pre-shot decisions por hoyo (semáforo pin, hazard side, aim, recovery)
+function DecadeInput({
+  pinColor,
+  dangerSide,
+  aimedAtCenter,
+  recoveryMode,
+  onSet,
+}: {
+  pinColor: "GREEN" | "YELLOW" | "RED" | null;
+  dangerSide: "L" | "R" | "NONE" | null;
+  aimedAtCenter: boolean | null;
+  recoveryMode: boolean | null;
+  onSet: (
+    field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode",
+    value: string | boolean | null,
+  ) => void;
+}) {
+  const pinOpts: { v: "GREEN" | "YELLOW" | "RED"; emoji: string; label: string }[] = [
+    { v: "GREEN", emoji: "🟢", label: "Centro" },
+    { v: "YELLOW", emoji: "🟡", label: "Borde" },
+    { v: "RED", emoji: "🔴", label: "Trampa" },
+  ];
+  const sideOpts: { v: "L" | "R" | "NONE"; label: string }[] = [
+    { v: "L", label: "Izq" },
+    { v: "R", label: "Der" },
+    { v: "NONE", label: "Sin" },
+  ];
+
+  return (
+    <div className="pt-2 border-t border-[var(--green-pale)] mt-2 space-y-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+        🧠 DECADE · decisiones de este hoyo
+      </div>
+
+      {/* Pin color */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-[var(--muted)] gf-mono w-12">Pin</span>
+        {pinOpts.map((o) => {
+          const active = pinColor === o.v;
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => onSet("pinColor", active ? null : o.v)}
+              className="text-[10px] px-2 py-1 rounded gf-mono"
+              style={{
+                background: active ? "var(--fairway)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+              title={`Bandera ${o.label}`}
+            >
+              {o.emoji} {o.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Danger side */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-[var(--muted)] gf-mono w-12">Peor</span>
+        {sideOpts.map((o) => {
+          const active = dangerSide === o.v;
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => onSet("dangerSide", active ? null : o.v)}
+              className="text-[10px] px-2 py-1 rounded gf-mono"
+              style={{
+                background: active ? "var(--accent)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+              title={`Lado peligroso del hoyo: ${o.label}`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toggles aimed/recovery */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onSet("aimedAtCenter", aimedAtCenter === true ? null : true)}
+          className="text-[10px] px-2 py-1 rounded gf-mono"
+          style={{
+            background: aimedAtCenter === true ? "var(--green)" : "var(--green-pale)",
+            color: aimedAtCenter === true ? "white" : "var(--fairway)",
+            fontWeight: aimedAtCenter === true ? 700 : 500,
+          }}
+          title="¿Apuntaste al centro del green (no a la bandera)?"
+        >
+          🎯 Apunté al centro
+        </button>
+        <button
+          type="button"
+          onClick={() => onSet("recoveryMode", recoveryMode === true ? null : true)}
+          className="text-[10px] px-2 py-1 rounded gf-mono"
+          style={{
+            background: recoveryMode === true ? "var(--accent)" : "var(--green-pale)",
+            color: recoveryMode === true ? "white" : "var(--fairway)",
+            fontWeight: recoveryMode === true ? 700 : 500,
+          }}
+          title="¿Estuviste en problemas y jugaste solo para volver al juego?"
+        >
+          🛟 Recovery
+        </button>
+      </div>
     </div>
   );
 }

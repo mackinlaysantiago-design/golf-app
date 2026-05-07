@@ -198,6 +198,11 @@ model RoundHole {
   // (puede diferir del goal de la ronda si bajó/subió táctico)
   // Formato: "100/3" | "100/2" | "125/2" | "150/2"
   targetGoal      String?
+  // DECADE — decisiones pre-shot por hoyo
+  pinColor        String?  // GREEN | YELLOW | RED — semáforo de pin location
+  dangerSide      String?  // L | R | NONE — lado peor del fairway (OB/agua)
+  aimedAtCenter   Boolean? // ¿apuntaste al centro del green (no a la bandera)?
+  recoveryMode    Boolean? // ¿estuviste en problemas y jugaste solo para volver?
 
   @@unique([roundPlayerId, holeNumber])
 }

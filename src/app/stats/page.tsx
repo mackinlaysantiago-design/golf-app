@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { Card, KPI, SectionHeader } from "@/components/ui/Card";
 import { computeRoundKPIs, type HoleData } from "@/lib/scoring-method";
+import { computeTiger5Round, avgTiger5, TIGER5_LABELS } from "@/lib/tiger5";
+import { tallyKeys, topKeys, KEY_AREA, KEY_BY_ID } from "@/lib/sm-keys";
 import {
   DRILL_BY_TYPE,
   CLUB_LABEL as PP_CLUB_LABEL,
@@ -110,6 +112,47 @@ export default async function StatsPage() {
   }
   const avg18 = avgs(completed18.slice(0, 5));
   const avg9 = avgs(completed9.slice(0, 5));
+
+  // Tiger 5 — últimas 5 rondas completas
+  const last5Completed = completed.slice(0, 5);
+  const tiger5Last = last5Completed[0]
+    ? computeTiger5Round(
+        last5Completed[0].round.players[0].holes.map((h) => {
+          const par = last5Completed[0].round.course.holes.find((c) => c.number === h.holeNumber)?.par ?? 4;
+          return {
+            par,
+            score: h.score,
+            putts: h.putts,
+            distanceInRegYds: h.distanceInRegYds,
+            strokesInsideSz: h.strokesInsideSz,
+          };
+        }),
+      )
+    : null;
+  const tiger5Avg = avgTiger5(
+    last5Completed.map((s) =>
+      computeTiger5Round(
+        s.round.players[0].holes.map((h) => {
+          const par = s.round.course.holes.find((c) => c.number === h.holeNumber)?.par ?? 4;
+          return {
+            par,
+            score: h.score,
+            putts: h.putts,
+            distanceInRegYds: h.distanceInRegYds,
+            strokesInsideSz: h.strokesInsideSz,
+          };
+        }),
+      ),
+    ),
+  );
+
+  // Keys cross-rondas — últimas 5 rondas
+  const allKeysLast5 = last5Completed.flatMap((s) =>
+    s.round.players[0].holes.map((h) => (h.keysBroken as number[] | null) ?? []),
+  );
+  const keysCount = tallyKeys(allKeysLast5);
+  const keysTop3 = topKeys(keysCount, 3);
+  const totalKeysLast5 = Object.values(keysCount).reduce((s, v) => s + v, 0);
 
   // Drills aggregations por tipo
   type DrillStat = {
@@ -357,6 +400,113 @@ export default async function StatsPage() {
           </table>
         )}
       </Card>
+
+      {/* Tiger 5 dashboard — últimas 5 rondas */}
+      {last5Completed.length > 0 && (
+        <>
+          <SectionHeader>🐅 Tiger 5 · últimas {last5Completed.length} rondas</SectionHeader>
+          <Card className="!p-3">
+            <table className="w-full text-[11px] gf-mono">
+              <thead>
+                <tr className="text-[var(--muted)] uppercase tracking-wider text-[9px]">
+                  <th className="text-left py-1">Métrica</th>
+                  <th className="text-right" title="Última ronda">Última</th>
+                  <th className="text-right" title="Promedio últimas 5">Avg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TIGER5_LABELS.map(({ key, label, hint }) => {
+                  const last = tiger5Last?.[key] ?? 0;
+                  const avg = tiger5Avg[key];
+                  const trend = last < avg ? "↓" : last > avg ? "↑" : "=";
+                  // ↓ es mejor (menos errores)
+                  const trendColor = trend === "↓" ? "var(--green)" : trend === "↑" ? "var(--red)" : "var(--muted)";
+                  return (
+                    <tr key={key} className="border-t border-[var(--green-pale)]">
+                      <td className="py-1.5">
+                        <div className="font-semibold">{label}</div>
+                        <div className="text-[9px] text-[var(--muted)]">{hint}</div>
+                      </td>
+                      <td className="text-right">
+                        {last}
+                        <span style={{ color: trendColor }} className="ml-1 text-[9px]">{trend}</span>
+                      </td>
+                      <td className="text-right text-[var(--muted)]">{avg.toFixed(1)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-[var(--muted)] mt-2">
+              Las 5 métricas más correlacionadas con score alto (DECADE).
+              ↓ = mejor (menos errores) que tu promedio.
+            </p>
+          </Card>
+        </>
+      )}
+
+      {/* Keys cross-rondas */}
+      {totalKeysLast5 > 0 && (
+        <>
+          <SectionHeader>🎯 Keys cross-rondas · top 3</SectionHeader>
+          <div className="space-y-2">
+            {keysTop3.map(({ key, count }) => {
+              const meta = KEY_AREA[key.id];
+              const areaColor =
+                meta.area === "DECADE"
+                  ? "var(--accent)"
+                  : meta.area === "MENTAL"
+                  ? "var(--green)"
+                  : meta.area === "PP"
+                  ? "var(--fairway)"
+                  : "var(--muted)";
+              return (
+                <Card
+                  key={key.id}
+                  className="!p-3"
+                  style={{ borderLeft: `4px solid ${areaColor}` }}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1">
+                      <div className="font-semibold flex items-center gap-2">
+                        {key.id}. {key.label}
+                        <span
+                          className="gf-pill text-[9px]"
+                          style={{ background: areaColor, color: "white" }}
+                        >
+                          {meta.area}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[var(--muted)] mt-1">
+                        💡 {meta.tip}
+                      </div>
+                    </div>
+                    <span className="gf-display text-2xl" style={{ color: areaColor }}>
+                      {count}×
+                    </span>
+                  </div>
+                </Card>
+              );
+            })}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-[var(--muted)] py-1">
+                Ver todas ({totalKeysLast5} keys rotas en {last5Completed.length} rondas)
+              </summary>
+              <div className="space-y-0.5 mt-2 gf-mono text-[11px]">
+                {Object.entries(keysCount)
+                  .filter(([, count]) => count > 0)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([id, count]) => (
+                    <div key={id} className="flex justify-between">
+                      <span>{id}. {KEY_BY_ID[parseInt(id)].short}</span>
+                      <span>{count}</span>
+                    </div>
+                  ))}
+              </div>
+            </details>
+          </div>
+        </>
+      )}
 
       {/* Niveles Scoring Method del jugador */}
       <SectionHeader>Niveles Scoring Method</SectionHeader>

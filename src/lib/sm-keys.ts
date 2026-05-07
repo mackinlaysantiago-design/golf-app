@@ -108,3 +108,22 @@ export function topKeys(counts: Record<number, number>, n: number = 2): { key: S
     .sort((a, b) => b.count - a.count)
     .slice(0, n);
 }
+
+// Mapeo de cada key a una "área" de mejora que la app puede recomendar.
+// DECADE = decisión estratégica (apuntar al centro, evitar OB, etc)
+// MENTAL = trabajo emocional/cognitivo (rutinas, foco)
+// PP = drill de práctica (mapea a un drill type existente)
+export type KeyArea = "PP" | "DECADE" | "MENTAL" | "TECH";
+
+export const KEY_AREA: Record<number, { area: KeyArea; tip: string }> = {
+  1: { area: "PP", tip: "Trabajá tu 1-Putt circle hasta tener 90%+ make rate" },
+  2: { area: "DECADE", tip: "Bajá un palo y apuntá lejos del peligro. La regla: evitar OB > agua > obstáculos menores" },
+  3: { area: "DECADE", tip: "Cuando estés en problemas: único objetivo = volver al juego. Olvidate del green" },
+  4: { area: "PP", tip: "Trabajá lag putts (15-30 ft). El ritmo importa más que la lectura" },
+  5: { area: "TECH", tip: "Mediste mal tu carry. Andá al range con FlightScope a recalibrar yardages" },
+  6: { area: "DECADE", tip: "Apuntá al centro del green. Tus tiros 'arriesgados' rara vez compensan el costo de fallarlos" },
+  7: { area: "DECADE", tip: "Apuntá al lado largo de la bandera. Short-side = chip imposible" },
+  8: { area: "MENTAL", tip: "Rutina post-shot: aceptá el resultado en 10 segundos y enfocate en el próximo" },
+  9: { area: "TECH", tip: "Antes del swing: leé el lie 5 segundos. Qué shot es POSIBLE desde ahí, no qué querés hacer" },
+  10: { area: "MENTAL", tip: "Empezá la ronda en primera marcha. Rutina pre-ronda + warmup. No pegues drives sin preparación" },
+};
