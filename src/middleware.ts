@@ -19,6 +19,10 @@ export function middleware(req: NextRequest) {
   if (req.headers.get("x-vercel-cron")) {
     return NextResponse.next();
   }
+  // keep-warm es público (no expone datos, solo SELECT 1) — UptimeRobot u otro pinger lo puede dispararsin secret
+  if (pathname === "/api/keep-warm") {
+    return NextResponse.next();
+  }
   // Cron secret manual (para dispararlo desde fuera)
   const cronSecret = req.nextUrl.searchParams.get("secret");
   const expectedSecret = process.env.CRON_SECRET;

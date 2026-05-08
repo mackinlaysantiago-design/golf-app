@@ -1,0 +1,28 @@
+name: keep-warm
+
+on:
+  schedule:
+    # Cada 5 min (mínimo permitido por GitHub Actions). Mantiene Neon compute warm.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping keep-warm endpoint
+        run: |
+          set -e
+          for i in 1 2 3; do
+            echo "Attempt $i..."
+            response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\nTIME:%{time_total}s" --max-time 30 https://golf-app-puce.vercel.app/api/keep-warm)
+            echo "$response"
+            if echo "$response" | grep -q "HTTP_STATUS:200"; then
+              echo "OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "All 3 attempts failed"
+          exit 1
