@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Card } from "@/components/ui/Card";
 import { yardsBetween } from "@/lib/geo";
@@ -259,6 +260,25 @@ export default function GpsView({
           );
         })}
       </div>
+
+      {/* FAB: volver al tracker (solo cuando vinimos de una ronda) */}
+      {roundId && (
+        <Link
+          href={`/rondas/${roundId}`}
+          className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
+          style={{
+            width: 64,
+            height: 64,
+            background: "var(--fairway)",
+            color: "white",
+            fontSize: 28,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+          }}
+          aria-label="Volver al tracker"
+        >
+          📊
+        </Link>
+      )}
     </div>
   );
 }

@@ -532,12 +532,6 @@ export default function RondaTracker({
           >
             Resumen ›
           </Link>
-          <Link
-            href={`/labs/maps/${round.courseId}/play?round=${round.id}`}
-            className="text-[11px] text-[var(--fairway)] font-semibold"
-          >
-            📍 GPS / Mapa
-          </Link>
           <button
             type="button"
             onClick={() => setSetupOpen(true)}
@@ -1354,6 +1348,23 @@ export default function RondaTracker({
           </button>
         </>
       )}
+
+      {/* FAB: ir al GPS / mapa del hoyo actual */}
+      <Link
+        href={`/labs/maps/${round.courseId}/play?round=${round.id}`}
+        className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
+        style={{
+          width: 64,
+          height: 64,
+          background: "var(--fairway)",
+          color: "white",
+          fontSize: 28,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+        }}
+        aria-label="Abrir mapa GPS del hoyo"
+      >
+        📍
+      </Link>
     </div>
   );
 }
