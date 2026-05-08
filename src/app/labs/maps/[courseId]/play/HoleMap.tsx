@@ -343,21 +343,21 @@ export default function HoleMap({
     }
   }, [point]);
 
-  // Auto-fit: cuando cambia el hoyo, fit bounds [user GPS, green markers, layup] una sola vez
-  // por hoyo. Después el usuario es libre de panear/zoomear sin que el mapa se mueva solo.
+  // Auto-fit: una sola vez por hoyo, espera a tener GPS antes de fitear.
+  // Si cambiás de hoyo sin GPS, el fit se posterga hasta que llegue. Una vez fiteado
+  // para un hoyo, GPS jitter no re-mueve el mapa (libre de panear/zoomear).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (fittedHoleRef.current === point.holeNumber) return;
-    const pts: L.LatLngTuple[] = [];
+    if (userLat == null || userLng == null) return;
+    const pts: L.LatLngTuple[] = [[userLat, userLng]];
     if (point.frontLat != null && point.frontLng != null)
       pts.push([point.frontLat, point.frontLng]);
     if (point.centerLat != null && point.centerLng != null)
       pts.push([point.centerLat, point.centerLng]);
     if (point.backLat != null && point.backLng != null)
       pts.push([point.backLat, point.backLng]);
-    if (userLat != null && userLng != null) pts.push([userLat, userLng]);
-    if (layup) pts.push([layup.lat, layup.lng]);
     if (pts.length >= 2) {
       map.fitBounds(L.latLngBounds(pts), {
         padding: [60, 60],
@@ -366,7 +366,7 @@ export default function HoleMap({
       });
       fittedHoleRef.current = point.holeNumber;
     }
-  }, [point, userLat, userLng, layup]);
+  }, [point, userLat, userLng]);
 
   // User position marker (live)
   useEffect(() => {
