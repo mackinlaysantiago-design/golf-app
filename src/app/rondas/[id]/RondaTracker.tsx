@@ -295,8 +295,27 @@ export default function RondaTracker({
   // Leaderboard live
   const courseHcpMap = courseHoles.map((h) => ({ number: h.number, par: h.par, hcpHoyo: h.hcpHoyo }));
 
+  // Modalidades activas según las apuestas configuradas en el wizard.
+  // Mostramos solo las columnas correspondientes. "Bruto" siempre se muestra como referencia.
+  const betModalities = new Set(round.bets.map((b) => b.modality));
+  const showMedal = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA"].some((m) =>
+    betModalities.has(m),
+  );
+  const showStbl = ["STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"].some(
+    (m) => betModalities.has(m),
+  );
+  const showMatch = ["MATCH", "MATCH_IDA", "MATCH_VUELTA"].some((m) =>
+    betModalities.has(m),
+  );
+
   type LBSection = "TOTAL" | "IDA" | "VUELTA";
-  const [lbSection, setLbSection] = useState<LBSection>("TOTAL");
+  const [lbSection, setLbSection] = useState<LBSection>(
+    round.holesPlayed === 9
+      ? round.nineWhich === "VUELTA"
+        ? "VUELTA"
+        : "IDA"
+      : "TOTAL",
+  );
 
   function holesForSection(sec: LBSection) {
     if (sec === "IDA") return courseHoles.filter((h) => h.number <= 9);
@@ -612,33 +631,50 @@ export default function RondaTracker({
             ) : null}
           </div>
 
-          {/* Tabs Ida / Vuelta / Total */}
-          <div className="flex gap-1 mb-2">
-            {(["IDA", "VUELTA", "TOTAL"] as const).map((sec) => (
-              <button
-                key={sec}
-                type="button"
-                onClick={() => setLbSection(sec)}
-                className="flex-1 text-[10px] uppercase tracking-wider py-1 rounded"
-                style={{
-                  background: lbSection === sec ? "var(--fairway)" : "var(--green-pale)",
-                  color: lbSection === sec ? "white" : "var(--fairway)",
-                  fontWeight: lbSection === sec ? 700 : 500,
-                }}
-              >
-                {sec === "IDA" ? "Ida (1-9)" : sec === "VUELTA" ? "Vuelta (10-18)" : "Total"}
-              </button>
-            ))}
-          </div>
+          {/* Tabs Ida / Vuelta / Total — si la ronda es de 9 hoyos solo mostramos
+              la sección jugada (Total y la otra mitad no tienen sentido). */}
+          {(() => {
+            const sections: LBSection[] =
+              round.holesPlayed === 9
+                ? round.nineWhich === "VUELTA"
+                  ? ["VUELTA"]
+                  : ["IDA"]
+                : ["IDA", "VUELTA", "TOTAL"];
+            if (sections.length === 1) return null;
+            return (
+              <div className="flex gap-1 mb-2">
+                {sections.map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => setLbSection(sec)}
+                    className="flex-1 text-[10px] uppercase tracking-wider py-1 rounded"
+                    style={{
+                      background:
+                        lbSection === sec ? "var(--fairway)" : "var(--green-pale)",
+                      color: lbSection === sec ? "white" : "var(--fairway)",
+                      fontWeight: lbSection === sec ? 700 : 500,
+                    }}
+                  >
+                    {sec === "IDA"
+                      ? "Ida (1-9)"
+                      : sec === "VUELTA"
+                        ? "Vuelta (10-18)"
+                        : "Total"}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {pairsStandings ? (
             <table className="gf-table">
               <thead>
                 <tr>
                   <th>Pareja</th>
-                  <th className="text-right">Match</th>
-                  <th className="text-right">Medal</th>
-                  <th className="text-right">Stbl</th>
+                  {showMatch && <th className="text-right">Match</th>}
+                  {showMedal && <th className="text-right">Medal</th>}
+                  {showStbl && <th className="text-right">Stbl</th>}
                 </tr>
               </thead>
               <tbody>
@@ -653,16 +689,20 @@ export default function RondaTracker({
                           {p.playerNames.join(" · ")}
                         </div>
                       </td>
-                      <td className="text-right gf-mono">
-                        {p.matchPoints}
-                        {diff > 0 && (
-                          <span className="text-[var(--green)] text-[10px] ml-1">
-                            +{diff}
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-right gf-mono">{p.medalSum || "—"}</td>
-                      <td className="text-right gf-mono">{p.stbl}</td>
+                      {showMatch && (
+                        <td className="text-right gf-mono">
+                          {p.matchPoints}
+                          {diff > 0 && (
+                            <span className="text-[var(--green)] text-[10px] ml-1">
+                              +{diff}
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      {showMedal && (
+                        <td className="text-right gf-mono">{p.medalSum || "—"}</td>
+                      )}
+                      {showStbl && <td className="text-right gf-mono">{p.stbl}</td>}
                     </tr>
                   );
                 })}
@@ -674,9 +714,9 @@ export default function RondaTracker({
                 <tr>
                   <th>Jugador</th>
                   <th className="text-right">Bruto</th>
-                  <th className="text-right">Neto</th>
-                  <th className="text-right">Stbl</th>
-                  {match3pActive && <th className="text-right">Match</th>}
+                  {showMedal && <th className="text-right">Neto</th>}
+                  {showStbl && <th className="text-right">Stbl</th>}
+                  {showMatch && match3pActive && <th className="text-right">Match</th>}
                 </tr>
               </thead>
               <tbody>
@@ -687,9 +727,13 @@ export default function RondaTracker({
                       {s.rp.player.isMe && <Pill variant="accent">YO</Pill>}
                     </td>
                     <td className="text-right gf-mono">{s.bruto || "—"}</td>
-                    <td className="text-right gf-mono">{s.neto || "—"}</td>
-                    <td className="text-right gf-mono">{s.stableford}</td>
-                    {match3pActive && (
+                    {showMedal && (
+                      <td className="text-right gf-mono">{s.neto || "—"}</td>
+                    )}
+                    {showStbl && (
+                      <td className="text-right gf-mono">{s.stableford}</td>
+                    )}
+                    {showMatch && match3pActive && (
                       <td className="text-right gf-mono">
                         {match3pPoints[s.rp.id] ?? 0}
                       </td>
