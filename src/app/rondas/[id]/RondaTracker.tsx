@@ -461,6 +461,48 @@ export default function RondaTracker({
     } catch {}
   }
 
+  // Match Play 3 jugadores: 6 pts en juego por hoyo (4,2,0 / 3,3,0 / 4,1,1 / 0,0,0).
+  // Usa HCP Stableford para stroke allocation. Por sección.
+  const match3pPoints: Record<string, number> = {};
+  let match3pActive = false;
+  if (
+    round.players.length === 3 &&
+    !pairsStandings &&
+    (round.mode !== "TWO_P" && round.mode !== "FOUR_P")
+  ) {
+    match3pActive = true;
+    for (const rp of round.players) match3pPoints[rp.id] = 0;
+    const chs = round.players.map((rp) => chForRpSection(rp, lbSection).stblCh);
+    for (const h of holesForSection(lbSection)) {
+      const nets = round.players
+        .map((rp, i) => {
+          const score = data[rp.id]?.[h.number]?.score;
+          if (score == null || score === 0) return null;
+          const strokes = strokesPerHole(chs[i], courseHcpMap)[h.number] ?? 0;
+          return { id: rp.id, net: score - strokes };
+        })
+        .filter((x): x is { id: string; net: number } => x != null);
+      if (nets.length < 3) continue;
+      const sorted = [...nets].sort((a, b) => a.net - b.net);
+      const allEqual = sorted.every((n) => n.net === sorted[0].net);
+      if (allEqual) continue;
+      const minNet = sorted[0].net;
+      const maxNet = sorted[2].net;
+      const tiedAtMin = sorted.filter((n) => n.net === minNet).length;
+      if (tiedAtMin === 2) {
+        for (const n of nets) if (n.net === minNet) match3pPoints[n.id] += 3;
+      } else {
+        const middleNet = sorted[1].net;
+        const middleEqualsMax = middleNet === maxNet;
+        for (const n of nets) {
+          if (n.net === minNet) match3pPoints[n.id] += 4;
+          else if (middleEqualsMax) match3pPoints[n.id] += 1;
+          else if (n.net === middleNet) match3pPoints[n.id] += 2;
+        }
+      }
+    }
+  }
+
   // Match Play 1v1 (solo si TWO_P) — usa HCP Stableford
   let matchScore: { a: number; b: number } | null = null;
   if (round.mode === "TWO_P" && round.players.length === 2) {
@@ -634,6 +676,7 @@ export default function RondaTracker({
                   <th className="text-right">Bruto</th>
                   <th className="text-right">Neto</th>
                   <th className="text-right">Stbl</th>
+                  {match3pActive && <th className="text-right">Match</th>}
                 </tr>
               </thead>
               <tbody>
@@ -646,6 +689,11 @@ export default function RondaTracker({
                     <td className="text-right gf-mono">{s.bruto || "—"}</td>
                     <td className="text-right gf-mono">{s.neto || "—"}</td>
                     <td className="text-right gf-mono">{s.stableford}</td>
+                    {match3pActive && (
+                      <td className="text-right gf-mono">
+                        {match3pPoints[s.rp.id] ?? 0}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
