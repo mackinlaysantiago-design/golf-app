@@ -32,6 +32,13 @@ export default function HoleMap({
   const layupMarkerRef = useRef<L.CircleMarker | null>(null);
   const layupLineRef = useRef<L.Polyline | null>(null);
   const layupLabelRef = useRef<L.Marker | null>(null);
+  const userLayupLabelRef = useRef<L.Marker | null>(null);
+  const userFrontLabelRef = useRef<L.Marker | null>(null);
+  const userCenterLabelRef = useRef<L.Marker | null>(null);
+  const userBackLabelRef = useRef<L.Marker | null>(null);
+  // Función reactiva para recolocar labels cuando se mueve/zoomea el mapa.
+  // Cambia entre renders → la guardo en ref para que el listener siempre llame al último.
+  const repositionLabelsRef = useRef<(() => void) | null>(null);
 
   const [layup, setLayup] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -107,12 +114,78 @@ export default function HoleMap({
       setLayup({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
+    // Recolocar labels en cada move/zoom para que siempre queden a la vista
+    const onMoveZoom = () => repositionLabelsRef.current?.();
+    map.on("move zoom moveend zoomend", onMoveZoom);
+
     return () => {
       cancelled = true;
+      map.off("move zoom moveend zoomend", onMoveZoom);
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  // Liang-Barsky: clippea un segmento [p1,p2] dentro de un rect [min,max].
+  // Devuelve los 2 puntos del segmento clippeado (en pixels), o null si el segmento
+  // no intersecta el viewport.
+  function clipSegment(
+    p1: L.Point,
+    p2: L.Point,
+    min: L.Point,
+    max: L.Point,
+  ): [L.Point, L.Point] | null {
+    let t0 = 0;
+    let t1 = 1;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const tests: [number, number][] = [
+      [-dx, p1.x - min.x],
+      [dx, max.x - p1.x],
+      [-dy, p1.y - min.y],
+      [dy, max.y - p1.y],
+    ];
+    for (const [p, q] of tests) {
+      if (p === 0) {
+        if (q < 0) return null;
+      } else {
+        const t = q / p;
+        if (p < 0) {
+          if (t > t1) return null;
+          if (t > t0) t0 = t;
+        } else {
+          if (t < t0) return null;
+          if (t < t1) t1 = t;
+        }
+      }
+    }
+    return [
+      L.point(p1.x + t0 * dx, p1.y + t0 * dy),
+      L.point(p1.x + t1 * dx, p1.y + t1 * dy),
+    ];
+  }
+
+  // Devuelve la latlng del midpoint visible del segmento [a,b] dentro del viewport
+  // (con padding para que no quede pegado al borde). Null si el segmento no cruza la pantalla.
+  function visibleMidLatLng(
+    map: L.Map,
+    a: L.LatLngExpression,
+    b: L.LatLngExpression,
+    padding = 28,
+  ): L.LatLng | null {
+    const p1 = map.latLngToContainerPoint(a);
+    const p2 = map.latLngToContainerPoint(b);
+    const size = map.getSize();
+    const min = L.point(padding, padding);
+    const max = L.point(size.x - padding, size.y - padding);
+    const clipped = clipSegment(p1, p2, min, max);
+    if (!clipped) return null;
+    const mid = L.point(
+      (clipped[0].x + clipped[1].x) / 2,
+      (clipped[0].y + clipped[1].y) / 2,
+    );
+    return map.containerPointToLatLng(mid);
+  }
 
   // Pintar puntos del green + anillos cuando cambia el hoyo o se centra
   useEffect(() => {
@@ -219,62 +292,156 @@ export default function HoleMap({
     userMarkerRef.current = m;
   }, [userLat, userLng]);
 
-  // Layup marker + línea + label
+  // Layup marker + línea + labels de distancia (clamped al viewport visible)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Limpiar
-    if (layupMarkerRef.current) {
-      map.removeLayer(layupMarkerRef.current);
-      layupMarkerRef.current = null;
-    }
-    if (layupLineRef.current) {
-      map.removeLayer(layupLineRef.current);
-      layupLineRef.current = null;
-    }
-    if (layupLabelRef.current) {
-      map.removeLayer(layupLabelRef.current);
-      layupLabelRef.current = null;
+    // Helpers de cleanup
+    const clearLayer = (refObj: { current: L.Layer | null }) => {
+      if (refObj.current) {
+        map.removeLayer(refObj.current);
+        refObj.current = null;
+      }
+    };
+    clearLayer(layupMarkerRef);
+    clearLayer(layupLineRef);
+    clearLayer(layupLabelRef);
+    clearLayer(userLayupLabelRef);
+    clearLayer(userFrontLabelRef);
+    clearLayer(userCenterLabelRef);
+    clearLayer(userBackLabelRef);
+    repositionLabelsRef.current = null;
+
+    const makeLabelIcon = (yds: number, bg: string) =>
+      L.divIcon({
+        className: "",
+        html: `<div style="background:${bg};color:white;padding:3px 7px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;white-space:nowrap;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${yds.toFixed(0)}y</div>`,
+        iconSize: [40, 22],
+        iconAnchor: [20, 11],
+      });
+
+    const userPos: [number, number] | null =
+      userLat != null && userLng != null ? [userLat, userLng] : null;
+
+    // Labels vos → frente / centro / fondo del green (semáforo)
+    if (userPos) {
+      if (point.frontLat != null && point.frontLng != null) {
+        const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
+        userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
+          icon: makeLabelIcon(yds, "#16a34a"),
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+      }
+      if (point.centerLat != null && point.centerLng != null) {
+        const yds = yardsBetween(userLat!, userLng!, point.centerLat, point.centerLng);
+        userCenterLabelRef.current = L.marker([point.centerLat, point.centerLng], {
+          icon: makeLabelIcon(yds, "#1f2937"),
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+      }
+      if (point.backLat != null && point.backLng != null) {
+        const yds = yardsBetween(userLat!, userLng!, point.backLat, point.backLng);
+        userBackLabelRef.current = L.marker([point.backLat, point.backLng], {
+          icon: makeLabelIcon(yds, "#dc2626"),
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+      }
     }
 
-    if (!layup) return;
+    // Layup marker + línea + sus labels
+    let layupPos: [number, number] | null = null;
+    if (layup) {
+      layupPos = [layup.lat, layup.lng];
+      layupMarkerRef.current = L.circleMarker(layupPos, {
+        radius: 8,
+        color: "#fff",
+        weight: 2,
+        fillColor: "#ffb627",
+        fillOpacity: 1,
+      })
+        .bindTooltip("Layup (tap mapa para mover)", { permanent: false })
+        .addTo(map);
 
-    layupMarkerRef.current = L.circleMarker([layup.lat, layup.lng], {
-      radius: 8,
-      color: "#fff",
-      weight: 2,
-      fillColor: "#ffb627",
-      fillOpacity: 1,
-    })
-      .bindTooltip("Layup (tap mapa para mover)", { permanent: false })
-      .addTo(map);
+      if (userPos && point.centerLat != null && point.centerLng != null) {
+        layupLineRef.current = L.polyline(
+          [userPos, layupPos, [point.centerLat, point.centerLng]],
+          { color: "#3a86ff", weight: 2, opacity: 0.9, dashArray: "5,4" },
+        ).addTo(map);
 
-    // Línea desde user → layup → centro green
-    if (userLat != null && userLng != null && point.centerLat != null && point.centerLng != null) {
-      layupLineRef.current = L.polyline(
-        [
-          [userLat, userLng],
-          [layup.lat, layup.lng],
-          [point.centerLat, point.centerLng],
-        ],
-        { color: "#3a86ff", weight: 2, opacity: 0.9, dashArray: "5,4" },
-      ).addTo(map);
-
-      // Label de yds desde layup al centro
-      const yds = yardsBetween(layup.lat, layup.lng, point.centerLat, point.centerLng);
-      const labelLat = (layup.lat + point.centerLat) / 2;
-      const labelLng = (layup.lng + point.centerLng) / 2;
-      layupLabelRef.current = L.marker([labelLat, labelLng], {
-        icon: L.divIcon({
-          className: "",
-          html: `<div style="background:#3a86ff;color:white;padding:3px 7px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;white-space:nowrap;border:2px solid white;">${yds.toFixed(0)}y</div>`,
-          iconSize: [40, 22],
-          iconAnchor: [20, 11],
-        }),
-      }).addTo(map);
+        const userToLayupYds = yardsBetween(userLat!, userLng!, layup.lat, layup.lng);
+        const layupToGreenYds = yardsBetween(
+          layup.lat,
+          layup.lng,
+          point.centerLat,
+          point.centerLng,
+        );
+        userLayupLabelRef.current = L.marker(layupPos, {
+          icon: makeLabelIcon(userToLayupYds, "#ff8c00"),
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+        layupLabelRef.current = L.marker(layupPos, {
+          icon: makeLabelIcon(layupToGreenYds, "#3a86ff"),
+          interactive: false,
+          keyboard: false,
+        }).addTo(map);
+      }
     }
-  }, [layup, userLat, userLng, point.centerLat, point.centerLng]);
+
+    // Reposicionar todos los labels al midpoint visible de su segmento.
+    // Si el segmento no cruza la pantalla → ocultamos el label.
+    const reposition = () => {
+      const mUL = mapRef.current;
+      if (!mUL) return;
+      const update = (
+        labelRef: { current: L.Marker | null },
+        a: [number, number] | null,
+        b: [number, number] | null,
+      ) => {
+        if (!labelRef.current) return;
+        if (!a || !b) {
+          labelRef.current.getElement()?.style.setProperty("display", "none");
+          return;
+        }
+        const mid = visibleMidLatLng(mUL, a, b);
+        if (mid) {
+          labelRef.current.setLatLng(mid);
+          labelRef.current.getElement()?.style.setProperty("display", "");
+        } else {
+          labelRef.current.getElement()?.style.setProperty("display", "none");
+        }
+      };
+      const front: [number, number] | null =
+        point.frontLat != null && point.frontLng != null ? [point.frontLat, point.frontLng] : null;
+      const center: [number, number] | null =
+        point.centerLat != null && point.centerLng != null
+          ? [point.centerLat, point.centerLng]
+          : null;
+      const back: [number, number] | null =
+        point.backLat != null && point.backLng != null ? [point.backLat, point.backLng] : null;
+      update(userFrontLabelRef, userPos, front);
+      update(userCenterLabelRef, userPos, center);
+      update(userBackLabelRef, userPos, back);
+      update(userLayupLabelRef, userPos, layupPos);
+      update(layupLabelRef, layupPos, center);
+    };
+    repositionLabelsRef.current = reposition;
+    requestAnimationFrame(reposition);
+  }, [
+    layup,
+    userLat,
+    userLng,
+    point.centerLat,
+    point.centerLng,
+    point.frontLat,
+    point.frontLng,
+    point.backLat,
+    point.backLng,
+  ]);
 
   const userToCenter =
     userLat != null && userLng != null && point.centerLat != null && point.centerLng != null
