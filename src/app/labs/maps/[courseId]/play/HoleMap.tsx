@@ -343,15 +343,19 @@ export default function HoleMap({
     }
   }, [point]);
 
-  // Auto-fit: una sola vez por hoyo, espera a tener GPS antes de fitear.
-  // Si cambiás de hoyo sin GPS, el fit se posterga hasta que llegue. Una vez fiteado
-  // para un hoyo, GPS jitter no re-mueve el mapa (libre de panear/zoomear).
+  // Auto-fit: queremos GPS + green en pantalla.
+  // - Al cambiar de hoyo: fitea con lo que haya (GPS o no).
+  // - Si en ese momento no había GPS, no marcamos como "fit-con-gps" y volvemos
+  //   a fitear cuando GPS llegue (1 vez).
+  // - GPS jitter posterior: no re-fitea (deja al usuario panear libre).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (fittedHoleRef.current === point.holeNumber) return;
-    if (userLat == null || userLng == null) return;
-    const pts: L.LatLngTuple[] = [[userLat, userLng]];
+    const hasGps = userLat != null && userLng != null;
+    const alreadyFittedWithGps = fittedHoleRef.current === point.holeNumber;
+    if (alreadyFittedWithGps) return;
+    const pts: L.LatLngTuple[] = [];
+    if (hasGps) pts.push([userLat!, userLng!]);
     if (point.frontLat != null && point.frontLng != null)
       pts.push([point.frontLat, point.frontLng]);
     if (point.centerLat != null && point.centerLng != null)
@@ -364,7 +368,11 @@ export default function HoleMap({
         maxZoom: 19,
         animate: true,
       });
-      fittedHoleRef.current = point.holeNumber;
+      // Solo marcar como fiteado-con-GPS si efectivamente había GPS — si no,
+      // dejarlo abierto para re-fitear cuando llegue el GPS.
+      if (hasGps) {
+        fittedHoleRef.current = point.holeNumber;
+      }
     }
   }, [point, userLat, userLng]);
 
