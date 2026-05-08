@@ -19,14 +19,6 @@ import {
 } from "@/lib/sm-goals";
 import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 
-type ClubStat = {
-  club: string;
-  n: number;
-  safe: number;
-  avg: number;
-  latDisplay: string;
-};
-
 type Hole = {
   number: number;
   par: number;
@@ -96,10 +88,8 @@ type FieldKey =
 
 export default function RondaTracker({
   round,
-  clubStats = [],
 }: {
   round: Round;
-  clubStats?: ClubStat[];
 }) {
   const router = useRouter();
   // currentHole persiste en localStorage por roundId (compartido con GPS view).
