@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card } from "@/components/ui/Card";
 import { yardsBetween } from "@/lib/geo";
+import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 
 // Leaflet no es SSR-friendly — load client-side
 const HoleMap = dynamic(() => import("./HoleMap"), { ssr: false });
@@ -26,11 +27,24 @@ type CourseHoleInfo = { number: number; par: number };
 export default function GpsView({
   courseHoles,
   points,
+  roundId,
 }: {
   courseHoles: CourseHoleInfo[];
   points: Point[];
+  roundId: string | null;
 }) {
-  const [currentHole, setCurrentHole] = useState(1);
+  // Si venimos del tracker, leemos el hoyo actual del localStorage compartido.
+  const [currentHole, setCurrentHole] = useState(() => {
+    if (roundId) {
+      const stored = readCurrentHole(roundId);
+      if (stored != null) return stored;
+    }
+    return 1;
+  });
+  // Persistir cambios al localStorage si hay roundId asociado.
+  useEffect(() => {
+    if (roundId) writeCurrentHole(roundId, currentHole);
+  }, [roundId, currentHole]);
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [watching, setWatching] = useState(false);

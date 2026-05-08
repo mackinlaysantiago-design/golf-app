@@ -18,6 +18,7 @@ import {
   holeAchievedGoal,
 } from "@/lib/sm-goals";
 import CLUB_LABEL_RANGE from "@/lib/club-labels";
+import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 
 type ClubStat = {
   club: string;
@@ -102,9 +103,15 @@ export default function RondaTracker({
   clubStats?: ClubStat[];
 }) {
   const router = useRouter();
-  const [currentHole, setCurrentHole] = useState(
-    round.holesPlayed === 9 && round.nineWhich === "VUELTA" ? 10 : 1,
-  );
+  // currentHole persiste en localStorage por roundId (compartido con GPS view).
+  const [currentHole, setCurrentHole] = useState(() => {
+    const stored = readCurrentHole(round.id);
+    if (stored != null) return stored;
+    return round.holesPlayed === 9 && round.nineWhich === "VUELTA" ? 10 : 1;
+  });
+  useEffect(() => {
+    writeCurrentHole(round.id, currentHole);
+  }, [round.id, currentHole]);
   const [busy, setBusy] = useState(false);
 
   // Ref para scroll automático al cambiar de hoyo (touch "siguiente" abajo
@@ -524,6 +531,12 @@ export default function RondaTracker({
             className="gf-pill"
           >
             Resumen ›
+          </Link>
+          <Link
+            href={`/labs/maps/${round.courseId}/play?round=${round.id}`}
+            className="text-[11px] text-[var(--fairway)] font-semibold"
+          >
+            📍 GPS / Mapa
           </Link>
           <button
             type="button"

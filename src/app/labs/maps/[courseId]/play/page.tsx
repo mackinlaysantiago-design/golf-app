@@ -7,10 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function GpsPlayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ courseId: string }>;
+  searchParams: Promise<{ round?: string }>;
 }) {
   const { courseId } = await params;
+  const { round: roundId } = await searchParams;
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: {
@@ -20,14 +23,14 @@ export default async function GpsPlayPage({
   });
   if (!course) notFound();
 
+  const backHref = roundId ? `/rondas/${roundId}` : `/labs/maps/${course.id}`;
+  const backLabel = roundId ? "‹ Volver al tracker" : "‹ Volver al editor";
+
   return (
     <div className="px-4 pt-6 pb-4 space-y-4">
       <header>
-        <Link
-          href={`/labs/maps/${course.id}`}
-          className="text-xs text-[var(--muted)]"
-        >
-          ‹ Volver al editor
+        <Link href={backHref} className="text-xs text-[var(--muted)]">
+          {backLabel}
         </Link>
         <h1 className="gf-display text-2xl text-[var(--fairway)] mt-1">
           📍 {course.name}
@@ -38,6 +41,7 @@ export default async function GpsPlayPage({
       </header>
 
       <GpsView
+        roundId={roundId ?? null}
         courseHoles={course.holes.map((h) => ({ number: h.number, par: h.par }))}
         points={course.mapPoints.map((p) => ({
           holeNumber: p.holeNumber,
