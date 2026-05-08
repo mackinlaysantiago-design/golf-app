@@ -47,13 +47,13 @@ export default function HoleMap({
     // Tile layer: Mapbox satellite (mejor calidad) si hay token, sino fallback a ESRI.
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (mapboxToken) {
+      // Endpoint v4/mapbox.satellite con tiles raster originales (Maxar) + @2x retina.
+      // Es notablemente más nítido que styles/v1/satellite-v9 en zonas rurales.
       L.tileLayer(
-        `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
+        `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
         {
-          maxZoom: 20,
+          maxZoom: 22,
           maxNativeZoom: 19,
-          tileSize: 512,
-          zoomOffset: -1,
           attribution: "© Mapbox © Maxar",
         },
       ).addTo(map);
