@@ -313,23 +313,27 @@ export default function HoleMap({
     clearLayer(userBackLabelRef);
     repositionLabelsRef.current = null;
 
-    const makeLabelIcon = (yds: number, bg: string) =>
+    // anchorOffsetY shift en pixels desde el centro del icon: + abajo, - arriba.
+    // Lo uso para apilar los 3 labels del green (frente arriba, centro al medio, fondo abajo).
+    const makeLabelIcon = (yds: number, bg: string, anchorOffsetY = 0) =>
       L.divIcon({
         className: "",
         html: `<div style="background:${bg};color:white;padding:3px 7px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;white-space:nowrap;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${yds.toFixed(0)}y</div>`,
         iconSize: [40, 22],
-        iconAnchor: [20, 11],
+        iconAnchor: [20, 11 + anchorOffsetY],
       });
 
     const userPos: [number, number] | null =
       userLat != null && userLng != null ? [userLat, userLng] : null;
 
-    // Labels vos → frente / centro / fondo del green (semáforo)
+    // Labels vos → frente / centro / fondo del green (semáforo).
+    // Anclados al marker correspondiente con stagger vertical: frente arriba, centro al medio, fondo abajo.
+    // (anchorOffsetY > 0 → label aparece arriba del lat/lng; < 0 → abajo)
     if (userPos) {
       if (point.frontLat != null && point.frontLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
         userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
-          icon: makeLabelIcon(yds, "#16a34a"),
+          icon: makeLabelIcon(yds, "#16a34a", 26),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -337,7 +341,7 @@ export default function HoleMap({
       if (point.centerLat != null && point.centerLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.centerLat, point.centerLng);
         userCenterLabelRef.current = L.marker([point.centerLat, point.centerLng], {
-          icon: makeLabelIcon(yds, "#1f2937"),
+          icon: makeLabelIcon(yds, "#1f2937", 0),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -345,7 +349,7 @@ export default function HoleMap({
       if (point.backLat != null && point.backLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.backLat, point.backLng);
         userBackLabelRef.current = L.marker([point.backLat, point.backLng], {
-          icon: makeLabelIcon(yds, "#dc2626"),
+          icon: makeLabelIcon(yds, "#dc2626", -26),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -392,12 +396,53 @@ export default function HoleMap({
       }
     }
 
-    // Reposicionar todos los labels al midpoint visible de su segmento.
-    // Si el segmento no cruza la pantalla → ocultamos el label.
+    // Reposicionar labels:
+    // - Para los del GREEN (frente/centro/fondo): si el marker está visible, dejar el label
+    //   anclado al marker (la posición no cambia). Si el marker está fuera de pantalla,
+    //   recolocar al midpoint visible de la línea user→marker para que igual se vea la distancia.
+    // - Para los del LAYUP: midpoint visible del segmento (siempre).
     const reposition = () => {
       const mUL = mapRef.current;
       if (!mUL) return;
-      const update = (
+      const size = mUL.getSize();
+
+      const isInViewport = (latlng: [number, number]) => {
+        const p = mUL.latLngToContainerPoint(latlng);
+        return p.x >= 0 && p.x <= size.x && p.y >= 0 && p.y <= size.y;
+      };
+
+      // Para labels anclados al marker: si el marker es visible, dejarlo en el marker;
+      // si no, reposicionar al midpoint clippeado del segmento user→marker.
+      const updateAnchored = (
+        labelRef: { current: L.Marker | null },
+        markerPos: [number, number] | null,
+        userPosArg: [number, number] | null,
+      ) => {
+        if (!labelRef.current) return;
+        if (!markerPos) {
+          labelRef.current.getElement()?.style.setProperty("display", "none");
+          return;
+        }
+        if (isInViewport(markerPos)) {
+          labelRef.current.setLatLng(markerPos);
+          labelRef.current.getElement()?.style.setProperty("display", "");
+          return;
+        }
+        if (!userPosArg) {
+          labelRef.current.getElement()?.style.setProperty("display", "none");
+          return;
+        }
+        const mid = visibleMidLatLng(mUL, userPosArg, markerPos);
+        if (mid) {
+          labelRef.current.setLatLng(mid);
+          labelRef.current.getElement()?.style.setProperty("display", "");
+        } else {
+          labelRef.current.getElement()?.style.setProperty("display", "none");
+        }
+      };
+
+      // Para labels del layup: siempre midpoint visible del segmento.
+      const updateMidpoint = (
         labelRef: { current: L.Marker | null },
         a: [number, number] | null,
         b: [number, number] | null,
@@ -415,6 +460,7 @@ export default function HoleMap({
           labelRef.current.getElement()?.style.setProperty("display", "none");
         }
       };
+
       const front: [number, number] | null =
         point.frontLat != null && point.frontLng != null ? [point.frontLat, point.frontLng] : null;
       const center: [number, number] | null =
@@ -423,11 +469,12 @@ export default function HoleMap({
           : null;
       const back: [number, number] | null =
         point.backLat != null && point.backLng != null ? [point.backLat, point.backLng] : null;
-      update(userFrontLabelRef, userPos, front);
-      update(userCenterLabelRef, userPos, center);
-      update(userBackLabelRef, userPos, back);
-      update(userLayupLabelRef, userPos, layupPos);
-      update(layupLabelRef, layupPos, center);
+
+      updateAnchored(userFrontLabelRef, front, userPos);
+      updateAnchored(userCenterLabelRef, center, userPos);
+      updateAnchored(userBackLabelRef, back, userPos);
+      updateMidpoint(userLayupLabelRef, userPos, layupPos);
+      updateMidpoint(layupLabelRef, layupPos, center);
     };
     repositionLabelsRef.current = reposition;
     requestAnimationFrame(reposition);
