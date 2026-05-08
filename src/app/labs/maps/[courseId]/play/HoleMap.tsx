@@ -41,16 +41,18 @@ export default function HoleMap({
   const repositionLabelsRef = useRef<(() => void) | null>(null);
 
   const [layup, setLayup] = useState<{ lat: number; lng: number } | null>(null);
-  const [showGreenLabels, setShowGreenLabels] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    const v = localStorage.getItem("gf-show-green-labels");
-    return v == null ? true : v === "1";
+  // Toggle: mostrar también frente y fondo (centro siempre se muestra). Default OFF.
+  const [showFrontBackLabels, setShowFrontBackLabels] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("gf-show-front-back-labels") === "1";
   });
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("gf-show-green-labels", showGreenLabels ? "1" : "0");
+      localStorage.setItem("gf-show-front-back-labels", showFrontBackLabels ? "1" : "0");
     }
-  }, [showGreenLabels]);
+  }, [showFrontBackLabels]);
+  // Track el hoyo del que ya hicimos auto-fit, para no re-fitear en cada GPS update.
+  const fittedHoleRef = useRef<number | null>(null);
 
   // Init map una sola vez
   useEffect(() => {
@@ -273,13 +275,41 @@ export default function HoleMap({
     for (const a of adds) a.addTo(map);
     layersRef.current = adds;
 
-    // Centrar en el green
-    if (cLat != null && cLng != null) {
-      map.setView([cLat, cLng], 18);
-    } else if (point.frontLat && point.frontLng) {
-      map.setView([point.frontLat, point.frontLng], 18);
+    // Centrado inicial: si todavía no se hizo auto-fit para este hoyo, centrar en el green.
+    // El auto-fit con user GPS se hace en el effect dedicado más abajo.
+    if (fittedHoleRef.current !== point.holeNumber) {
+      if (cLat != null && cLng != null) {
+        map.setView([cLat, cLng], 18);
+      } else if (point.frontLat && point.frontLng) {
+        map.setView([point.frontLat, point.frontLng], 18);
+      }
     }
   }, [point]);
+
+  // Auto-fit: cuando cambia el hoyo, fit bounds [user GPS, green markers, layup] una sola vez
+  // por hoyo. Después el usuario es libre de panear/zoomear sin que el mapa se mueva solo.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (fittedHoleRef.current === point.holeNumber) return;
+    const pts: L.LatLngTuple[] = [];
+    if (point.frontLat != null && point.frontLng != null)
+      pts.push([point.frontLat, point.frontLng]);
+    if (point.centerLat != null && point.centerLng != null)
+      pts.push([point.centerLat, point.centerLng]);
+    if (point.backLat != null && point.backLng != null)
+      pts.push([point.backLat, point.backLng]);
+    if (userLat != null && userLng != null) pts.push([userLat, userLng]);
+    if (layup) pts.push([layup.lat, layup.lng]);
+    if (pts.length >= 2) {
+      map.fitBounds(L.latLngBounds(pts), {
+        padding: [60, 60],
+        maxZoom: 19,
+        animate: true,
+      });
+      fittedHoleRef.current = point.holeNumber;
+    }
+  }, [point, userLat, userLng, layup]);
 
   // User position marker (live)
   useEffect(() => {
@@ -339,8 +369,9 @@ export default function HoleMap({
     // Labels vos → frente / centro / fondo del green (semáforo).
     // Anclados al marker correspondiente con stagger vertical: frente arriba, centro al medio, fondo abajo.
     // (anchorOffsetY > 0 → label aparece arriba del lat/lng; < 0 → abajo)
-    if (userPos && showGreenLabels) {
-      if (point.frontLat != null && point.frontLng != null) {
+    // Centro: siempre visible (cuando hay GPS). Frente y Fondo: solo si el toggle está ON.
+    if (userPos) {
+      if (showFrontBackLabels && point.frontLat != null && point.frontLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
         userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
           icon: makeLabelIcon(yds, "#16a34a", 26),
@@ -356,7 +387,7 @@ export default function HoleMap({
           keyboard: false,
         }).addTo(map);
       }
-      if (point.backLat != null && point.backLng != null) {
+      if (showFrontBackLabels && point.backLat != null && point.backLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.backLat, point.backLng);
         userBackLabelRef.current = L.marker([point.backLat, point.backLng], {
           icon: makeLabelIcon(yds, "#dc2626", -26),
@@ -498,7 +529,7 @@ export default function HoleMap({
     point.frontLng,
     point.backLat,
     point.backLng,
-    showGreenLabels,
+    showFrontBackLabels,
   ]);
 
   const userToCenter =
@@ -553,37 +584,39 @@ export default function HoleMap({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 text-[10px]">
+      <div className="flex items-center gap-2 text-[10px]">
         <button
           type="button"
-          onClick={() => setShowGreenLabels((v) => !v)}
-          className="rounded px-2 py-1 gf-mono"
+          onClick={() => setShowFrontBackLabels((v) => !v)}
+          className="rounded px-2 py-1 gf-mono flex-1"
           style={{
-            background: showGreenLabels ? "var(--fairway)" : "var(--green-pale)",
-            color: showGreenLabels ? "white" : "var(--fairway)",
+            background: showFrontBackLabels ? "var(--fairway)" : "var(--green-pale)",
+            color: showFrontBackLabels ? "white" : "var(--fairway)",
             fontWeight: 600,
           }}
-          aria-pressed={showGreenLabels}
+          aria-pressed={showFrontBackLabels}
         >
-          {showGreenLabels ? "🟢 Distancias green: ON" : "⚪ Distancias green: OFF"}
+          {showFrontBackLabels ? "🎯 Frente + Fondo: ON" : "🎯 Solo centro"}
         </button>
-        <span className="text-[var(--muted)] text-right flex-1">
-          Anillos: 🟢 100y · 🟡 150y · 🔴 200y
-        </span>
+        {layup && (
+          <button
+            type="button"
+            onClick={() => setLayup(null)}
+            className="rounded px-2 py-1 gf-mono flex-1"
+            style={{
+              background: "var(--green-pale)",
+              color: "var(--fairway)",
+              fontWeight: 600,
+            }}
+          >
+            ✕ Quitar layup
+          </button>
+        )}
       </div>
 
       <p className="text-[10px] text-[var(--muted)] text-center">
-        Tap en el mapa para marcar un punto layup.
+        Tap en el mapa para marcar un layup. Anillos: 🟢 100y · 🟡 150y · 🔴 200y desde el centro.
       </p>
-
-      {layup && (
-        <button
-          onClick={() => setLayup(null)}
-          className="text-[10px] text-[var(--muted)] underline w-full text-center py-1"
-        >
-          Quitar layup
-        </button>
-      )}
     </div>
   );
 }
