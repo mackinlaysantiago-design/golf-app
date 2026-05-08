@@ -44,32 +44,63 @@ export default function HoleMap({
     });
     mapRef.current = map;
 
-    // Tile layer: Mapbox satellite (mejor calidad) si hay token, sino fallback a ESRI.
+    // Tiles: prioridad Google Tile API > Mapbox > ESRI fallback.
+    // Google Tile API requiere session token (POST createSession primero).
+    let cancelled = false;
+    const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    if (mapboxToken) {
-      // Endpoint v4/mapbox.satellite con tiles raster originales (Maxar) + @2x retina.
-      // Es notablemente más nítido que styles/v1/satellite-v9 en zonas rurales.
+
+    const addMapboxLayer = () => {
       L.tileLayer(
         `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
-        {
-          maxZoom: 22,
-          maxNativeZoom: 19,
-          attribution: "© Mapbox © Maxar",
-        },
+        { maxZoom: 22, maxNativeZoom: 19, attribution: "© Mapbox © Maxar" },
       ).addTo(map);
-    } else {
-      // ESRI World Imagery — en zonas rurales (golf courses Argentina) no hay tiles
-      // más allá de z=18. maxNativeZoom: 18 hace que Leaflet escale tiles z=18 para
-      // zooms 19-20 en vez de mostrar "Map data not yet available".
+    };
+
+    const addEsriLayer = () => {
       L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {
-          maxZoom: 20,
-          maxNativeZoom: 18,
-          attribution: "Esri, Maxar, Earthstar Geographics",
-        },
+        { maxZoom: 20, maxNativeZoom: 18, attribution: "Esri, Maxar, Earthstar Geographics" },
       ).addTo(map);
-    }
+    };
+
+    const addGoogleLayer = async (): Promise<boolean> => {
+      if (!googleKey) return false;
+      try {
+        const res = await fetch(
+          `https://tile.googleapis.com/v1/createSession?key=${googleKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mapType: "satellite",
+              language: "es-AR",
+              region: "AR",
+              highDpi: true,
+            }),
+          },
+        );
+        if (!res.ok) return false;
+        const data = (await res.json()) as { session: string };
+        if (cancelled || !data.session) return false;
+        L.tileLayer(
+          `https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=${data.session}&key=${googleKey}`,
+          { maxZoom: 22, maxNativeZoom: 22, attribution: "© Google" },
+        ).addTo(map);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    (async () => {
+      const ok = await addGoogleLayer();
+      if (cancelled) return;
+      if (!ok) {
+        if (mapboxToken) addMapboxLayer();
+        else addEsriLayer();
+      }
+    })();
 
     // Click en el mapa coloca/mueve el layup
     map.on("click", (e: L.LeafletMouseEvent) => {
@@ -77,6 +108,7 @@ export default function HoleMap({
     });
 
     return () => {
+      cancelled = true;
       map.remove();
       mapRef.current = null;
     };
