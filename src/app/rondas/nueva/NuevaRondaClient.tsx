@@ -140,14 +140,24 @@ export default function NuevaRondaClient({
     setBetFamilies((prev) => ({ ...prev, [fam]: { ...prev[fam], [field]: value } }));
   }
 
-  // Expand betFamilies → array de RoundBet entries
+  // Expand betFamilies → array de RoundBet entries.
+  // En 9 hoyos solo creamos la modalidad de la sección jugada (Total y la otra
+  // mitad no aplican). El monto es total + leg (UI sigue mostrando ambos por simplicidad).
   function expandBets(): { modality: string; amount: number; currency: string }[] {
     const out: { modality: string; amount: number; currency: string }[] = [];
+    const is9 = holesPlayed === 9;
     for (const fam of ["MATCH", "MEDAL", "STABLEFORD"] as const) {
       const f = betFamilies[fam];
       if (!f.enabled) continue;
       const total = f.totalAmount ? parseFloat(f.totalAmount) : 0;
       const leg = f.legAmount ? parseFloat(f.legAmount) : 0;
+      if (is9) {
+        const amount = total + leg;
+        if (amount > 0) {
+          out.push({ modality: `${fam}_${nineWhich}`, amount, currency: "ARS" });
+        }
+        continue;
+      }
       if (total > 0) out.push({ modality: fam, amount: total, currency: "ARS" });
       if (leg > 0) {
         out.push({ modality: `${fam}_IDA`, amount: leg, currency: "ARS" });

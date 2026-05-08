@@ -17,7 +17,6 @@ import {
   nextGoal,
   holeAchievedGoal,
 } from "@/lib/sm-goals";
-import CLUB_LABEL_RANGE from "@/lib/club-labels";
 import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 
 type ClubStat = {
@@ -167,7 +166,6 @@ export default function RondaTracker({
 
   const [data, setData] = useState<CellState>(initial);
   const [scorecardOpen, setScorecardOpen] = useState(false);
-  const [palosOpen, setPalosOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
@@ -631,6 +629,50 @@ export default function RondaTracker({
         <EditarSetupModal round={round} onClose={() => setSetupOpen(false)} />
       )}
 
+      {/* HCP por modalidad — desplegable, primero */}
+      {round.players.some((rp) => rp.modalityHcps) && (
+        <details className="rounded p-2" style={{ background: "var(--white)" }}>
+          <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-[var(--muted)]">
+            🎯 HCP por modalidad
+          </summary>
+          <table className="w-full text-[10px] mt-2">
+            <thead>
+              <tr>
+                <th className="text-left p-0.5 text-[var(--muted)]">Mod.</th>
+                {round.players.map((rp) => (
+                  <th key={rp.id} className="p-0.5 text-center text-[var(--muted)]">
+                    {rp.player.name.split(" ")[0]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"] as const).map(
+                (mod) => (
+                  <tr key={mod} className="border-t border-[var(--green-pale)]">
+                    <td className="p-0.5 gf-mono text-[var(--muted)]">
+                      {mod === "MEDAL" ? "Medal Tot" : mod === "MEDAL_IDA" ? "Medal Ida" : mod === "MEDAL_VUELTA" ? "Medal Vta" : mod === "STABLEFORD" ? "Stbl Tot" : mod === "STABLEFORD_IDA" ? "Stbl Ida" : "Stbl Vta"}
+                    </td>
+                    {round.players.map((rp) => {
+                      const chs = rp.modalityHcps as Record<string, number> | null;
+                      const v = chs?.[mod];
+                      return (
+                        <td key={rp.id} className="p-0.5 text-center gf-mono">
+                          {v != null ? v : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+          <div className="text-[9px] text-[var(--muted)] mt-1 text-center">
+            * Medal CH usa stroke allocation hoyo a hoyo. Stableford usa Stableford CH.
+          </div>
+        </details>
+      )}
+
       {/* Leaderboard live (no SOLO) */}
       {!isSolo && (
         <Card className="!p-3">
@@ -817,50 +859,6 @@ export default function RondaTracker({
             </table>
           </div>
         </details>
-      )}
-
-      {/* Tabla de CHs por modalidad — referencia */}
-      {round.players.some((rp) => rp.modalityHcps) && (
-        <Card className="!p-2">
-          <div className="text-[9px] uppercase tracking-wider text-[var(--muted)] mb-1 text-center">
-            Course HCP por modalidad
-          </div>
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr>
-                <th className="text-left p-0.5 text-[var(--muted)]">Mod.</th>
-                {round.players.map((rp) => (
-                  <th key={rp.id} className="p-0.5 text-center text-[var(--muted)]">
-                    {rp.player.name.split(" ")[0]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"] as const).map(
-                (mod) => (
-                  <tr key={mod} className="border-t border-[var(--green-pale)]">
-                    <td className="p-0.5 gf-mono text-[var(--muted)]">
-                      {mod === "MEDAL" ? "Medal Tot" : mod === "MEDAL_IDA" ? "Medal Ida" : mod === "MEDAL_VUELTA" ? "Medal Vta" : mod === "STABLEFORD" ? "Stbl Tot" : mod === "STABLEFORD_IDA" ? "Stbl Ida" : "Stbl Vta"}
-                    </td>
-                    {round.players.map((rp) => {
-                      const chs = rp.modalityHcps as Record<string, number> | null;
-                      const v = chs?.[mod];
-                      return (
-                        <td key={rp.id} className="p-0.5 text-center gf-mono">
-                          {v != null ? v : "—"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-          <div className="text-[9px] text-[var(--muted)] mt-1 text-center">
-            * Medal CH usa stroke allocation hoyo a hoyo. Stableford usa Stableford CH.
-          </div>
-        </Card>
       )}
 
       {/* Scorecard live (accordion) */}
@@ -1143,57 +1141,6 @@ export default function RondaTracker({
           </Card>
         );
       })()}
-
-      {/* Panel Palos (FlightScope) — abajo del scorecard, accordion para decidir palo */}
-      {clubStats.length > 0 && (
-        <Card className="!p-0 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setPalosOpen(!palosOpen)}
-            className="w-full flex justify-between items-center p-3 text-sm font-semibold text-[var(--fairway)]"
-          >
-            <span>📊 Palos · decidir en cancha</span>
-            <span>{palosOpen ? "▾" : "▸"}</span>
-          </button>
-          {palosOpen && (
-            <div className="!p-2 overflow-x-auto border-t border-[var(--green-pale)]">
-              <table className="w-full text-[11px] gf-mono">
-                <thead>
-                  <tr className="text-[var(--muted)] uppercase tracking-wider text-[9px]">
-                    <th className="text-left p-1">Palo</th>
-                    <th className="text-right p-1" title="P25 · casi siempre llegás">Safe</th>
-                    <th className="text-right p-1" title="Mediana · típico">Avg</th>
-                    <th className="text-right p-1" title="Dirección · apuntá al lado opuesto">Lateral</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clubStats.map((c) => (
-                    <tr key={c.club} className="border-t border-[var(--green-pale)]">
-                      <td className="p-1.5 font-semibold">
-                        {CLUB_LABEL_RANGE[c.club] ?? c.club}
-                        <span className="text-[9px] text-[var(--muted)] font-normal ml-1">({c.n})</span>
-                      </td>
-                      <td className="p-1 text-right text-[var(--muted)]">{c.safe.toFixed(0)}</td>
-                      <td className="p-1 text-right font-bold text-[var(--fairway)]">{c.avg.toFixed(0)}</td>
-                      <td
-                        className="p-1 text-right"
-                        style={{
-                          color: c.latDisplay === "—" ? "var(--muted)" : "var(--accent)",
-                        }}
-                      >
-                        {c.latDisplay}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="text-[10px] text-[var(--muted)] mt-1 px-1">
-                <strong>Safe</strong> casi siempre llegás · <strong>Avg</strong> típico · <strong>Lateral</strong>: R 10y = apuntá 10y a la izq
-              </p>
-            </div>
-          )}
-        </Card>
-      )}
 
       {nav}
 

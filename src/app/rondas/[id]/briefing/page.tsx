@@ -82,7 +82,10 @@ export default async function BriefingPage({
         </h1>
         <p className="text-sm text-[var(--muted)]">
           {round.course.name} ·{" "}
-          {new Date(round.date).toLocaleDateString("es-AR")}
+          {new Date(round.date).toLocaleDateString("es-AR")} ·{" "}
+          {round.holesPlayed === 9
+            ? `9 hoyos (${round.nineWhich === "VUELTA" ? "Vuelta" : "Ida"})`
+            : "18 hoyos"}
         </p>
       </header>
 
@@ -97,27 +100,39 @@ export default async function BriefingPage({
         </Card>
       )}
 
-      {/* THERMOSTAT + score deseado */}
+      {/* THERMOSTAT + score deseado — si es ronda de 9 hoyos, dividimos por 2
+          como estimación rápida (el termostato se configura para 18). */}
       <SectionHeader>🌡️ Tu termostato</SectionHeader>
       <Card className="!p-3 space-y-2">
         {me.scoreThermostatMin && me.scoreThermostatMax ? (
-          <>
-            <div className="text-xs text-[var(--muted)]">
-              Tu rango habitual: <strong>{me.scoreThermostatMin}–{me.scoreThermostatMax}</strong>
-            </div>
-            {me.scoreDesired && (
-              <div className="text-sm">
-                <span className="text-[var(--muted)]">Score deseado hoy: </span>
-                <span className="gf-display text-2xl text-[var(--accent)]">
-                  {me.scoreDesired}
-                </span>
-              </div>
-            )}
-            <p className="text-[10px] text-[var(--muted)]">
-              El termostato es tu rango habitual. Para bajarlo, primero hay que creerlo:
-              visualizá una ronda perfecta antes de jugar.
-            </p>
-          </>
+          (() => {
+            const halve = round.holesPlayed === 9;
+            const min = halve ? Math.round(me.scoreThermostatMin / 2) : me.scoreThermostatMin;
+            const max = halve ? Math.round(me.scoreThermostatMax / 2) : me.scoreThermostatMax;
+            const desired = me.scoreDesired
+              ? halve ? Math.round(me.scoreDesired / 2) : me.scoreDesired
+              : null;
+            return (
+              <>
+                <div className="text-xs text-[var(--muted)]">
+                  Tu rango habitual {halve && "(9 hoyos · estimado)"}:{" "}
+                  <strong>{min}–{max}</strong>
+                </div>
+                {desired != null && (
+                  <div className="text-sm">
+                    <span className="text-[var(--muted)]">Score deseado hoy: </span>
+                    <span className="gf-display text-2xl text-[var(--accent)]">
+                      {desired}
+                    </span>
+                  </div>
+                )}
+                <p className="text-[10px] text-[var(--muted)]">
+                  El termostato es tu rango habitual. Para bajarlo, primero hay que creerlo:
+                  visualizá una ronda perfecta antes de jugar.
+                </p>
+              </>
+            );
+          })()
         ) : (
           <div className="text-xs text-[var(--muted)]">
             Configurá tu termostato en la sección de abajo. Definir tu rango
