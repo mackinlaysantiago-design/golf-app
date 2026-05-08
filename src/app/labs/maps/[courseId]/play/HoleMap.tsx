@@ -95,48 +95,29 @@ export default function HoleMap({
     };
   }, []);
 
-  // Pintar puntos del green + anillos cuando cambia el hoyo
+  // Solo pintar markers/anillos cuando cambia el hoyo. El centrado lo maneja
+  // el effect siguiente (única fuente de verdad para el viewport).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     for (const l of layersRef.current) map.removeLayer(l);
     const adds = buildHoleLayers(point);
     for (const a of adds) a.addTo(map);
     layersRef.current = adds;
-
-    // Centrado inicial: si todavía no se hizo auto-fit con GPS para este hoyo,
-    // centrar en el green. El fit con GPS vive en el effect siguiente.
-    if (fittedHoleRef.current !== point.holeNumber) {
-      if (point.centerLat != null && point.centerLng != null) {
-        map.setView([point.centerLat, point.centerLng], 18);
-      } else if (point.frontLat != null && point.frontLng != null) {
-        map.setView([point.frontLat, point.frontLng], 18);
-      }
-    }
   }, [point]);
 
-  // Auto-fit: anchor en una punta + fondo del green en la otra (con margen).
-  // - GPS prendido pero sin coord aún → esperamos (no fiteamos tee+green entre medio
-  //   para que no parpadee cuando llega el GPS).
-  // - GPS apagado → anchor=tee si lo hay; si no hay tee tampoco, queda el setView simple.
-  // - Una vez fiteado con GPS marcamos el hoyo para no re-fitear con jitter.
+  // Centrado del viewport (única fuente de verdad).
+  // - GPS prendido sin coord aún → setView al green zoom 18, esperar.
+  // - Anchor (GPS o tee) + target (fondo > centro > frente) → fitBounds con margen.
+  // - Solo target sin anchor → setView al green zoom 18.
+  // Marcamos el hoyo como fiteado solo cuando cerramos con GPS (evita jitter).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (fittedHoleRef.current === point.holeNumber) return;
 
     const hasGps = userLat != null && userLng != null;
-    if (gpsActive && !hasGps) return;
 
-    const anchor: L.LatLngTuple | null = hasGps
-      ? [userLat!, userLng!]
-      : point.teeLat != null && point.teeLng != null
-        ? [point.teeLat, point.teeLng]
-        : null;
-    if (!anchor) return;
-
-    // Target = fondo del green (más lejano desde el tee). Fallback: centro, después frente.
     const target: L.LatLngTuple | null =
       point.backLat != null && point.backLng != null
         ? [point.backLat, point.backLng]
@@ -145,14 +126,28 @@ export default function HoleMap({
           : point.frontLat != null && point.frontLng != null
             ? [point.frontLat, point.frontLng]
             : null;
-    if (!target) return;
 
-    map.fitBounds(L.latLngBounds([anchor, target]), {
-      padding: [80, 80],
-      maxZoom: 19,
-      animate: false,
-    });
-    if (hasGps) fittedHoleRef.current = point.holeNumber;
+    if (gpsActive && !hasGps) {
+      if (target) map.setView(target, 18, { animate: false });
+      return;
+    }
+
+    const anchor: L.LatLngTuple | null = hasGps
+      ? [userLat!, userLng!]
+      : point.teeLat != null && point.teeLng != null
+        ? [point.teeLat, point.teeLng]
+        : null;
+
+    if (anchor && target) {
+      map.fitBounds(L.latLngBounds([anchor, target]), {
+        padding: [80, 80],
+        maxZoom: 19,
+        animate: false,
+      });
+      if (hasGps) fittedHoleRef.current = point.holeNumber;
+    } else if (target) {
+      map.setView(target, 18, { animate: false });
+    }
   }, [point, userLat, userLng, gpsActive]);
 
   // User marker (live)
