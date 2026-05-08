@@ -54,6 +54,63 @@ export default function HoleMap({
   // Track el hoyo del que ya hicimos auto-fit, para no re-fitear en cada GPS update.
   const fittedHoleRef = useRef<number | null>(null);
 
+  // Modo torneo: deshabilita features que violan Rule 4.3a (viento, etc).
+  const [tournamentMode, setTournamentMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("gf-tournament-mode") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gf-tournament-mode", tournamentMode ? "1" : "0");
+    }
+  }, [tournamentMode]);
+
+  // Viento — opt-in (default OFF). Si modo torneo ON, se fuerza OFF.
+  const [windEnabled, setWindEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("gf-wind-enabled") === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gf-wind-enabled", windEnabled ? "1" : "0");
+    }
+  }, [windEnabled]);
+  const showWind = windEnabled && !tournamentMode;
+
+  const [wind, setWind] = useState<{ speed: number; direction: number } | null>(null);
+  useEffect(() => {
+    if (!showWind) {
+      setWind(null);
+      return;
+    }
+    if (point.centerLat == null || point.centerLng == null) return;
+    let cancelled = false;
+    const fetchWind = async () => {
+      try {
+        const r = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${point.centerLat}&longitude=${point.centerLng}&current_weather=true&windspeed_unit=kmh`,
+        );
+        if (!r.ok) return;
+        const d = (await r.json()) as {
+          current_weather?: { windspeed: number; winddirection: number };
+        };
+        if (cancelled || !d.current_weather) return;
+        setWind({
+          speed: d.current_weather.windspeed,
+          direction: d.current_weather.winddirection,
+        });
+      } catch {
+        // noop
+      }
+    };
+    fetchWind();
+    const id = setInterval(fetchWind, 10 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [showWind, point.centerLat, point.centerLng]);
+
   // Init map una sola vez
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -353,14 +410,20 @@ export default function HoleMap({
     clearLayer(userBackLabelRef);
     repositionLabelsRef.current = null;
 
-    // anchorOffsetY shift en pixels desde el centro del icon: + abajo, - arriba.
-    // Lo uso para apilar los 3 labels del green (frente arriba, centro al medio, fondo abajo).
-    const makeLabelIcon = (yds: number, bg: string, anchorOffsetY = 0) =>
+    // anchorOffsetX/Y: shift en pixels desde el centro del icon.
+    // X: positivo = label se mueve a la derecha del lat/lng. Negativo = izquierda.
+    // Y: positivo = label se mueve arriba. Negativo = abajo.
+    const makeLabelIcon = (
+      yds: number,
+      bg: string,
+      anchorOffsetX = 0,
+      anchorOffsetY = 0,
+    ) =>
       L.divIcon({
         className: "",
         html: `<div style="background:${bg};color:white;padding:3px 7px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;white-space:nowrap;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${yds.toFixed(0)}y</div>`,
         iconSize: [40, 22],
-        iconAnchor: [20, 11 + anchorOffsetY],
+        iconAnchor: [20 - anchorOffsetX, 11 + anchorOffsetY],
       });
 
     const userPos: [number, number] | null =
@@ -371,10 +434,12 @@ export default function HoleMap({
     // (anchorOffsetY > 0 → label aparece arriba del lat/lng; < 0 → abajo)
     // Centro: siempre visible (cuando hay GPS). Frente y Fondo: solo si el toggle está ON.
     if (userPos) {
+      // Labels al costado derecho del green con stagger vertical (frente arriba, centro al medio, fondo abajo)
+      // X positivo = label a la derecha; Y positivo = arriba; Y negativo = abajo.
       if (showFrontBackLabels && point.frontLat != null && point.frontLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
         userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
-          icon: makeLabelIcon(yds, "#16a34a", 26),
+          icon: makeLabelIcon(yds, "#16a34a", 50, 30),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -382,7 +447,7 @@ export default function HoleMap({
       if (point.centerLat != null && point.centerLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.centerLat, point.centerLng);
         userCenterLabelRef.current = L.marker([point.centerLat, point.centerLng], {
-          icon: makeLabelIcon(yds, "#1f2937", 0),
+          icon: makeLabelIcon(yds, "#1f2937", 50, 0),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -390,7 +455,7 @@ export default function HoleMap({
       if (showFrontBackLabels && point.backLat != null && point.backLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.backLat, point.backLng);
         userBackLabelRef.current = L.marker([point.backLat, point.backLng], {
-          icon: makeLabelIcon(yds, "#dc2626", -26),
+          icon: makeLabelIcon(yds, "#dc2626", 50, -30),
           interactive: false,
           keyboard: false,
         }).addTo(map);
@@ -614,9 +679,198 @@ export default function HoleMap({
         )}
       </div>
 
+      <WindCard
+        enabled={showWind}
+        wind={wind}
+        userLat={userLat}
+        userLng={userLng}
+        greenLat={point.centerLat}
+        greenLng={point.centerLng}
+        tournamentMode={tournamentMode}
+        onToggle={() => setWindEnabled((v) => !v)}
+      />
+
+      <button
+        type="button"
+        onClick={() => setTournamentMode((v) => !v)}
+        className="text-[10px] gf-mono w-full text-center py-1 rounded"
+        style={{
+          background: tournamentMode ? "#dc2626" : "transparent",
+          color: tournamentMode ? "white" : "var(--muted)",
+          fontWeight: tournamentMode ? 700 : 500,
+          textDecoration: tournamentMode ? "none" : "underline",
+        }}
+        aria-pressed={tournamentMode}
+      >
+        {tournamentMode
+          ? "🏆 MODO TORNEO ACTIVO · click para desactivar"
+          : "🏆 Activar modo torneo (deshabilita viento)"}
+      </button>
+
       <p className="text-[10px] text-[var(--muted)] text-center">
         Tap en el mapa para marcar un layup. Anillos: 🟢 100y · 🟡 150y · 🔴 200y desde el centro.
       </p>
+    </div>
+  );
+}
+
+// Cardinales: dado un ángulo en grados (0-360) devuelve N/NE/E/SE/S/SW/W/NW.
+function cardinalFromDeg(deg: number): string {
+  const dirs = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+  return dirs[Math.round(((deg % 360) / 45)) % 8];
+}
+
+// Bearing: rumbo (en grados desde norte) entre 2 lat/lng.
+function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const dLambda = ((lng2 - lng1) * Math.PI) / 180;
+  const x = Math.sin(dLambda) * Math.cos(phi2);
+  const y =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+  return ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360;
+}
+
+function WindCard({
+  enabled,
+  wind,
+  userLat,
+  userLng,
+  greenLat,
+  greenLng,
+  tournamentMode,
+  onToggle,
+}: {
+  enabled: boolean;
+  wind: { speed: number; direction: number } | null;
+  userLat: number | null;
+  userLng: number | null;
+  greenLat: number | null;
+  greenLng: number | null;
+  tournamentMode: boolean;
+  onToggle: () => void;
+}) {
+  if (tournamentMode) {
+    return (
+      <div className="text-[10px] gf-mono text-[var(--muted)] text-center py-1">
+        🌬️ Viento bloqueado en modo torneo
+      </div>
+    );
+  }
+  if (!enabled) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="text-[10px] gf-mono text-[var(--muted)] underline w-full text-center py-1"
+      >
+        🌬️ Activar viento (no usar en torneo)
+      </button>
+    );
+  }
+  if (!wind) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-[10px] gf-mono p-2 rounded" style={{ background: "var(--green-pale)" }}>
+        <span className="text-[var(--muted)]">🌬️ Cargando viento...</span>
+        <button onClick={onToggle} className="underline text-[var(--muted)]">
+          desactivar
+        </button>
+      </div>
+    );
+  }
+
+  // Cardinal del viento (de dónde viene)
+  const fromCardinal = cardinalFromDeg(wind.direction);
+
+  // Componentes head/tail/cross si tenemos shot direction
+  let bearing: number | null = null;
+  if (
+    userLat != null &&
+    userLng != null &&
+    greenLat != null &&
+    greenLng != null
+  ) {
+    bearing = bearingDeg(userLat, userLng, greenLat, greenLng);
+  }
+  // Wind blows TO direction = (from + 180) % 360
+  // angle entre dirección del viento y rumbo del tiro
+  let head: number | null = null;
+  let cross: number | null = null;
+  let crossSide: "izq" | "der" | null = null;
+  if (bearing != null) {
+    const windTo = (wind.direction + 180) % 360;
+    const diffDeg = ((windTo - bearing + 540) % 360) - 180; // -180..180
+    const rad = (diffDeg * Math.PI) / 180;
+    const tailComp = wind.speed * Math.cos(rad); // + tail, - head
+    const crossComp = wind.speed * Math.sin(rad); // + de izq, - de der
+    head = -tailComp; // positivo = head, negativo = tail
+    cross = Math.abs(crossComp);
+    crossSide = crossComp >= 0 ? "izq" : "der";
+  }
+
+  return (
+    <div
+      className="text-[11px] gf-mono p-2 rounded flex items-center gap-3"
+      style={{ background: "var(--green-pale)" }}
+    >
+      {/* Flecha apuntando en la dirección a la que sopla */}
+      <div
+        className="flex items-center justify-center"
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: "var(--fairway)",
+          color: "white",
+          flexShrink: 0,
+        }}
+        title={`Viene del ${fromCardinal}`}
+      >
+        <span
+          style={{
+            display: "inline-block",
+            transform: `rotate(${(wind.direction + 180) % 360}deg)`,
+            fontSize: 18,
+            lineHeight: 1,
+          }}
+          aria-label={`viento ${fromCardinal}`}
+        >
+          ↑
+        </span>
+      </div>
+      <div className="flex-1">
+        <div className="flex justify-between items-baseline">
+          <span className="font-bold">
+            {wind.speed.toFixed(0)} km/h del {fromCardinal}
+          </span>
+          <button
+            onClick={onToggle}
+            className="text-[9px] underline text-[var(--muted)]"
+          >
+            apagar
+          </button>
+        </div>
+        {head != null && cross != null && crossSide != null ? (
+          <div className="text-[10px] text-[var(--muted)] mt-0.5">
+            {Math.abs(head) < 1
+              ? "sin viento longitudinal"
+              : head > 0
+                ? `${head.toFixed(0)} km/h en contra`
+                : `${(-head).toFixed(0)} km/h a favor`}
+            {cross >= 1 && (
+              <>
+                {" · "}
+                {cross.toFixed(0)} km/h cruzado de {crossSide === "izq" ? "izquierda" : "derecha"}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="text-[10px] text-[var(--muted)] mt-0.5">
+            sin GPS — solo dirección general
+          </div>
+        )}
+      </div>
     </div>
   );
 }
