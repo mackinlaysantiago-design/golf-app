@@ -367,17 +367,23 @@ export default function HoleMap({
       dispersionRef.current = null;
     }
     if (!selectedClub || !clubStats) return;
-    if (userLat == null || userLng == null) return;
     const stat = clubStats.find((s) => s.club === selectedClub);
     if (!stat) return;
+
+    // Origin: GPS si está, sino tee (planificación pre-tiro).
+    const originLat =
+      userLat != null ? userLat : (point.teeLat ?? null);
+    const originLng =
+      userLng != null ? userLng : (point.teeLng ?? null);
+    if (originLat == null || originLng == null) return;
 
     const targetLat = layup?.lat ?? point.centerLat;
     const targetLng = layup?.lng ?? point.centerLng;
     if (targetLat == null || targetLng == null) return;
 
     const ellipse = buildDispersionEllipse({
-      userLat,
-      userLng,
+      userLat: originLat,
+      userLng: originLng,
       targetLat,
       targetLng,
       meanTotalYds: stat.meanTotal,
@@ -399,6 +405,8 @@ export default function HoleMap({
     layup,
     point.centerLat,
     point.centerLng,
+    point.teeLat,
+    point.teeLng,
   ]);
 
   const userToCenter =
@@ -486,7 +494,15 @@ export default function HoleMap({
         stats={clubStats}
         selected={selectedClub}
         onChange={setSelectedClub}
-        gpsActive={userLat != null && userLng != null}
+        hasOrigin={
+          (userLat != null && userLng != null) ||
+          (point.teeLat != null && point.teeLng != null)
+        }
+        usingTee={
+          (userLat == null || userLng == null) &&
+          point.teeLat != null &&
+          point.teeLng != null
+        }
       />
 
       <WindCard
@@ -528,25 +544,27 @@ function ClubPicker({
   stats,
   selected,
   onChange,
-  gpsActive,
+  hasOrigin,
+  usingTee,
 }: {
   stats: ClubStat[] | null;
   selected: string | null;
   onChange: (club: string | null) => void;
-  gpsActive: boolean;
+  hasOrigin: boolean;
+  usingTee: boolean;
 }) {
   if (!stats || stats.length === 0) return null;
-  if (!gpsActive) {
+  if (!hasOrigin) {
     return (
       <div className="text-[10px] gf-mono text-[var(--muted)] text-center py-1">
-        🎯 Activá el GPS para ver dispersión por palo
+        🎯 Activá el GPS o cargá el tee del hoyo para ver dispersión
       </div>
     );
   }
   return (
     <div className="space-y-1">
       <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] gf-mono">
-        🎯 Dispersión por palo (2σ)
+        🎯 Dispersión por palo (2σ){usingTee ? " · desde tee" : ""}
       </div>
       <div className="flex flex-wrap gap-1">
         <button
