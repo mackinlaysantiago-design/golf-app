@@ -483,6 +483,12 @@ export default function RondaTracker({
   // Match Play 3 jugadores: 6 pts en juego por hoyo (4,2,0 / 3,3,0 / 4,1,1 / 0,0,0).
   // Usa HCP Stableford para stroke allocation. Por sección.
   const match3pPoints: Record<string, number> = {};
+  // Detalle hoyo a hoyo para tabla de progresión: { holeNumber, perPlayer: { rpId: pts }, nets: { rpId: net } }
+  const match3pByHole: {
+    holeNumber: number;
+    perPlayer: Record<string, number>;
+    nets: Record<string, number | null>;
+  }[] = [];
   let match3pActive = false;
   if (
     round.players.length === 3 &&
@@ -493,32 +499,44 @@ export default function RondaTracker({
     for (const rp of round.players) match3pPoints[rp.id] = 0;
     const chs = round.players.map((rp) => chForRpSection(rp, lbSection).stblCh);
     for (const h of holesForSection(lbSection)) {
+      const perPlayer: Record<string, number> = {};
+      const netsByPlayer: Record<string, number | null> = {};
+      for (const rp of round.players) {
+        perPlayer[rp.id] = 0;
+        netsByPlayer[rp.id] = null;
+      }
       const nets = round.players
         .map((rp, i) => {
           const score = data[rp.id]?.[h.number]?.score;
           if (score == null || score === 0) return null;
           const strokes = strokesPerHole(chs[i], courseHcpMap)[h.number] ?? 0;
-          return { id: rp.id, net: score - strokes };
+          const net = score - strokes;
+          netsByPlayer[rp.id] = net;
+          return { id: rp.id, net };
         })
         .filter((x): x is { id: string; net: number } => x != null);
-      if (nets.length < 3) continue;
-      const sorted = [...nets].sort((a, b) => a.net - b.net);
-      const allEqual = sorted.every((n) => n.net === sorted[0].net);
-      if (allEqual) continue;
-      const minNet = sorted[0].net;
-      const maxNet = sorted[2].net;
-      const tiedAtMin = sorted.filter((n) => n.net === minNet).length;
-      if (tiedAtMin === 2) {
-        for (const n of nets) if (n.net === minNet) match3pPoints[n.id] += 3;
-      } else {
-        const middleNet = sorted[1].net;
-        const middleEqualsMax = middleNet === maxNet;
-        for (const n of nets) {
-          if (n.net === minNet) match3pPoints[n.id] += 4;
-          else if (middleEqualsMax) match3pPoints[n.id] += 1;
-          else if (n.net === middleNet) match3pPoints[n.id] += 2;
+      if (nets.length === 3) {
+        const sorted = [...nets].sort((a, b) => a.net - b.net);
+        const allEqual = sorted.every((n) => n.net === sorted[0].net);
+        if (!allEqual) {
+          const minNet = sorted[0].net;
+          const maxNet = sorted[2].net;
+          const tiedAtMin = sorted.filter((n) => n.net === minNet).length;
+          if (tiedAtMin === 2) {
+            for (const n of nets) if (n.net === minNet) perPlayer[n.id] = 3;
+          } else {
+            const middleNet = sorted[1].net;
+            const middleEqualsMax = middleNet === maxNet;
+            for (const n of nets) {
+              if (n.net === minNet) perPlayer[n.id] = 4;
+              else if (middleEqualsMax) perPlayer[n.id] = 1;
+              else if (n.net === middleNet) perPlayer[n.id] = 2;
+            }
+          }
         }
       }
+      for (const rp of round.players) match3pPoints[rp.id] += perPlayer[rp.id];
+      match3pByHole.push({ holeNumber: h.number, perPlayer, nets: netsByPlayer });
     }
   }
 
@@ -744,6 +762,61 @@ export default function RondaTracker({
             </table>
           )}
         </Card>
+      )}
+
+      {/* Progresión Match 3P hoyo a hoyo — para verificar el cálculo */}
+      {showMatch && match3pActive && (
+        <details className="rounded p-2" style={{ background: "var(--white)" }}>
+          <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-[var(--muted)]">
+            📊 Progresión match (hoyo a hoyo)
+          </summary>
+          <div className="overflow-x-auto mt-2">
+            <table className="w-full text-[10px] gf-mono">
+              <thead>
+                <tr>
+                  <th className="text-left p-0.5">H</th>
+                  {round.players.map((rp) => (
+                    <th key={rp.id} className="text-right p-0.5">
+                      {rp.player.name.split(" ")[0]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const cum: Record<string, number> = {};
+                  for (const rp of round.players) cum[rp.id] = 0;
+                  return match3pByHole.map((row) => {
+                    for (const rp of round.players) cum[rp.id] += row.perPlayer[rp.id];
+                    return (
+                      <tr key={row.holeNumber} className="border-t border-[var(--green-pale)]">
+                        <td className="p-0.5 text-[var(--muted)]">{row.holeNumber}</td>
+                        {round.players.map((rp) => {
+                          const pts = row.perPlayer[rp.id];
+                          const net = row.nets[rp.id];
+                          const total = cum[rp.id];
+                          return (
+                            <td key={rp.id} className="text-right p-0.5">
+                              <span className={pts > 0 ? "font-bold text-[var(--fairway)]" : "text-[var(--muted)]"}>
+                                +{pts}
+                              </span>
+                              <span className="text-[var(--muted)]"> ({total})</span>
+                              {net != null && (
+                                <span className="text-[8px] text-[var(--muted)] ml-1">
+                                  n{net}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       {/* Tabla de CHs por modalidad — referencia */}
@@ -1359,55 +1432,6 @@ export default function RondaTracker({
                     )}
                   </div>
 
-                  {showSm && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
-                        <NumField
-                          label="Strokes to Enter SZ"
-                          value={cells.strokesToEnterSz ?? null}
-                          onChange={(v) => setCell(rp.id, currentHole, "strokesToEnterSz", v)}
-                        />
-                        <NumField
-                          label="Distancia REG (yds)"
-                          value={cells.distanceInRegYds ?? null}
-                          onChange={(v) => setCell(rp.id, currentHole, "distanceInRegYds", v)}
-                          showGir
-                        />
-                        <NumField
-                          label="Strokes inside SZ"
-                          value={cells.strokesInsideSz ?? null}
-                          onChange={(v) => setCell(rp.id, currentHole, "strokesInsideSz", v)}
-                        />
-                        <NumField
-                          label="Putts"
-                          value={cells.putts ?? null}
-                          onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
-                          isLast
-                        />
-                      </div>
-                      <FlagRow
-                        cells={cells}
-                        config={{
-                          enterSzYds: round.enterSzYds,
-                          downInSzStrokes: round.downInSzStrokes,
-                          onePuttCircleFt: round.onePuttCircleFt,
-                          twoPuttCircleYds: round.twoPuttCircleYds,
-                        }}
-                        par={currentHoleInfo.par}
-                        holeNumber={currentHole}
-                      />
-                    </>
-                  )}
-
-                  {!showSm && (
-                    <button
-                      type="button"
-                      onClick={() => toggleSm(rp.id)}
-                      className="text-[10px] text-[var(--muted)] underline"
-                    >
-                      + Agregar stats SM
-                    </button>
-                  )}
                 </Card>
               );
             })}
