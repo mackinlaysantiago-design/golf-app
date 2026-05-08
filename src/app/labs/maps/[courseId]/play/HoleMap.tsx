@@ -114,35 +114,37 @@ export default function HoleMap({
     }
   }, [point]);
 
-  // Auto-fit: GPS + green en pantalla.
-  // - Sin GPS: fitea tee+green.
-  // - Con GPS: fitea user+green y marca el hoyo como fiteado para no re-fitear con jitter.
+  // Auto-fit: anchor (GPS si está, sino tee) + green en pantalla.
+  // - Si llega GPS después: re-fit (1 vez) y marca el hoyo para no re-fitear con jitter.
+  // - Sin GPS y sin tee: no fiteamos — queda el setView simple del effect previo.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const hasGps = userLat != null && userLng != null;
     if (fittedHoleRef.current === point.holeNumber) return;
 
-    const pts: L.LatLngTuple[] = [];
-    if (hasGps) pts.push([userLat!, userLng!]);
-    if (!hasGps && point.teeLat != null && point.teeLng != null) {
-      pts.push([point.teeLat, point.teeLng]);
-    }
-    if (point.frontLat != null && point.frontLng != null)
-      pts.push([point.frontLat, point.frontLng]);
-    if (point.centerLat != null && point.centerLng != null)
-      pts.push([point.centerLat, point.centerLng]);
-    if (point.backLat != null && point.backLng != null)
-      pts.push([point.backLat, point.backLng]);
+    const hasGps = userLat != null && userLng != null;
+    const anchor: L.LatLngTuple | null = hasGps
+      ? [userLat!, userLng!]
+      : point.teeLat != null && point.teeLng != null
+        ? [point.teeLat, point.teeLng]
+        : null;
+    if (!anchor) return;
 
-    if (pts.length >= 2) {
-      map.fitBounds(L.latLngBounds(pts), {
-        padding: [60, 60],
-        maxZoom: 19,
-        animate: true,
-      });
-      if (hasGps) fittedHoleRef.current = point.holeNumber;
-    }
+    const greens: L.LatLngTuple[] = [];
+    if (point.frontLat != null && point.frontLng != null)
+      greens.push([point.frontLat, point.frontLng]);
+    if (point.centerLat != null && point.centerLng != null)
+      greens.push([point.centerLat, point.centerLng]);
+    if (point.backLat != null && point.backLng != null)
+      greens.push([point.backLat, point.backLng]);
+    if (greens.length === 0) return;
+
+    map.fitBounds(L.latLngBounds([anchor, ...greens]), {
+      padding: [60, 60],
+      maxZoom: 19,
+      animate: true,
+    });
+    if (hasGps) fittedHoleRef.current = point.holeNumber;
   }, [point, userLat, userLng]);
 
   // User marker (live)
