@@ -3,10 +3,6 @@
     {
       "path": "/api/lucila/sync",
       "schedule": "0 9 * * 1"
-    },
-    {
-      "path": "/api/keep-warm",
-      "schedule": "*/4 * * * *"
     }
   ]
 }

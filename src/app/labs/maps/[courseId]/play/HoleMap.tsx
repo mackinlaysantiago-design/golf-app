@@ -44,10 +44,14 @@ export default function HoleMap({
     });
     mapRef.current = map;
 
+    // ESRI World Imagery — en zonas rurales (golf courses Argentina) no hay tiles más alláde z=18.
+    // maxNativeZoom: 18 hace que Leaflet escale los tiles z=18 para zooms 19-20 en vez de
+    // mostrar "Map data not yet available".
     L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
         maxZoom: 20,
+        maxNativeZoom: 18,
         attribution: "Esri, Maxar, Earthstar Geographics",
       },
     ).addTo(map);
