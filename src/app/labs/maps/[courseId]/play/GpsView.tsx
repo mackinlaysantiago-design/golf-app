@@ -162,7 +162,12 @@ export default function GpsView({
 
       {/* Mapa */}
       {hasCoords && view === "MAP" && currentPoint && (
-        <HoleMap point={currentPoint} userLat={lat} userLng={lng} />
+        <HoleMap
+          point={currentPoint}
+          userLat={lat}
+          userLng={lng}
+          gpsActive={watching}
+        />
       )}
 
       {/* Distancias en lista */}
