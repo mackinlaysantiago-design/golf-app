@@ -35,10 +35,9 @@ function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): num
 const YDS_TO_M = 0.9144;
 
 // Genera el polígono de la elipse 2σ en lat/lng.
-// - Centrada en el "punto medio" del palo: meanTotal yardas en la línea jugador→target,
-//   con offset lateral de meanLateral yardas (perpendicular a esa línea).
+// - Eje central = línea recta jugador→target (sin offset lateral por bias del jugador).
+// - Centro de la elipse = meanTotal yardas a lo largo de ese eje.
 // - Ejes: a=2*stdLateral (lateral), b=2*stdTotal (longitudinal) → ~80% confianza bivariada normal.
-// - Orientada con el eje longitudinal alineado a jugador→target.
 export function buildDispersionEllipse(args: {
   userLat: number;
   userLng: number;
@@ -46,25 +45,18 @@ export function buildDispersionEllipse(args: {
   targetLng: number;
   meanTotalYds: number;
   stdTotalYds: number;
-  meanLateralYds: number; // signed: + = derecha
   stdLateralYds: number;
   segments?: number;
 }): L.LatLngTuple[] {
   const segments = args.segments ?? 64;
   const shotBearing = bearingDeg(args.userLat, args.userLng, args.targetLat, args.targetLng);
 
-  // Centro de la elipse: meanTotal yardas hacia el target + offset lateral perpendicular.
-  const [centerLat0, centerLng0] = destPoint(
+  // Centro de la elipse: meanTotal yardas a lo largo del eje central (no hay offset lateral).
+  const [centerLat, centerLng] = destPoint(
     args.userLat,
     args.userLng,
     args.meanTotalYds * YDS_TO_M,
     shotBearing,
-  );
-  const [centerLat, centerLng] = destPoint(
-    centerLat0,
-    centerLng0,
-    Math.abs(args.meanLateralYds) * YDS_TO_M,
-    shotBearing + (args.meanLateralYds >= 0 ? 90 : -90),
   );
 
   const a = 2 * args.stdLateralYds * YDS_TO_M; // semi-eje lateral en metros

@@ -382,7 +382,6 @@ export default function HoleMap({
       targetLng,
       meanTotalYds: stat.meanTotal,
       stdTotalYds: stat.stdTotal,
-      meanLateralYds: stat.meanLateral,
       stdLateralYds: stat.stdLateral,
     });
     dispersionRef.current = L.polygon(ellipse, {
