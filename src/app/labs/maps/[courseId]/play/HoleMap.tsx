@@ -44,17 +44,32 @@ export default function HoleMap({
     });
     mapRef.current = map;
 
-    // ESRI World Imagery — en zonas rurales (golf courses Argentina) no hay tiles más alláde z=18.
-    // maxNativeZoom: 18 hace que Leaflet escale los tiles z=18 para zooms 19-20 en vez de
-    // mostrar "Map data not yet available".
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        maxZoom: 20,
-        maxNativeZoom: 18,
-        attribution: "Esri, Maxar, Earthstar Geographics",
-      },
-    ).addTo(map);
+    // Tile layer: Mapbox satellite (mejor calidad) si hay token, sino fallback a ESRI.
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (mapboxToken) {
+      L.tileLayer(
+        `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`,
+        {
+          maxZoom: 20,
+          maxNativeZoom: 19,
+          tileSize: 512,
+          zoomOffset: -1,
+          attribution: "© Mapbox © Maxar",
+        },
+      ).addTo(map);
+    } else {
+      // ESRI World Imagery — en zonas rurales (golf courses Argentina) no hay tiles
+      // más allá de z=18. maxNativeZoom: 18 hace que Leaflet escale tiles z=18 para
+      // zooms 19-20 en vez de mostrar "Map data not yet available".
+      L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 20,
+          maxNativeZoom: 18,
+          attribution: "Esri, Maxar, Earthstar Geographics",
+        },
+      ).addTo(map);
+    }
 
     // Click en el mapa coloca/mueve el layup
     map.on("click", (e: L.LeafletMouseEvent) => {
