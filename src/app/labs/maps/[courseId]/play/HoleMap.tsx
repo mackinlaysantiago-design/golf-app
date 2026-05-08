@@ -9,6 +9,8 @@ import { isInViewport, visibleMidLatLng } from "./labelClipping";
 import { buildHoleLayers, makeLabelIcon, type HolePoint } from "./holeLayers";
 import { useWind } from "./useWind";
 import { WindCard } from "./WindCard";
+import { useClubStats, clubShortLabel, type ClubStat } from "./useClubStats";
+import { buildDispersionEllipse } from "./dispersion";
 
 function readLocalFlag(key: string, fallback = false): boolean {
   if (typeof window === "undefined") return fallback;
@@ -43,6 +45,7 @@ export default function HoleMap({
   const userFrontLabelRef = useRef<L.Marker | null>(null);
   const userCenterLabelRef = useRef<L.Marker | null>(null);
   const userBackLabelRef = useRef<L.Marker | null>(null);
+  const dispersionRef = useRef<L.Polygon | null>(null);
   // Función reactiva para recolocar labels cuando se mueve/zoomea el mapa.
   // Cambia entre renders → la guardo en ref para que el listener siempre llame al último.
   const repositionLabelsRef = useRef<(() => void) | null>(null);
@@ -67,6 +70,9 @@ export default function HoleMap({
   const showWind = windEnabled && !tournamentMode;
 
   const wind = useWind(showWind, point.centerLat, point.centerLng);
+
+  const { stats: clubStats } = useClubStats();
+  const [selectedClub, setSelectedClub] = useState<string | null>(null);
 
   // Init map una sola vez
   useEffect(() => {
@@ -351,6 +357,51 @@ export default function HoleMap({
     showFrontBackLabels,
   ]);
 
+  // Elipse de dispersión del palo seleccionado.
+  // Target = layup si está, sino centro del green. Necesita GPS y stats.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (dispersionRef.current) {
+      map.removeLayer(dispersionRef.current);
+      dispersionRef.current = null;
+    }
+    if (!selectedClub || !clubStats) return;
+    if (userLat == null || userLng == null) return;
+    const stat = clubStats.find((s) => s.club === selectedClub);
+    if (!stat) return;
+
+    const targetLat = layup?.lat ?? point.centerLat;
+    const targetLng = layup?.lng ?? point.centerLng;
+    if (targetLat == null || targetLng == null) return;
+
+    const ellipse = buildDispersionEllipse({
+      userLat,
+      userLng,
+      targetLat,
+      targetLng,
+      meanTotalYds: stat.meanTotal,
+      stdTotalYds: stat.stdTotal,
+      meanLateralYds: stat.meanLateral,
+      stdLateralYds: stat.stdLateral,
+    });
+    dispersionRef.current = L.polygon(ellipse, {
+      color: "#ffb627",
+      weight: 2,
+      fillColor: "#ffb627",
+      fillOpacity: 0.25,
+      interactive: false,
+    }).addTo(map);
+  }, [
+    selectedClub,
+    clubStats,
+    userLat,
+    userLng,
+    layup,
+    point.centerLat,
+    point.centerLng,
+  ]);
+
   const userToCenter =
     userLat != null && userLng != null && point.centerLat != null && point.centerLng != null
       ? yardsBetween(userLat, userLng, point.centerLat, point.centerLng)
@@ -432,6 +483,13 @@ export default function HoleMap({
         )}
       </div>
 
+      <ClubPicker
+        stats={clubStats}
+        selected={selectedClub}
+        onChange={setSelectedClub}
+        gpsActive={userLat != null && userLng != null}
+      />
+
       <WindCard
         enabled={showWind}
         wind={wind}
@@ -463,6 +521,65 @@ export default function HoleMap({
       <p className="text-[10px] text-[var(--muted)] text-center">
         Tap en el mapa para marcar un layup. Anillos: 🟢 100y · 🟡 150y · 🔴 200y desde el centro.
       </p>
+    </div>
+  );
+}
+
+function ClubPicker({
+  stats,
+  selected,
+  onChange,
+  gpsActive,
+}: {
+  stats: ClubStat[] | null;
+  selected: string | null;
+  onChange: (club: string | null) => void;
+  gpsActive: boolean;
+}) {
+  if (!stats || stats.length === 0) return null;
+  if (!gpsActive) {
+    return (
+      <div className="text-[10px] gf-mono text-[var(--muted)] text-center py-1">
+        🎯 Activá el GPS para ver dispersión por palo
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] gf-mono">
+        🎯 Dispersión por palo (2σ)
+      </div>
+      <div className="flex flex-wrap gap-1">
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="rounded px-2 py-1 text-[10px] gf-mono"
+          style={{
+            background: selected == null ? "var(--fairway)" : "var(--green-pale)",
+            color: selected == null ? "white" : "var(--fairway)",
+            fontWeight: selected == null ? 700 : 500,
+          }}
+        >
+          ✕
+        </button>
+        {stats.map((s) => (
+          <button
+            key={s.club}
+            type="button"
+            onClick={() => onChange(s.club)}
+            title={`${s.count} tiros · ${s.meanTotal}±${s.stdTotal}y · lat ${s.meanLateral >= 0 ? "+" : ""}${s.meanLateral}±${s.stdLateral}y`}
+            className="rounded px-2 py-1 text-[10px] gf-mono"
+            style={{
+              background:
+                selected === s.club ? "var(--fairway)" : "var(--green-pale)",
+              color: selected === s.club ? "white" : "var(--fairway)",
+              fontWeight: selected === s.club ? 700 : 500,
+            }}
+          >
+            {clubShortLabel(s.club)} <span className="opacity-60">{s.meanTotal.toFixed(0)}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
