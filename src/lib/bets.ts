@@ -61,6 +61,73 @@ function holesForModality(courseHoles: CourseHole[], mod: BetModality): CourseHo
   return courseHoles;
 }
 
+// Match Play 3 jugadores: 6 pts en juego por hoyo según ranking neto.
+//   - 1 gana, 2do, 3ro (todos diferentes) → 4, 2, 0
+//   - 2 empatan primero + 1 tercero → 3, 3, 0
+//   - 1 gana + 2 empatan segundo → 4, 1, 1
+//   - Triple empate → 0, 0, 0
+function matchPlay3Players(
+  modality: BetModality,
+  players: PlayerScores[],
+  courseHoles: CourseHole[],
+  holes: CourseHole[],
+): { winnerIds: string[]; scores: { playerId: string; value: number; display: string }[]; tie: boolean } {
+  const totals: Record<string, number> = {};
+  for (const p of players) totals[p.playerId] = 0;
+
+  for (const h of holes) {
+    const nets = players
+      .map((p) => {
+        const score = p.scoresByHole[h.number];
+        if (score == null || score === 0) return null;
+        const ch = chForModality(p, modality);
+        const strokes = strokesPerHole(ch, courseHoles)[h.number] ?? 0;
+        return { playerId: p.playerId, net: score - strokes };
+      })
+      .filter((x): x is { playerId: string; net: number } => x !== null);
+    if (nets.length < 3) continue;
+
+    const sorted = [...nets].sort((a, b) => a.net - b.net);
+    const allEqual = sorted.every((n) => n.net === sorted[0].net);
+    if (allEqual) continue;
+
+    const minNet = sorted[0].net;
+    const maxNet = sorted[2].net;
+    const tiedAtMin = sorted.filter((n) => n.net === minNet).length;
+
+    if (tiedAtMin === 2) {
+      // 3, 3, 0
+      for (const n of nets) {
+        if (n.net === minNet) totals[n.playerId] += 3;
+      }
+    } else {
+      // ganador único: 4, +(2 ó 1,1) según si los 2do y 3ro empatan
+      const middleNet = sorted[1].net;
+      const middleEqualsMax = middleNet === maxNet;
+      for (const n of nets) {
+        if (n.net === minNet) totals[n.playerId] += 4;
+        else if (middleEqualsMax) totals[n.playerId] += 1; // 4,1,1
+        else if (n.net === middleNet) totals[n.playerId] += 2; // 4,2,0
+        // 3ro → 0
+      }
+    }
+  }
+
+  const scores = players.map((p) => ({
+    playerId: p.playerId,
+    value: totals[p.playerId],
+    display: `${totals[p.playerId]} pts`,
+  }));
+  const max = Math.max(...Object.values(totals));
+  if (max === 0) return { winnerIds: [], scores, tie: true };
+  const winners = Object.keys(totals).filter((id) => totals[id] === max);
+  return {
+    winnerIds: winners.length === 1 ? winners : [],
+    scores,
+    tie: winners.length > 1,
+  };
+}
+
 // Match Play en parejas (4P): por hoyo, 2pts al best ball ganador + 1pt al worst ball ganador.
 function matchPlayPairs(
   modality: BetModality,
@@ -132,6 +199,9 @@ export function computeBetWinner(
     if (pairs && pairs.length === 2 && pairs[0].length === 2 && pairs[1].length === 2) {
       // Match Play en parejas (4P)
       return matchPlayPairs(modality, players, courseHoles, holes, pairs);
+    }
+    if (players.length === 3) {
+      return matchPlay3Players(modality, players, courseHoles, holes);
     }
     const wins: Record<string, number> = {};
     for (const p of players) wins[p.playerId] = 0;
