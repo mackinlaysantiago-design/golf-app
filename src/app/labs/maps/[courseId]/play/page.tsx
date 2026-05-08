@@ -41,6 +41,8 @@ export default async function GpsPlayPage({
         courseHoles={course.holes.map((h) => ({ number: h.number, par: h.par }))}
         points={course.mapPoints.map((p) => ({
           holeNumber: p.holeNumber,
+          teeLat: p.teeLat,
+          teeLng: p.teeLng,
           frontLat: p.frontLat,
           frontLng: p.frontLng,
           centerLat: p.centerLat,

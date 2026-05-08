@@ -55,6 +55,8 @@ export default async function CourseMapEditorPage({
         courseHoles={course.holes.map((h) => ({ number: h.number, par: h.par }))}
         initialPoints={course.mapPoints.map((p) => ({
           holeNumber: p.holeNumber,
+          teeLat: p.teeLat,
+          teeLng: p.teeLng,
           frontLat: p.frontLat,
           frontLng: p.frontLng,
           centerLat: p.centerLat,

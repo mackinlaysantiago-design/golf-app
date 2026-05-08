@@ -23,6 +23,10 @@ export function middleware(req: NextRequest) {
   if (pathname === "/api/keep-warm") {
     return NextResponse.next();
   }
+  // Endpoints admin de migración one-shot (idempotentes, ALTER TABLE IF NOT EXISTS)
+  if (pathname.startsWith("/api/labs/admin/")) {
+    return NextResponse.next();
+  }
   // Cron secret manual (para dispararlo desde fuera)
   const cronSecret = req.nextUrl.searchParams.get("secret");
   const expectedSecret = process.env.CRON_SECRET;

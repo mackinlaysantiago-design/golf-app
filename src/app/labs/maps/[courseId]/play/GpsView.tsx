@@ -10,6 +10,8 @@ const HoleMap = dynamic(() => import("./HoleMap"), { ssr: false });
 
 type Point = {
   holeNumber: number;
+  teeLat: number | null;
+  teeLng: number | null;
   frontLat: number | null;
   frontLng: number | null;
   centerLat: number | null;

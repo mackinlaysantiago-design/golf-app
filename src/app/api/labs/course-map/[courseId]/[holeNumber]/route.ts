@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 
 const Body = z.object({
+  teeLat: z.number().nullable().optional(),
+  teeLng: z.number().nullable().optional(),
   frontLat: z.number().nullable().optional(),
   frontLng: z.number().nullable().optional(),
   centerLat: z.number().nullable().optional(),
@@ -29,6 +31,8 @@ export async function PUT(
     create: {
       courseId,
       holeNumber: hole,
+      teeLat: parsed.teeLat ?? null,
+      teeLng: parsed.teeLng ?? null,
       frontLat: parsed.frontLat ?? null,
       frontLng: parsed.frontLng ?? null,
       centerLat: parsed.centerLat ?? null,
@@ -38,6 +42,8 @@ export async function PUT(
       notes: parsed.notes ?? null,
     },
     update: {
+      teeLat: parsed.teeLat ?? null,
+      teeLng: parsed.teeLng ?? null,
       frontLat: parsed.frontLat ?? null,
       frontLng: parsed.frontLng ?? null,
       centerLat: parsed.centerLat ?? null,

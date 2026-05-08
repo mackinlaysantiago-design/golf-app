@@ -29,6 +29,8 @@ export async function POST(
       create: {
         courseId,
         holeNumber: targetHole,
+        teeLat: src.teeLat,
+        teeLng: src.teeLng,
         frontLat: src.frontLat,
         frontLng: src.frontLng,
         centerLat: src.centerLat,
@@ -38,6 +40,8 @@ export async function POST(
         notes: src.notes,
       },
       update: {
+        teeLat: src.teeLat,
+        teeLng: src.teeLng,
         frontLat: src.frontLat,
         frontLng: src.frontLng,
         centerLat: src.centerLat,

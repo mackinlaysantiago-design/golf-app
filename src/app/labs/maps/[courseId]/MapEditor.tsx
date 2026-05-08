@@ -7,6 +7,8 @@ import { parseLatLng } from "@/lib/geo";
 
 type Point = {
   holeNumber: number;
+  teeLat: number | null;
+  teeLng: number | null;
   frontLat: number | null;
   frontLng: number | null;
   centerLat: number | null;
@@ -137,6 +139,9 @@ function HoleEditor({
   initial: Point | null;
   onSaved: () => void;
 }) {
+  const [tee, setTee] = useState(
+    pointToString(initial?.teeLat ?? null, initial?.teeLng ?? null),
+  );
   const [front, setFront] = useState(
     pointToString(initial?.frontLat ?? null, initial?.frontLng ?? null),
   );
@@ -152,9 +157,14 @@ function HoleEditor({
 
   async function save() {
     setError(null);
+    const t = tee.trim() ? parseLatLng(tee) : null;
     const f = front.trim() ? parseLatLng(front) : null;
     const c = center.trim() ? parseLatLng(center) : null;
     const b = back.trim() ? parseLatLng(back) : null;
+    if (tee.trim() && !t) {
+      setError("Coords del tee inválidas");
+      return;
+    }
     if (front.trim() && !f) {
       setError("Coords del frente inválidas");
       return;
@@ -172,6 +182,8 @@ function HoleEditor({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        teeLat: t?.lat ?? null,
+        teeLng: t?.lng ?? null,
         frontLat: f?.lat ?? null,
         frontLng: f?.lng ?? null,
         centerLat: c?.lat ?? null,
@@ -198,6 +210,17 @@ function HoleEditor({
 
   return (
     <div className="space-y-2 mt-2 pt-2 border-t border-[var(--green-pale)]">
+      <div>
+        <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+          ⛳ Tee / salida (lat, lng)
+        </label>
+        <input
+          className="gf-input mt-0.5 gf-mono text-xs"
+          placeholder="-34.491234, -58.621234"
+          value={tee}
+          onChange={(e) => setTee(e.target.value)}
+        />
+      </div>
       <div>
         <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
           🟢 Frente del green (lat, lng)

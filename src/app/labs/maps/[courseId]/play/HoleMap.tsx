@@ -7,6 +7,8 @@ import { yardsBetween } from "@/lib/geo";
 
 type Point = {
   holeNumber: number;
+  teeLat: number | null;
+  teeLng: number | null;
   frontLat: number | null;
   frontLng: number | null;
   centerLat: number | null;
@@ -268,8 +270,21 @@ export default function HoleMap({
     const cLat = point.centerLat;
     const cLng = point.centerLng;
 
-    // Marcadores green: front (verde), center (blanco), back (azul)
     const adds: L.Layer[] = [];
+    // Marcador tee (salida) — bandera blanca con borde fairway
+    if (point.teeLat != null && point.teeLng != null) {
+      adds.push(
+        L.marker([point.teeLat, point.teeLng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:20px;height:20px;border-radius:50%;background:white;border:3px solid var(--fairway);box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;">⛳</div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          }),
+        }).bindTooltip("Tee / salida", { permanent: false }),
+      );
+    }
+    // Marcadores green: front (verde), center (blanco), back (azul)
     if (point.frontLat != null && point.frontLng != null) {
       adds.push(
         L.circleMarker([point.frontLat, point.frontLng], {
@@ -344,7 +359,7 @@ export default function HoleMap({
   }, [point]);
 
   // Auto-fit: queremos GPS + green en pantalla.
-  // - Al cambiar de hoyo: fitea con lo que haya (GPS o no).
+  // - Al cambiar de hoyo: fitea con lo que haya (GPS, o tee+green si no hay GPS).
   // - Si en ese momento no había GPS, no marcamos como "fit-con-gps" y volvemos
   //   a fitear cuando GPS llegue (1 vez).
   // - GPS jitter posterior: no re-fitea (deja al usuario panear libre).
@@ -356,6 +371,10 @@ export default function HoleMap({
     if (alreadyFittedWithGps) return;
     const pts: L.LatLngTuple[] = [];
     if (hasGps) pts.push([userLat!, userLng!]);
+    // Si no hay GPS, sumamos el tee al fit para visualizar tee→green completo.
+    if (!hasGps && point.teeLat != null && point.teeLng != null) {
+      pts.push([point.teeLat, point.teeLng]);
+    }
     if (point.frontLat != null && point.frontLng != null)
       pts.push([point.frontLat, point.frontLng]);
     if (point.centerLat != null && point.centerLng != null)
@@ -368,8 +387,6 @@ export default function HoleMap({
         maxZoom: 19,
         animate: true,
       });
-      // Solo marcar como fiteado-con-GPS si efectivamente había GPS — si no,
-      // dejarlo abierto para re-fitear cuando llegue el GPS.
       if (hasGps) {
         fittedHoleRef.current = point.holeNumber;
       }

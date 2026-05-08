@@ -30,6 +30,10 @@ model CourseMapPoint {
   course     Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId   String
   holeNumber Int     // 1..18
+  // Salida (tee box). Por ahora un solo set; multi-tee (azul/blanco/etc) más adelante.
+  teeLat     Float?
+  teeLng     Float?
+  // Green
   frontLat   Float?
   frontLng   Float?
   centerLat  Float?
