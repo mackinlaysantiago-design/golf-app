@@ -4,26 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { yardsBetween } from "@/lib/geo";
+import { attachSatelliteLayer } from "./mapTiles";
+import { isInViewport, visibleMidLatLng } from "./labelClipping";
+import { buildHoleLayers, makeLabelIcon, type HolePoint } from "./holeLayers";
+import { useWind } from "./useWind";
+import { WindCard } from "./WindCard";
 
-type Point = {
-  holeNumber: number;
-  teeLat: number | null;
-  teeLng: number | null;
-  frontLat: number | null;
-  frontLng: number | null;
-  centerLat: number | null;
-  centerLng: number | null;
-  backLat: number | null;
-  backLng: number | null;
-  notes: string | null;
-};
+function readLocalFlag(key: string, fallback = false): boolean {
+  if (typeof window === "undefined") return fallback;
+  return localStorage.getItem(key) === "1";
+}
+
+function writeLocalFlag(key: string, value: boolean) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(key, value ? "1" : "0");
+  }
+}
 
 export default function HoleMap({
   point,
   userLat,
   userLng,
 }: {
-  point: Point;
+  point: HolePoint;
   userLat: number | null;
   userLng: number | null;
 }) {
@@ -41,77 +44,27 @@ export default function HoleMap({
   // Función reactiva para recolocar labels cuando se mueve/zoomea el mapa.
   // Cambia entre renders → la guardo en ref para que el listener siempre llame al último.
   const repositionLabelsRef = useRef<(() => void) | null>(null);
-
-  const [layup, setLayup] = useState<{ lat: number; lng: number } | null>(null);
-  // Toggle: mostrar también frente y fondo (centro siempre se muestra). Default OFF.
-  const [showFrontBackLabels, setShowFrontBackLabels] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("gf-show-front-back-labels") === "1";
-  });
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gf-show-front-back-labels", showFrontBackLabels ? "1" : "0");
-    }
-  }, [showFrontBackLabels]);
-  // Track el hoyo del que ya hicimos auto-fit, para no re-fitear en cada GPS update.
+  // Track el hoyo del que ya hicimos auto-fit con GPS, para no re-fitear en cada update.
   const fittedHoleRef = useRef<number | null>(null);
 
-  // Modo torneo: deshabilita features que violan Rule 4.3a (viento, etc).
-  const [tournamentMode, setTournamentMode] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("gf-tournament-mode") === "1";
-  });
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gf-tournament-mode", tournamentMode ? "1" : "0");
-    }
-  }, [tournamentMode]);
+  const [layup, setLayup] = useState<{ lat: number; lng: number } | null>(null);
+  const [showFrontBackLabels, setShowFrontBackLabels] = useState(() =>
+    readLocalFlag("gf-show-front-back-labels"),
+  );
+  useEffect(() => writeLocalFlag("gf-show-front-back-labels", showFrontBackLabels), [
+    showFrontBackLabels,
+  ]);
 
-  // Viento — opt-in (default OFF). Si modo torneo ON, se fuerza OFF.
-  const [windEnabled, setWindEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("gf-wind-enabled") === "1";
-  });
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gf-wind-enabled", windEnabled ? "1" : "0");
-    }
-  }, [windEnabled]);
+  const [tournamentMode, setTournamentMode] = useState(() =>
+    readLocalFlag("gf-tournament-mode"),
+  );
+  useEffect(() => writeLocalFlag("gf-tournament-mode", tournamentMode), [tournamentMode]);
+
+  const [windEnabled, setWindEnabled] = useState(() => readLocalFlag("gf-wind-enabled"));
+  useEffect(() => writeLocalFlag("gf-wind-enabled", windEnabled), [windEnabled]);
   const showWind = windEnabled && !tournamentMode;
 
-  const [wind, setWind] = useState<{ speed: number; direction: number } | null>(null);
-  useEffect(() => {
-    if (!showWind) {
-      setWind(null);
-      return;
-    }
-    if (point.centerLat == null || point.centerLng == null) return;
-    let cancelled = false;
-    const fetchWind = async () => {
-      try {
-        const r = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${point.centerLat}&longitude=${point.centerLng}&current_weather=true&windspeed_unit=kmh`,
-        );
-        if (!r.ok) return;
-        const d = (await r.json()) as {
-          current_weather?: { windspeed: number; winddirection: number };
-        };
-        if (cancelled || !d.current_weather) return;
-        setWind({
-          speed: d.current_weather.windspeed,
-          direction: d.current_weather.winddirection,
-        });
-      } catch {
-        // noop
-      }
-    };
-    fetchWind();
-    const id = setInterval(fetchWind, 10 * 60 * 1000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [showWind, point.centerLat, point.centerLng]);
+  const wind = useWind(showWind, point.centerLat, point.centerLng);
 
   // Init map una sola vez
   useEffect(() => {
@@ -122,256 +75,56 @@ export default function HoleMap({
     });
     mapRef.current = map;
 
-    // Tiles: prioridad Google Tile API > Mapbox > ESRI fallback.
-    // Google Tile API requiere session token (POST createSession primero).
-    let cancelled = false;
-    const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const cancelledRef = { current: false };
+    attachSatelliteLayer(map, cancelledRef);
 
-    const addMapboxLayer = () => {
-      L.tileLayer(
-        `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${mapboxToken}`,
-        { maxZoom: 22, maxNativeZoom: 19, attribution: "© Mapbox © Maxar" },
-      ).addTo(map);
-    };
-
-    const addEsriLayer = () => {
-      L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { maxZoom: 20, maxNativeZoom: 18, attribution: "Esri, Maxar, Earthstar Geographics" },
-      ).addTo(map);
-    };
-
-    const addGoogleLayer = async (): Promise<boolean> => {
-      if (!googleKey) return false;
-      try {
-        const res = await fetch(
-          `https://tile.googleapis.com/v1/createSession?key=${googleKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mapType: "satellite",
-              language: "es-AR",
-              region: "AR",
-              highDpi: true,
-            }),
-          },
-        );
-        if (!res.ok) return false;
-        const data = (await res.json()) as { session: string };
-        if (cancelled || !data.session) return false;
-        L.tileLayer(
-          `https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=${data.session}&key=${googleKey}`,
-          { maxZoom: 22, maxNativeZoom: 22, attribution: "© Google" },
-        ).addTo(map);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    (async () => {
-      const ok = await addGoogleLayer();
-      if (cancelled) return;
-      if (!ok) {
-        if (mapboxToken) addMapboxLayer();
-        else addEsriLayer();
-      }
-    })();
-
-    // Click en el mapa coloca/mueve el layup
     map.on("click", (e: L.LeafletMouseEvent) => {
       setLayup({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
-    // Recolocar labels en cada move/zoom para que siempre queden a la vista
     const onMoveZoom = () => repositionLabelsRef.current?.();
     map.on("move zoom moveend zoomend", onMoveZoom);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       map.off("move zoom moveend zoomend", onMoveZoom);
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Liang-Barsky: clippea un segmento [p1,p2] dentro de un rect [min,max].
-  // Devuelve los 2 puntos del segmento clippeado (en pixels), o null si el segmento
-  // no intersecta el viewport.
-  function clipSegment(
-    p1: L.Point,
-    p2: L.Point,
-    min: L.Point,
-    max: L.Point,
-  ): [L.Point, L.Point] | null {
-    let t0 = 0;
-    let t1 = 1;
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const tests: [number, number][] = [
-      [-dx, p1.x - min.x],
-      [dx, max.x - p1.x],
-      [-dy, p1.y - min.y],
-      [dy, max.y - p1.y],
-    ];
-    for (const [p, q] of tests) {
-      if (p === 0) {
-        if (q < 0) return null;
-      } else {
-        const t = q / p;
-        if (p < 0) {
-          if (t > t1) return null;
-          if (t > t0) t0 = t;
-        } else {
-          if (t < t0) return null;
-          if (t < t1) t1 = t;
-        }
-      }
-    }
-    return [
-      L.point(p1.x + t0 * dx, p1.y + t0 * dy),
-      L.point(p1.x + t1 * dx, p1.y + t1 * dy),
-    ];
-  }
-
-  // Devuelve la latlng del midpoint visible del segmento [a,b] dentro del viewport
-  // (con padding para que no quede pegado al borde). Null si el segmento no cruza la pantalla.
-  function visibleMidLatLng(
-    map: L.Map,
-    a: L.LatLngExpression,
-    b: L.LatLngExpression,
-    padding = 28,
-  ): L.LatLng | null {
-    const p1 = map.latLngToContainerPoint(a);
-    const p2 = map.latLngToContainerPoint(b);
-    const size = map.getSize();
-    const min = L.point(padding, padding);
-    const max = L.point(size.x - padding, size.y - padding);
-    const clipped = clipSegment(p1, p2, min, max);
-    if (!clipped) return null;
-    const mid = L.point(
-      (clipped[0].x + clipped[1].x) / 2,
-      (clipped[0].y + clipped[1].y) / 2,
-    );
-    return map.containerPointToLatLng(mid);
-  }
-
-  // Pintar puntos del green + anillos cuando cambia el hoyo o se centra
+  // Pintar puntos del green + anillos cuando cambia el hoyo
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Limpiar capas previas
     for (const l of layersRef.current) map.removeLayer(l);
-    layersRef.current = [];
-
-    const cLat = point.centerLat;
-    const cLng = point.centerLng;
-
-    const adds: L.Layer[] = [];
-    // Marcador tee (salida) — bandera blanca con borde fairway
-    if (point.teeLat != null && point.teeLng != null) {
-      adds.push(
-        L.marker([point.teeLat, point.teeLng], {
-          icon: L.divIcon({
-            className: "",
-            html: `<div style="width:20px;height:20px;border-radius:50%;background:white;border:3px solid var(--fairway);box-shadow:0 1px 3px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;">⛳</div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-          }),
-        }).bindTooltip("Tee / salida", { permanent: false }),
-      );
-    }
-    // Marcadores green: front (verde), center (blanco), back (azul)
-    if (point.frontLat != null && point.frontLng != null) {
-      adds.push(
-        L.circleMarker([point.frontLat, point.frontLng], {
-          radius: 7,
-          color: "#fff",
-          weight: 2,
-          fillColor: "#7ed957",
-          fillOpacity: 1,
-        })
-          .bindTooltip("Frente", { permanent: false }),
-      );
-    }
-    if (cLat != null && cLng != null) {
-      adds.push(
-        L.circleMarker([cLat, cLng], {
-          radius: 7,
-          color: "#7ed957",
-          weight: 2,
-          fillColor: "#fff",
-          fillOpacity: 1,
-        })
-          .bindTooltip("Centro", { permanent: false }),
-      );
-    }
-    if (point.backLat != null && point.backLng != null) {
-      adds.push(
-        L.circleMarker([point.backLat, point.backLng], {
-          radius: 7,
-          color: "#fff",
-          weight: 2,
-          fillColor: "#3a86ff",
-          fillOpacity: 1,
-        })
-          .bindTooltip("Fondo", { permanent: false }),
-      );
-    }
-
-    // Anillos de distancia desde el centro del green (100, 150, 200 yds)
-    if (cLat != null && cLng != null) {
-      const ringDefs = [
-        { yds: 100, color: "#7ed957" }, // verde
-        { yds: 150, color: "#ffb627" }, // amarillo
-        { yds: 200, color: "#ff5252" }, // rojo
-      ];
-      for (const r of ringDefs) {
-        const meters = r.yds * 0.9144;
-        adds.push(
-          L.circle([cLat, cLng], {
-            radius: meters,
-            color: r.color,
-            weight: 1.5,
-            fillOpacity: 0,
-            opacity: 0.7,
-            dashArray: "5,4",
-          }),
-        );
-      }
-    }
-
+    const adds = buildHoleLayers(point);
     for (const a of adds) a.addTo(map);
     layersRef.current = adds;
 
-    // Centrado inicial: si todavía no se hizo auto-fit para este hoyo, centrar en el green.
-    // El auto-fit con user GPS se hace en el effect dedicado más abajo.
+    // Centrado inicial: si todavía no se hizo auto-fit con GPS para este hoyo,
+    // centrar en el green. El fit con GPS vive en el effect siguiente.
     if (fittedHoleRef.current !== point.holeNumber) {
-      if (cLat != null && cLng != null) {
-        map.setView([cLat, cLng], 18);
-      } else if (point.frontLat && point.frontLng) {
+      if (point.centerLat != null && point.centerLng != null) {
+        map.setView([point.centerLat, point.centerLng], 18);
+      } else if (point.frontLat != null && point.frontLng != null) {
         map.setView([point.frontLat, point.frontLng], 18);
       }
     }
   }, [point]);
 
-  // Auto-fit: queremos GPS + green en pantalla.
-  // - Al cambiar de hoyo: fitea con lo que haya (GPS, o tee+green si no hay GPS).
-  // - Si en ese momento no había GPS, no marcamos como "fit-con-gps" y volvemos
-  //   a fitear cuando GPS llegue (1 vez).
-  // - GPS jitter posterior: no re-fitea (deja al usuario panear libre).
+  // Auto-fit: GPS + green en pantalla.
+  // - Sin GPS: fitea tee+green.
+  // - Con GPS: fitea user+green y marca el hoyo como fiteado para no re-fitear con jitter.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const hasGps = userLat != null && userLng != null;
-    const alreadyFittedWithGps = fittedHoleRef.current === point.holeNumber;
-    if (alreadyFittedWithGps) return;
+    if (fittedHoleRef.current === point.holeNumber) return;
+
     const pts: L.LatLngTuple[] = [];
     if (hasGps) pts.push([userLat!, userLng!]);
-    // Si no hay GPS, sumamos el tee al fit para visualizar tee→green completo.
     if (!hasGps && point.teeLat != null && point.teeLng != null) {
       pts.push([point.teeLat, point.teeLng]);
     }
@@ -381,19 +134,18 @@ export default function HoleMap({
       pts.push([point.centerLat, point.centerLng]);
     if (point.backLat != null && point.backLng != null)
       pts.push([point.backLat, point.backLng]);
+
     if (pts.length >= 2) {
       map.fitBounds(L.latLngBounds(pts), {
         padding: [60, 60],
         maxZoom: 19,
         animate: true,
       });
-      if (hasGps) {
-        fittedHoleRef.current = point.holeNumber;
-      }
+      if (hasGps) fittedHoleRef.current = point.holeNumber;
     }
   }, [point, userLat, userLng]);
 
-  // User position marker (live)
+  // User marker (live)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -402,7 +154,7 @@ export default function HoleMap({
       userMarkerRef.current = null;
     }
     if (userLat == null || userLng == null) return;
-    const m = L.circleMarker([userLat, userLng], {
+    userMarkerRef.current = L.circleMarker([userLat, userLng], {
       radius: 9,
       color: "#fff",
       weight: 2,
@@ -411,15 +163,13 @@ export default function HoleMap({
     })
       .bindTooltip("Tu posición", { permanent: false })
       .addTo(map);
-    userMarkerRef.current = m;
   }, [userLat, userLng]);
 
-  // Layup marker + línea + labels de distancia (clamped al viewport visible)
+  // Layup + labels (clamped al viewport)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Helpers de cleanup
     const clearLayer = (refObj: { current: L.Layer | null }) => {
       if (refObj.current) {
         map.removeLayer(refObj.current);
@@ -435,32 +185,12 @@ export default function HoleMap({
     clearLayer(userBackLabelRef);
     repositionLabelsRef.current = null;
 
-    // anchorOffsetX/Y: shift en pixels desde el centro del icon.
-    // X: positivo = label se mueve a la derecha del lat/lng. Negativo = izquierda.
-    // Y: positivo = label se mueve arriba. Negativo = abajo.
-    const makeLabelIcon = (
-      yds: number,
-      bg: string,
-      anchorOffsetX = 0,
-      anchorOffsetY = 0,
-    ) =>
-      L.divIcon({
-        className: "",
-        html: `<div style="background:${bg};color:white;padding:3px 7px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;white-space:nowrap;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">${yds.toFixed(0)}y</div>`,
-        iconSize: [40, 22],
-        iconAnchor: [20 - anchorOffsetX, 11 + anchorOffsetY],
-      });
-
     const userPos: [number, number] | null =
       userLat != null && userLng != null ? [userLat, userLng] : null;
 
-    // Labels vos → frente / centro / fondo del green (semáforo).
-    // Anclados al marker correspondiente con stagger vertical: frente arriba, centro al medio, fondo abajo.
-    // (anchorOffsetY > 0 → label aparece arriba del lat/lng; < 0 → abajo)
-    // Centro: siempre visible (cuando hay GPS). Frente y Fondo: solo si el toggle está ON.
+    // Labels vos→frente/centro/fondo del green con stagger vertical.
+    // X positivo → label a la derecha del marker; Y positivo → arriba; Y negativo → abajo.
     if (userPos) {
-      // Labels al costado derecho del green con stagger vertical (frente arriba, centro al medio, fondo abajo)
-      // X positivo = label a la derecha; Y positivo = arriba; Y negativo = abajo.
       if (showFrontBackLabels && point.frontLat != null && point.frontLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
         userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
@@ -487,7 +217,6 @@ export default function HoleMap({
       }
     }
 
-    // Layup marker + línea + sus labels
     let layupPos: [number, number] | null = null;
     if (layup) {
       layupPos = [layup.lat, layup.lng];
@@ -527,79 +256,74 @@ export default function HoleMap({
       }
     }
 
-    // Reposicionar labels:
-    // - Para los del GREEN (frente/centro/fondo): si el marker está visible, dejar el label
-    //   anclado al marker (la posición no cambia). Si el marker está fuera de pantalla,
-    //   recolocar al midpoint visible de la línea user→marker para que igual se vea la distancia.
-    // - Para los del LAYUP: midpoint visible del segmento (siempre).
+    // Reposicionar:
+    // - Labels GREEN: si el marker está en pantalla, dejar al marker; si no, midpoint clippeado.
+    // - Labels LAYUP: siempre midpoint visible.
     const reposition = () => {
       const mUL = mapRef.current;
       if (!mUL) return;
-      const size = mUL.getSize();
 
-      const isInViewport = (latlng: [number, number]) => {
-        const p = mUL.latLngToContainerPoint(latlng);
-        return p.x >= 0 && p.x <= size.x && p.y >= 0 && p.y <= size.y;
-      };
-
-      // Para labels anclados al marker: si el marker es visible, dejarlo en el marker;
-      // si no, reposicionar al midpoint clippeado del segmento user→marker.
       const updateAnchored = (
         labelRef: { current: L.Marker | null },
         markerPos: [number, number] | null,
         userPosArg: [number, number] | null,
       ) => {
         if (!labelRef.current) return;
+        const el = labelRef.current.getElement();
         if (!markerPos) {
-          labelRef.current.getElement()?.style.setProperty("display", "none");
+          el?.style.setProperty("display", "none");
           return;
         }
-        if (isInViewport(markerPos)) {
+        if (isInViewport(mUL, markerPos)) {
           labelRef.current.setLatLng(markerPos);
-          labelRef.current.getElement()?.style.setProperty("display", "");
+          el?.style.setProperty("display", "");
           return;
         }
         if (!userPosArg) {
-          labelRef.current.getElement()?.style.setProperty("display", "none");
+          el?.style.setProperty("display", "none");
           return;
         }
         const mid = visibleMidLatLng(mUL, userPosArg, markerPos);
         if (mid) {
           labelRef.current.setLatLng(mid);
-          labelRef.current.getElement()?.style.setProperty("display", "");
+          el?.style.setProperty("display", "");
         } else {
-          labelRef.current.getElement()?.style.setProperty("display", "none");
+          el?.style.setProperty("display", "none");
         }
       };
 
-      // Para labels del layup: siempre midpoint visible del segmento.
       const updateMidpoint = (
         labelRef: { current: L.Marker | null },
         a: [number, number] | null,
         b: [number, number] | null,
       ) => {
         if (!labelRef.current) return;
+        const el = labelRef.current.getElement();
         if (!a || !b) {
-          labelRef.current.getElement()?.style.setProperty("display", "none");
+          el?.style.setProperty("display", "none");
           return;
         }
         const mid = visibleMidLatLng(mUL, a, b);
         if (mid) {
           labelRef.current.setLatLng(mid);
-          labelRef.current.getElement()?.style.setProperty("display", "");
+          el?.style.setProperty("display", "");
         } else {
-          labelRef.current.getElement()?.style.setProperty("display", "none");
+          el?.style.setProperty("display", "none");
         }
       };
 
       const front: [number, number] | null =
-        point.frontLat != null && point.frontLng != null ? [point.frontLat, point.frontLng] : null;
+        point.frontLat != null && point.frontLng != null
+          ? [point.frontLat, point.frontLng]
+          : null;
       const center: [number, number] | null =
         point.centerLat != null && point.centerLng != null
           ? [point.centerLat, point.centerLng]
           : null;
       const back: [number, number] | null =
-        point.backLat != null && point.backLng != null ? [point.backLat, point.backLng] : null;
+        point.backLat != null && point.backLng != null
+          ? [point.backLat, point.backLng]
+          : null;
 
       updateAnchored(userFrontLabelRef, front, userPos);
       updateAnchored(userCenterLabelRef, center, userPos);
@@ -647,7 +371,6 @@ export default function HoleMap({
         }}
       />
 
-      {/* Resumen de distancias del layup */}
       {layup && (
         <div
           className="grid grid-cols-3 gap-2 text-center text-[11px] gf-mono"
@@ -735,167 +458,6 @@ export default function HoleMap({
       <p className="text-[10px] text-[var(--muted)] text-center">
         Tap en el mapa para marcar un layup. Anillos: 🟢 100y · 🟡 150y · 🔴 200y desde el centro.
       </p>
-    </div>
-  );
-}
-
-// Cardinales: dado un ángulo en grados (0-360) devuelve N/NE/E/SE/S/SW/W/NW.
-function cardinalFromDeg(deg: number): string {
-  const dirs = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
-  return dirs[Math.round(((deg % 360) / 45)) % 8];
-}
-
-// Bearing: rumbo (en grados desde norte) entre 2 lat/lng.
-function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const dLambda = ((lng2 - lng1) * Math.PI) / 180;
-  const x = Math.sin(dLambda) * Math.cos(phi2);
-  const y =
-    Math.cos(phi1) * Math.sin(phi2) -
-    Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
-  return ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360;
-}
-
-function WindCard({
-  enabled,
-  wind,
-  userLat,
-  userLng,
-  greenLat,
-  greenLng,
-  tournamentMode,
-  onToggle,
-}: {
-  enabled: boolean;
-  wind: { speed: number; direction: number } | null;
-  userLat: number | null;
-  userLng: number | null;
-  greenLat: number | null;
-  greenLng: number | null;
-  tournamentMode: boolean;
-  onToggle: () => void;
-}) {
-  if (tournamentMode) {
-    return (
-      <div className="text-[10px] gf-mono text-[var(--muted)] text-center py-1">
-        🌬️ Viento bloqueado en modo torneo
-      </div>
-    );
-  }
-  if (!enabled) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className="text-[10px] gf-mono text-[var(--muted)] underline w-full text-center py-1"
-      >
-        🌬️ Activar viento (no usar en torneo)
-      </button>
-    );
-  }
-  if (!wind) {
-    return (
-      <div className="flex items-center justify-between gap-2 text-[10px] gf-mono p-2 rounded" style={{ background: "var(--green-pale)" }}>
-        <span className="text-[var(--muted)]">🌬️ Cargando viento...</span>
-        <button onClick={onToggle} className="underline text-[var(--muted)]">
-          desactivar
-        </button>
-      </div>
-    );
-  }
-
-  // Cardinal del viento (de dónde viene)
-  const fromCardinal = cardinalFromDeg(wind.direction);
-
-  // Componentes head/tail/cross si tenemos shot direction
-  let bearing: number | null = null;
-  if (
-    userLat != null &&
-    userLng != null &&
-    greenLat != null &&
-    greenLng != null
-  ) {
-    bearing = bearingDeg(userLat, userLng, greenLat, greenLng);
-  }
-  // Wind blows TO direction = (from + 180) % 360
-  // angle entre dirección del viento y rumbo del tiro
-  let head: number | null = null;
-  let cross: number | null = null;
-  let crossSide: "izq" | "der" | null = null;
-  if (bearing != null) {
-    const windTo = (wind.direction + 180) % 360;
-    const diffDeg = ((windTo - bearing + 540) % 360) - 180; // -180..180
-    const rad = (diffDeg * Math.PI) / 180;
-    const tailComp = wind.speed * Math.cos(rad); // + tail, - head
-    const crossComp = wind.speed * Math.sin(rad); // + de izq, - de der
-    head = -tailComp; // positivo = head, negativo = tail
-    cross = Math.abs(crossComp);
-    crossSide = crossComp >= 0 ? "izq" : "der";
-  }
-
-  return (
-    <div
-      className="text-[11px] gf-mono p-2 rounded flex items-center gap-3"
-      style={{ background: "var(--green-pale)" }}
-    >
-      {/* Flecha apuntando en la dirección a la que sopla */}
-      <div
-        className="flex items-center justify-center"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          background: "var(--fairway)",
-          color: "white",
-          flexShrink: 0,
-        }}
-        title={`Viene del ${fromCardinal}`}
-      >
-        <span
-          style={{
-            display: "inline-block",
-            transform: `rotate(${(wind.direction + 180) % 360}deg)`,
-            fontSize: 18,
-            lineHeight: 1,
-          }}
-          aria-label={`viento ${fromCardinal}`}
-        >
-          ↑
-        </span>
-      </div>
-      <div className="flex-1">
-        <div className="flex justify-between items-baseline">
-          <span className="font-bold">
-            {wind.speed.toFixed(0)} km/h del {fromCardinal}
-          </span>
-          <button
-            onClick={onToggle}
-            className="text-[9px] underline text-[var(--muted)]"
-          >
-            apagar
-          </button>
-        </div>
-        {head != null && cross != null && crossSide != null ? (
-          <div className="text-[10px] text-[var(--muted)] mt-0.5">
-            {Math.abs(head) < 1
-              ? "sin viento longitudinal"
-              : head > 0
-                ? `${head.toFixed(0)} km/h en contra`
-                : `${(-head).toFixed(0)} km/h a favor`}
-            {cross >= 1 && (
-              <>
-                {" · "}
-                {cross.toFixed(0)} km/h cruzado de {crossSide === "izq" ? "izquierda" : "derecha"}
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="text-[10px] text-[var(--muted)] mt-0.5">
-            sin GPS — solo dirección general
-          </div>
-        )}
-      </div>
     </div>
   );
 }
