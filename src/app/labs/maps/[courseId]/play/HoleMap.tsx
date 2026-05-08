@@ -41,6 +41,16 @@ export default function HoleMap({
   const repositionLabelsRef = useRef<(() => void) | null>(null);
 
   const [layup, setLayup] = useState<{ lat: number; lng: number } | null>(null);
+  const [showGreenLabels, setShowGreenLabels] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("gf-show-green-labels");
+    return v == null ? true : v === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gf-show-green-labels", showGreenLabels ? "1" : "0");
+    }
+  }, [showGreenLabels]);
 
   // Init map una sola vez
   useEffect(() => {
@@ -329,7 +339,7 @@ export default function HoleMap({
     // Labels vos → frente / centro / fondo del green (semáforo).
     // Anclados al marker correspondiente con stagger vertical: frente arriba, centro al medio, fondo abajo.
     // (anchorOffsetY > 0 → label aparece arriba del lat/lng; < 0 → abajo)
-    if (userPos) {
+    if (userPos && showGreenLabels) {
       if (point.frontLat != null && point.frontLng != null) {
         const yds = yardsBetween(userLat!, userLng!, point.frontLat, point.frontLng);
         userFrontLabelRef.current = L.marker([point.frontLat, point.frontLng], {
@@ -488,6 +498,7 @@ export default function HoleMap({
     point.frontLng,
     point.backLat,
     point.backLng,
+    showGreenLabels,
   ]);
 
   const userToCenter =
@@ -542,8 +553,27 @@ export default function HoleMap({
         </div>
       )}
 
+      <div className="flex items-center justify-between gap-2 text-[10px]">
+        <button
+          type="button"
+          onClick={() => setShowGreenLabels((v) => !v)}
+          className="rounded px-2 py-1 gf-mono"
+          style={{
+            background: showGreenLabels ? "var(--fairway)" : "var(--green-pale)",
+            color: showGreenLabels ? "white" : "var(--fairway)",
+            fontWeight: 600,
+          }}
+          aria-pressed={showGreenLabels}
+        >
+          {showGreenLabels ? "🟢 Distancias green: ON" : "⚪ Distancias green: OFF"}
+        </button>
+        <span className="text-[var(--muted)] text-right flex-1">
+          Anillos: 🟢 100y · 🟡 150y · 🔴 200y
+        </span>
+      </div>
+
       <p className="text-[10px] text-[var(--muted)] text-center">
-        Tap en el mapa para marcar un punto layup. Anillos: 🟢 100y · 🟡 150y · 🔴 200y desde el centro.
+        Tap en el mapa para marcar un punto layup.
       </p>
 
       {layup && (
