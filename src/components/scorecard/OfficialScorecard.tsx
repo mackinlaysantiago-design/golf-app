@@ -166,23 +166,6 @@ function RowLabel({
   );
 }
 
-// ============ Sub-row sub-header debajo de un row label (ej. "100 50 25 GIR") ============
-function SubHeaderRow({ labels }: { labels: string[] }) {
-  return (
-    <>
-      {labels.map((l, i) => (
-        <td
-          key={i}
-          className="border border-black text-center"
-          style={{ fontSize: 8, fontWeight: 600, background: C.grayBg, padding: "1px 2px", color: C.ink }}
-        >
-          {l}
-        </td>
-      ))}
-    </>
-  );
-}
-
 // ============ Helpers para marks ============
 
 function enterSzMark(hole: ScorecardHole, goalLevel: ScorecardData["enterSzGoal"]): "check" | "x" | null {
@@ -456,13 +439,13 @@ export function OfficialScorecard({ data }: { data: ScorecardData }) {
             <td colSpan={10} style={{ border: "none", background: "transparent" }} />
             <td colSpan={9} style={{ border: "none", background: "transparent" }} />
             <td className="border border-black text-center" style={{ fontSize: 8, fontWeight: 700, background: C.grayBg }}>
-              0-3'
+              {"0-3'"}
             </td>
             <td className="border border-black text-center" style={{ fontSize: 8, fontWeight: 700, background: C.grayBg }}>
-              3-6'
+              {"3-6'"}
             </td>
             <td className="border border-black text-center" style={{ fontSize: 8, fontWeight: 700, background: C.grayBg }}>
-              6-10'
+              {"6-10'"}
             </td>
           </tr>
 
@@ -502,7 +485,7 @@ export function OfficialScorecard({ data }: { data: ScorecardData }) {
         {/* 10 KEYS TO SCORING TALLY */}
         <div>
           <div className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: C.ink }}>
-            THE "10 KEYS TO SCORING" · TALLY EACH TIME YOU BROKE ONE
+            {'THE "10 KEYS TO SCORING" · TALLY EACH TIME YOU BROKE ONE'}
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
             <KeyRow num={1} label="MISSED SHORT PUTTS" count={data.keys.missedShortPutts} />

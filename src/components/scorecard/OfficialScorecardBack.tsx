@@ -49,10 +49,10 @@ export function OfficialScorecardBack({ data }: { data: ScorecardData }) {
           {/* Title */}
           <div className="mb-3">
             <div className="text-center text-[14px] font-extrabold uppercase tracking-wider">
-              THE "10 KEYS TO SCORING"
+              {'THE "10 KEYS TO SCORING"'}
             </div>
             <div className="text-center text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
-              CIRCLE TOP 2 KEYS BROKEN &amp; SOLUTIONS YOU'LL PRACTICE
+              {"CIRCLE TOP 2 KEYS BROKEN & SOLUTIONS YOU'LL PRACTICE"}
             </div>
           </div>
 
@@ -66,7 +66,7 @@ export function OfficialScorecardBack({ data }: { data: ScorecardData }) {
             <thead>
               <tr style={{ background: C.grayBg }}>
                 <th className="border border-black px-2 py-1.5 text-left font-bold tracking-wider">TALLY KEYS BROKEN</th>
-                <th className="border border-black px-2 py-1.5 text-center font-bold tracking-wider">#'s</th>
+                <th className="border border-black px-2 py-1.5 text-center font-bold tracking-wider">{"#'s"}</th>
                 <th className="border border-black px-2 py-1.5 text-left font-bold tracking-wider">THE SOLUTIONS</th>
               </tr>
             </thead>
