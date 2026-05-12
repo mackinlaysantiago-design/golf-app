@@ -13,6 +13,7 @@
     "@google/genai": "^1.51.0",
     "@prisma/client": "^6.19.3",
     "date-fns": "^4.1.0",
+    "html2canvas-pro": "^2.0.2",
     "leaflet": "^1.9.4",
     "next": "14.2.35",
     "react": "^18",

@@ -15,6 +15,11 @@ Toda la teoría del curso (82 video lessons transcritos) está en `docs/knowledg
 - `docs/knowledge-base/04_roadmap.md` — features priorizadas (P0/P1/P2)
 - `docs/knowledge-base/05_drills_catalog.md` — drills con parámetros exactos
 - `docs/knowledge-base/06_journaling_prompts.md` — preguntas a capturar
+- `docs/knowledge-base/10_pre_game_routine.md` — Personal Par, warm-up, calibration, stupid holes (Workshop 5/6/26)
+- `docs/knowledge-base/11_round_assessment_card.md` — Round Assessment Card oficial (11 secciones, schema completo)
+- `docs/knowledge-base/12_drill_test_taxonomy.md` — Drill vs Test, Block vs Random, 5 Areas
+
+PDFs oficiales del método en `docs/knowledge-base/resources/`.
 
 Para deep-dive teórico: `docs/knowledge-base/00_method_overview.md` y `01_concepts_by_module.md`.
 

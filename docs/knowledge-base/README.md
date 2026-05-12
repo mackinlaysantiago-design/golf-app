@@ -14,6 +14,14 @@ Al arrancar una sesión sobre la golf-app, cargar:
 5. **`04_roadmap.md`** — features priorizadas P0/P1/P2
 6. **`05_drills_catalog.md`** — todos los drills con parámetros exactos
 7. **`06_journaling_prompts.md`** — preguntas/reflexiones a capturar
+8. **`10_pre_game_routine.md`** — Personal Par + Warm-Up + Calibration + Stupid Holes + Compounding (Workshop 5/6/26)
+9. **`11_round_assessment_card.md`** — modelo del card oficial post-round (11 secciones, schema completo)
+10. **`12_drill_test_taxonomy.md`** — Drill vs Test, Block vs Random, 5 Areas, Train Hard Play Easy
+
+## Recursos PDF (`resources/`)
+- `round_assessment_card.pdf` — TSM Advanced Round Review (oficial)
+- `wedge_matrix_template.pdf` — template 4×4 oficial (LW/SW/GW/PW × PITCH/1/2/3-4/FULL)
+- `short_game_best_drills_and_tests.pdf` — guía oficial de drills + tests por las 5 áreas
 
 ## Workflow propuesto
 
@@ -29,9 +37,9 @@ Al arrancar una sesión sobre la golf-app, cargar:
 
 ## Fuente original
 - Curso: https://the-scoring-method.circle.so/
-- 82 transcripts en `~/golf-app/scoring-method-analysis/transcripts/`
+- 82 transcripts en `~/golf-app/scoring-method-analysis/transcripts/` + Live Call Recordings (workshops periódicos, ej. `live-call-recordings__workshop_2026-05-06_10-keys-to-scoring.txt`)
 - Reporte unificado: `~/golf-app/scoring-method-analysis/reports/ROADMAP.md`
-- Lecciones referenciadas con ID formato: `{space}__sec{N}_les{N}` → buscar transcript con ese nombre
+- Lecciones referenciadas con ID formato: `{space}__sec{N}_les{N}` (curso) o `live-call-recordings__workshop_YYYY-MM-DD_topic` (workshops)
 
 ## Métricas del análisis
 - **6 módulos**: level-1 (25 lecciones), level-2 (24), 9-holes (12), 7-day-putting (8), mental-mastery (7), chipping-protocol (6)

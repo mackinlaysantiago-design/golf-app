@@ -598,6 +598,339 @@
         }
         ```
 
+### Drills de Pre-Round / Range Routine
+
+21. **Nombre**: Calibration Drill (Range Pre-Round)
+    *   **Módulo**: `live-call-recordings` — `[live-call-recordings__workshop_2026-05-06_10-keys-to-scoring]`
+    *   **Filosofía**: No estás trabajando técnica, estás midiendo qué hace tu cuerpo HOY. Los misses son data.
+    *   **Parámetros**:
+        *   **Setup físico**:
+            *   Alignment stick apuntando al objetivo (ej. cartel 150 yds), bola justo detrás del stick.
+            *   **Importante**: alineás la bola al target, NO los pies. Los pies pueden estar "naturales".
+            *   La cara del palo determina dónde va la bola, no los pies.
+        *   **Cantidad de bolas/intentos**: 13-23 bolas total (3 + 10 + 0-10 según resultado).
+        *   **Palos involucrados**: 1 mid-iron (5/6/7) para fase de calibración, después rotación de clubs.
+        *   **Protocolo (3 fases)**:
+            1.  **Test #1 — 3 swings sin pensar**: tirá 3 bolas tratando de pegar derecho al target. Sin trabajar técnica. Si las 3 caen a ±2 yds del target → estás calibrado, pasá a target practice. Si las 3 caen 30 yds left → tu offset del día es 30 yds left.
+            2.  **Test #2 — "30 yds right" (10 bolas)**: pickeá un target y deliberadamente tratá de pegar 30 yds a la derecha (o el offset que hayas medido). Lo que tu cuerpo necesita "sentir" para hacerlo va a ser tu swing recto del día.
+            3.  **Test #3 — Target practice variado**: ahora sí hit a distintos targets con distintos clubs. **Nunca el mismo club 2 veces seguidas.**
+    *   **Output a trackear**:
+        *   `calibrationOffsetYards`: offset detectado (negativo = left, positivo = right).
+        *   `offsetDirection`: `LEFT` | `RIGHT` | `STRAIGHT`.
+        *   `phase1AvgDispersion`: dispersión promedio de las 3 primeras bolas (yds del target).
+        *   `phase2SuccessRate`: % de bolas que cayeron a ±5 yds del target después de aplicar el offset.
+        *   `clubsRotated`: lista de clubs usados en fase 3, en orden.
+    *   **Modelo Prisma sugerido**:
+        ```prisma
+        model DrillSession {
+            id                       String @id @default(uuid())
+            userId                   String
+            drillType                DrillType // Enum: CALIBRATION_DRILL
+            date                     DateTime @default(now())
+            calibrationOffsetYards   Float    // negativo = left, positivo = right
+            offsetDirection          String   // "LEFT" | "RIGHT" | "STRAIGHT"
+            phase1AvgDispersion      Float?   // yds promedio del target
+            phase2SuccessRate        Float?   // 0-1
+            clubsRotated             String[] // ["driver", "7-iron", "wedge", "hybrid"]
+            notes                    String?
+            roundId                  String?  // si fue calibración pre-ronda, link al round
+        }
+        ```
+
+22. **Nombre**: Wedge Matrix (Yardage Gapping Session)
+    *   **Módulo**: `live-call-recordings` — `[live-call-recordings__workshop_2026-05-06_10-keys-to-scoring]` + template oficial PDF (`docs/knowledge-base/resources/wedge_matrix_template.pdf`).
+    *   **Filosofía**: "Estás tratando de angostar el gap, no extender el tiro." 80-90% de tus tiros consistentes definen tu gap real. "Better players know their exact wedge distances" (Short Game Best Drills doc).
+    *   **Estructura de la matriz oficial** (template TSM):
+        *   **Eje horizontal (CLUB)**: 4 columnas — `LW` (lob wedge), `SW` (sand wedge), `GW` (gap wedge), `PW` (pitching wedge).
+        *   **Eje vertical (SWING)**: 4 filas — `PITCH` (rojo), `1/2` (verde), `3/4` (azul), `FULL` (amarillo).
+        *   **Total de combinaciones**: 16 celdas (4 wedges × 4 swing types).
+        *   **Dentro de cada celda**: mini-grid tic-tac-toe 3×3:
+            -   8 cuadrados se llenan con las distancias de los 8 tiros (en yds).
+            -   El cuadrado central muestra el `YD` (average) calculado.
+    *   **Parámetros**:
+        *   **Cantidad de bolas/intentos**: 8 tiros por celda × 16 celdas = 128 bolas para matriz completa. En la práctica, 3-4 wedges activos × 4 swing types = 12-16 combos × 8 = 96-128 bolas. Sesión de ~2 hs.
+        *   **Setup físico**: range con marcadores de yds (idealmente FlightScope/launch monitor). Imprimir el template PDF.
+        *   **Palos involucrados**: hasta 4 wedges + 4 swing types (PITCH = swing corto tipo chip, 1/2 = medio swing, 3/4 = tres cuartos, FULL = swing completo).
+        *   **Ejemplo del workshop (jugador "Ben")** — combinaciones que él usaba en el campo:
+            -   LW PITCH: ~25 yds | LW 1/2: 35 yds | LW 3/4: 45 yds | LW FULL: 56 yds
+            -   SW: 65 / 75 / 85 / 90 yds
+            -   GW: 95 / 100 / 105 / 110 yds
+            -   PW: 115 / 125 / 130 / 135 yds
+        *   **Criterios**:
+            *   **Descartar del average**: chunks (corta 15+ yds del esperado) y blades (long 30+ yds del esperado). No entran en el `avgYards`.
+            *   **Goal por celda**: 8 de 9 tiros entre `avg - 2` y `avg + 2` yds (dispersion ≤ 4 yds total). Ejemplo: avg = 86 → goal es 8/9 entre 84-88.
+            *   **Goal de matriz completa**: gaps progresivos sin "huecos" (ej. SW FULL = 90 y GW 1/2 = 90 → un palo redundante, hay overlap).
+    *   **Output a trackear** (por celda):
+        *   `wedgeType`: `LW | SW | GW | PW`.
+        *   `swingType`: `PITCH | HALF | THREE_QUARTER | FULL`.
+        *   `shots`: array de 8 distancias en yds.
+        *   `avgYards`: promedio de los 8 (descartando outliers).
+        *   `dispersionYards`: max - min de los 8 buenos.
+        *   `goalDispersion`: 4 yds.
+        *   `chunksOrBladesRejected`: cantidad descartada.
+        *   `isLockedIn`: true cuando 8/9 caen en el goal.
+    *   **Modelo Prisma sugerido**:
+        ```prisma
+        enum WedgeType {
+            LW   // Lob Wedge
+            SW   // Sand Wedge
+            GW   // Gap Wedge
+            PW   // Pitching Wedge
+        }
+
+        enum WedgeSwingType {
+            PITCH         // swing corto tipo chip
+            HALF          // 1/2
+            THREE_QUARTER // 3/4
+            FULL          // full swing
+        }
+
+        model DrillSession {
+            id                 String @id @default(uuid())
+            userId             String
+            drillType          DrillType // Enum: WEDGE_MATRIX
+            date               DateTime @default(now())
+            notes              String?
+            entries            WedgeMatrixEntry[]
+        }
+
+        model WedgeMatrixEntry {
+            id                       String @id @default(uuid())
+            sessionId                String
+            session                  DrillSession @relation(fields: [sessionId], references: [id])
+            wedgeType                WedgeType
+            swingType                WedgeSwingType
+            shots                    Float[]  // 8 distancias en yds
+            avgYards                 Float
+            dispersionYards          Float
+            goalDispersionYards      Float    @default(4)
+            chunksOrBladesRejected   Int      @default(0)
+            isLockedIn               Boolean  @default(false)
+            @@unique([sessionId, wedgeType, swingType])
+        }
+        ```
+    *   **UI/UX sugerido**: replicar visualmente el template oficial (matriz 4×4 con colores rojo/verde/azul/amarillo por swing type). Cada celda es tappable; al tocarla se abre el tic-tac-toe interno para registrar los 8 tiros uno por uno con teclado numérico. Auto-detect chunks/blades (preguntar "¿Descartar este tiro?" si está más de 15 yds del avg parcial).
+    *   **Integración con Round**: el `WedgeMatrix` del jugador alimenta el Smart Club Selector durante el round. Si el sistema sabe "GW HALF = 95 yds, dispersion 3 yds", al detectar tiro de 95 yds sugiere "GW HALF" como primera opción.
+
+23. **Nombre**: Full Bag Yardage Gapping Session
+    *   **Módulo**: extensión del Drill #16 (Wedge Yardage Gapping con Clock System).
+    *   **Diferencia**: el #16 es solo wedges con clock system (9, 10:30, full). Este es **bag completo**: cada palo del bolso, con 1-3 swing intensities según corresponda, en una sola sesión.
+    *   **Filosofía**: "Un buen wedge player es alguien que pega adentro de 10 ft seguido. Esa es la diferencia entre breaking 80 y subpar."
+    *   **Parámetros**:
+        *   **Cantidad de bolas/intentos**: 5-8 tiros por palo × ~14 palos = 70-112 bolas. Sesión larga (1-2 hs).
+        *   **Setup físico**: range con marcadores de distancia (idealmente con FlightScope/launch monitor para precisión).
+        *   **Output por palo**:
+            -   Full swing: avg yds + dispersion.
+            -   ¾ swing (opcional para irons largos): avg yds.
+            -   ½ swing (opcional para wedges): avg yds.
+        *   **Goal**: tener una **tabla matriz personal** que muestra:
+            ```
+            Club        | Full   | 3/4   | 1/2
+            -------------+--------+-------+------
+            Driver      | 245 yd | -     | -
+            3-wood      | 220    | -     | -
+            4-hybrid    | 195    | 175   | -
+            5-iron      | 180    | 160   | -
+            ...
+            56° wedge   | 90     | 70    | 50
+            ```
+    *   **Output a trackear**:
+        *   `entries`: array de `BagGapEntry` (un row por palo + intensity).
+        *   `gapsIdentified`: lista de "huecos" entre palos (ej. si 8-iron = 150 y 9-iron = 130, hay un gap de 20 yds; ¿se cubre con ¾ 8-iron o pitching ¾?).
+    *   **Modelo Prisma sugerido**:
+        ```prisma
+        model DrillSession {
+            id                 String @id @default(uuid())
+            userId             String
+            drillType          DrillType // Enum: FULL_BAG_YARDAGE_GAPPING
+            date               DateTime @default(now())
+            notes              String?
+            entries            BagGapEntry[]
+            gapsIdentified     Json?    // [{ between: ["8-iron", "9-iron"], gapYards: 20, suggestedFill: "8-iron 3/4" }]
+        }
+
+        model BagGapEntry {
+            id                 String @id @default(uuid())
+            sessionId          String
+            session            DrillSession @relation(fields: [sessionId], references: [id])
+            club               String
+            swingIntensity     String   // "FULL" | "THREE_QUARTER" | "HALF"
+            shots              Float[]  // distancias yds
+            avgYards           Float
+            dispersionYards    Float
+            isReliable         Boolean  // true si 6/8 caen en ±5 yds del avg
+        }
+        ```
+    *   **Integración con Round**: alimenta el club selector inteligente. Cuando el jugador está a 165 yds, la app sugiere "5-iron full (avg 180, ajustá por viento) o 4-hybrid 3/4 (avg 175)".
+
+### Drills y Tests del Short Game (Cinco Áreas)
+
+> **Fuente**: `docs/knowledge-base/resources/short_game_best_drills_and_tests.pdf`. Filosofía clave: **Drill First → Test → Track Results**. Drill = build skill (repetition, technique). Test = measure skill (one ball, pressure, high accountability). Train hard → play easy.
+
+#### Área 1 — Short Putting (face control)
+
+24. **Nombre**: Putting Sword / Gate Drill (Short Putting Drill)
+    *   **Filosofía**: la mayoría de los putts cortos errados son por mal face control en el impacto.
+    *   **Setup físico**: Putting sword o un "gate" (2 tees a la misma distancia que el ancho del putter head + 2-3mm) alrededor de la cabeza del putter.
+    *   **Cantidad**: práctica continua hasta sentir face control.
+    *   **Criterio de éxito**: rodar putts a través del gate sin tocar los tees. Putter cara cuadrada al impacto.
+    *   **Output**: `gateClearedRate` (% de putts limpios), `subjectiveFeedback`.
+    *   **Modelo Prisma**: similar a Drill #6 (Start Line). Enum: `PUTTING_SWORD_GATE_DRILL`.
+
+25. **Nombre**: 10-in-a-Row from 4 Feet (Short Putting Test)
+    *   **Filosofía**: test de presión con 1 bola.
+    *   **Setup físico**: 5 posiciones alrededor del hoyo a 4 ft, en pendiente de ~1 grado.
+    *   **Cantidad**: 10 putts consecutivos (al fallar, reiniciar conteo).
+    *   **Criterio de éxito**: 10 consecutivos. Si fallás, seguís hasta llegar a 10 y registrás cuántos intentos te llevó.
+    *   **Output**: `attemptsToComplete` (cuántos putts totales hasta llegar a 10 seguidos), `longestStreak`.
+    *   **Modelo Prisma**: parecido al Drill #3 (Short Putting 10-in-a-Row pendiente). Reusar `SHORT_PUTTING_10_IN_A_ROW`.
+
+#### Área 2 — Long Putting (speed control)
+
+26. **Nombre**: Eyes on Hole + One-Handed Putting (Long Putting Drills)
+    *   **Filosofía**: la mayoría de los 3-putts vienen de mal pace control, no de línea.
+    *   **Variantes**:
+        *   **Eyes on Hole**: putt mirando al hoyo (no a la bola) → mejora feel y control de distancia.
+        *   **One-Handed Putting**: putt con una sola mano → mejora contacto y ritmo.
+    *   **Cantidad**: 5-10 putts por variante desde 20-50 ft.
+    *   **Criterio de éxito**: subjetivo, "mejor feel".
+    *   **Modelo Prisma**: enum `LONG_PUTTING_EYES_ON_HOLE` y `LONG_PUTTING_ONE_HANDED`. Subjective rating 1-5.
+
+27. **Nombre**: 50 Point Game (Long Putting Test)
+    *   **Filosofía**: test cuantitativo de lag putting con scoring system.
+    *   **Setup físico**: putts desde 20-70 ft, distintas pendientes y direcciones.
+    *   **Scoring**:
+        *   Bola termina **dentro de un círculo de 3 ft** del hoyo = **1 punto**.
+        *   Bola **embocada** = **2 puntos**.
+    *   **Criterio de éxito**: **50 puntos** por sesión (goal por session, no por número de bolas).
+    *   **Output**: `totalPoints`, `puttsAttempted`, `inside3FtCount`, `holedCount`.
+    *   **Modelo Prisma**:
+        ```prisma
+        model DrillSession {
+            id                  String @id @default(uuid())
+            userId              String
+            drillType           DrillType // LONG_PUTTING_50_POINT_GAME
+            date                DateTime @default(now())
+            puttsAttempted      Int
+            inside3FtCount      Int
+            holedCount          Int
+            totalPoints         Int      // computed: holedCount*2 + inside3FtCount
+            targetPoints        Int      @default(50)
+            isPassed            Boolean  // true if totalPoints >= 50
+            attempts            LongPuttAttempt[]
+        }
+
+        model LongPuttAttempt {
+            id                 String @id @default(uuid())
+            sessionId          String
+            session            DrillSession @relation(fields: [sessionId], references: [id])
+            distanceFeet       Float
+            slopeNotes         String?
+            outcome            String   // "INSIDE_3FT" | "HOLED" | "OUTSIDE"
+            pointsScored       Int      // 0 | 1 | 2
+        }
+        ```
+
+#### Área 3 — Fringe Chipping (landing zone control)
+
+28. **Nombre**: Landing Zone Drill (Chipping Drill)
+    *   **Filosofía**: los grandes chippers controlan **el landing spot y el rollout**, no la distancia total.
+    *   **Setup físico**: marcá un landing spot **2 paces (pasos) dentro del green**, marcado con un tee.
+    *   **Cantidad**: 3 tiros consecutivos con cada club.
+    *   **Criterio de éxito**: aterrizar la bola **dentro de 1 ft del landing spot** 3 veces seguidas con cada club. Repetir con distintos clubs (PW, 9-iron, 8-iron, 7-iron, etc).
+    *   **Output**: `landingsWithin1Ft` por club, `clubsCompleted` (cuántos clubs lograste 3-en-fila).
+    *   **Modelo Prisma**: enum `CHIPPING_LANDING_ZONE`. Por club: `clubUsed`, `attempts`, `consecutive3Achieved: Boolean`.
+
+29. **Nombre**: 10-Hole Up-and-Down Test (Chipping Test)
+    *   **Filosofía**: test de presión que simula 10 chip shots reales.
+    *   **Setup físico**: 10 chip shots distintos alrededor del green, simulando lies y distancias variadas.
+    *   **Scoring**:
+        *   **Up & Down** (chip + 1 putt = 2 golpes) = **par** (2).
+        *   **2 putts después del chip** (chip + 2 putts = 3 golpes) = **bogey** (3).
+        *   Más golpes se cuentan tal cual.
+    *   **Criterio de éxito**: **24 o menos** total para los 10 hoyos = score de un jugador que rompe 80.
+    *   **Output**: `totalStrokes`, `upAndDownCount`, `bogeyCount`, `worseCount`.
+    *   **Modelo Prisma**:
+        ```prisma
+        model DrillSession {
+            id                 String @id @default(uuid())
+            userId             String
+            drillType          DrillType // CHIPPING_10_HOLE_UP_AND_DOWN
+            date               DateTime @default(now())
+            totalStrokes       Int
+            upAndDownCount     Int
+            bogeyCount         Int
+            worseCount         Int
+            targetStrokes      Int      @default(24)
+            isPassed           Boolean  // totalStrokes <= 24
+            attempts           ChipTestAttempt[]
+        }
+
+        model ChipTestAttempt {
+            id                 String @id @default(uuid())
+            sessionId          String
+            session            DrillSession @relation(fields: [sessionId], references: [id])
+            holeNumber         Int      // 1-10
+            clubUsed           String?
+            lieType            String?  // "ROUGH" | "FRINGE" | "TIGHT_LIE" | "BUNKER_LIP"
+            chipProximityFeet  Float?
+            puttsAfterChip     Int
+            totalStrokes       Int      // chip + putts
+            isUpAndDown        Boolean
+        }
+        ```
+
+#### Área 4 — Pitching (wedge gapping)
+
+30. **Nombre**: 9-Hole Wedge Course (Pitching Test)
+    *   **Filosofía**: test de presión simulando 9 hoyos solo con wedges.
+    *   **Setup físico**: 9 distintos pitch shots desde **30-80 yds del hoyo**.
+    *   **Scoring** (por hoyo, contando todos los strokes hasta embocar):
+        *   **2 strokes = Par**.
+        *   **3 strokes = Bogey**.
+        *   **4 strokes = Double**.
+    *   **Criterio de éxito**: track total score (no goal específico en el doc; típicamente <27 = nivel breaking-80, <22 = scratch).
+    *   **Output**: `totalScore`, `parCount`, `bogeyCount`, `doubleOrWorseCount`.
+    *   **Drill complementario**: Wedge Matrix (Drill #22) — drill first, then test.
+    *   **Modelo Prisma**: similar al Chipping 9-Hole (Drill #14). Enum: `PITCHING_9_HOLE_WEDGE_COURSE`.
+
+#### Área 5 — Bunker Play (consistent sand strike)
+
+31. **Nombre**: Line Drill (Bunker Drill)
+    *   **Filosofía**: los buenos bunker players controlan **el punto de entrada en la arena**.
+    *   **Setup físico**: dibujá una línea en la arena (con el dedo o el palo).
+    *   **Cantidad**: 3 entradas consecutivas.
+    *   **Criterio de éxito**: entrar en la arena **al inicio de la línea** 3 veces seguidas, **acelerando** a través de la arena. La arena debe salpicar al green; la bola sale "con la arena", no antes.
+    *   **Output**: `consecutiveEntries`, `subjectiveAcceleration` (1-5).
+    *   **Modelo Prisma**: enum `BUNKER_LINE_DRILL`. `consecutiveEntries: Int`, `subjectiveAcceleration: Int`.
+
+32. **Nombre**: 10 Bunker Shots (Bunker Test)
+    *   **Filosofía**: test de presión con scoring system específico.
+    *   **Setup físico**: 10 bunker shots desde un greenside bunker (varias posiciones).
+    *   **Scoring por tiro**:
+        *   **Miss green** = 0 puntos.
+        *   **Hit green** = 1 punto.
+        *   **Inside 10 ft** = 2 puntos.
+        *   **Inside 6 ft** = 3 puntos.
+    *   **Criterio de éxito**: **12 puntos o más** (goal del doc).
+    *   **Output**: `totalPoints`, breakdown por categoría.
+    *   **Modelo Prisma**:
+        ```prisma
+        model DrillSession {
+            id                 String @id @default(uuid())
+            userId             String
+            drillType          DrillType // BUNKER_10_SHOT_TEST
+            date               DateTime @default(now())
+            totalPoints        Int
+            missGreenCount     Int
+            hitGreenCount      Int
+            inside10FtCount    Int
+            inside6FtCount     Int
+            targetPoints       Int      @default(12)
+            isPassed           Boolean
+        }
+        ```
+
 ### Protocolos Mentales
 
 19. **Nombre**: Protocolo: Rutina Pre-shot

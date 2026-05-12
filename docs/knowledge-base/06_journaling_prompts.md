@@ -19,11 +19,26 @@ Los *prompts* post-ronda buscan una evaluación objetiva del rendimiento, despoj
         *   **Modelo de datos:** `Round.holes[].puttAnalysis: { type: Enum('pace', 'line', 'both', 'other'), notes: String }`.
 
 3.  **Pregunta:** "Revisa las 'Reglas de Scoring' que rompiste. ¿Cuáles fueron y cómo contribuyeron a los golpes perdidos o *blow-up holes*?"
-    *   **Lección:** [the-scoring-method-level-2__sec117049_les393066] "Level 2" (Advanced Scorecard).
-    *   **Qué busca extraer:** Identificar comportamientos de riesgo o decisiones subóptimas que llevaron a resultados negativos. Esto ayuda a construir "foresight" para futuras rondas. Ejemplos de reglas rotas: jugar un golpe arriesgado, no tomar el club extra, no jugar el golpe más simple, etc.
+    *   **Lección:** [the-scoring-method-level-2__sec117049_les393066] "Level 2" (Advanced Scorecard) + [live-call-recordings__workshop_2026-05-06_10-keys-to-scoring] (10 Keys Workshop, lista explícita).
+    *   **Qué busca extraer:** Identificar comportamientos de riesgo o decisiones subóptimas que llevaron a resultados negativos. Esto ayuda a construir "foresight" para futuras rondas.
+    *   **Las 10 Keys to Scoring (lista completa, confirmada en el workshop 5/6/26):**
+        1.  `risky_shot` — **Jugué un golpe arriesgado** (querer la bandera con poco margen, intentar un héroe shot desde mala lie).
+        2.  `short_sided` — **Me dejé del lado corto del banderín** (la bola cayó del lado del green donde no hay espacio entre el banderín y el rough/bunker).
+        3.  `misread_lie` — **Leí mal la lie** (no vi el grain, la pendiente, la profundidad de la rough; resultado típico: chunk o blade).
+        4.  `held_bad_shot` — **Me quedé enganchado con el tiro malo** (la frustración del chunk hizo que apurara el siguiente y lo dejara corto).
+        5.  `started_poorly` — **Arranqué mal** (primeros 3 hoyos en cuarta marcha sin warm-up; quemé el round antes del 4).
+        6.  `underclubbed` — **No tomé suficiente palo** (especialmente en upslope donde el loft efectivo aumenta, o con viento, o en frío).
+        7.  `lost_ball` — **Perdí la bola** (penalty stroke + drop).
+        8.  `allowed_frustration` — **Permití que el último golpe me afectara emocionalmente** (subset de holding on, pero más amplio: cualquier carry-over emocional).
+        9.  `no_commitment` — **No me comprometí con el golpe** (visualicé pero no solté, dudé entre 2 clubs y pegué el peor swing).
+        10. `got_away_with_it` — **Zafé pero rompí una regla** (audit-only key: hiciste par/bogey pero jugaste un riesgo que pudo terminar mal). Marcable solo después de 10+ rondas usando el método.
+    *   **Threshold de uso:**
+        *   Principiante (primeras 10 rondas con scoring method): solo llenar back-of-card en hoyos de **double bogey o peor**.
+        *   Avanzado (10+ rondas): auditar cada hoyo, incluyendo "got away with it" en pares y bogeys.
     *   **UI/UX:**
-        *   **Tipo de campo:** Lista de *checkboxes* con las "10 Keys to Scoring" (ej. "Jugué un golpe arriesgado", "No tomé suficiente club", "Perdí la bola", "No me comprometí con el golpe"). Para cada *checkbox* marcado, un campo de texto libre opcional para detalles.
-        *   **Modelo de datos:** `Round.keysBroken: Array<Enum('risky_shot', 'underclubbed', 'lost_ball', 'no_commitment', ...)>, Round.keysBrokenNotes: String`.
+        *   **Tipo de campo:** Lista de *checkboxes* con las 10 keys. Para cada marcada, campo de texto opcional + sugerencia de drill relacionado (ej. risky_shot → Calibration Drill, underclubbed → Wedge Matrix).
+        *   **Threshold automático**: la app oculta el back-of-card si el hoyo fue par/birdie y el jugador tiene <10 rondas. Lo muestra siempre si tiene 10+.
+        *   **Modelo de datos:** `RoundHole.keysBroken: KeysBroken[]` (enum), `RoundHole.keysBrokenNotes: String`. Enum: `RISKY_SHOT | SHORT_SIDED | MISREAD_LIE | HELD_BAD_SHOT | STARTED_POORLY | UNDERCLUBBED | LOST_BALL | ALLOWED_FRUSTRATION | NO_COMMITMENT | GOT_AWAY_WITH_IT`.
 
 4.  **Pregunta:** "Analiza la proximidad de tu primer putt. ¿Qué tan cerca dejaste la bola del hoyo en tus aproximaciones y chips? ¿Dónde necesitas mejorar para acercarla más?"
     *   **Lección:** [the-scoring-method-level-2__sec117054_les393079] "Level 2" (Proximity).

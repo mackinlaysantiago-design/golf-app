@@ -26,10 +26,10 @@ model Course {
 // LABS — coords GPS de greens por hoyo (frente / centro / fondo).
 // Independiente de CourseHole para no romper nada existente.
 model CourseMapPoint {
-  id         String  @id @default(cuid())
-  course     Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId   String
-  holeNumber Int     // 1..18
+  holeNumber Int // 1..18
   // Salida (tee box). Por ahora un solo set; multi-tee (azul/blanco/etc) más adelante.
   teeLat     Float?
   teeLng     Float?
@@ -48,37 +48,37 @@ model CourseMapPoint {
 
 // Tees con Slope / Course Rating / Par — para fórmula WHS cuando no hay tabla pre-cargada
 model CourseTee {
-  id           String  @id @default(cuid())
-  course       Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  courseId     String
-  name         String  // BLANCO | AZUL | NEGRO | ROJO | AMARILLO | etc
-  category     String  @default("CAB") // CAB | DAM
-  slopeRating  Int     // típicamente 110-140
-  courseRating Float   // típicamente 67-74 (para 18 hoyos)
-  parTotal     Int     // total par del recorrido
+  id                 String  @id @default(cuid())
+  course             Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId           String
+  name               String // BLANCO | AZUL | NEGRO | ROJO | AMARILLO | etc
+  category           String  @default("CAB") // CAB | DAM
+  slopeRating        Int // típicamente 110-140
+  courseRating       Float // típicamente 67-74 (para 18 hoyos)
+  parTotal           Int // total par del recorrido
   // Para 9-hoyos: ida/vuelta separados (opcional)
-  slopeIda     Int?
-  courseRatingIda Float?
-  parIda       Int?
-  slopeVuelta  Int?
+  slopeIda           Int?
+  courseRatingIda    Float?
+  parIda             Int?
+  slopeVuelta        Int?
   courseRatingVuelta Float?
-  parVuelta    Int?
-  notes        String?
+  parVuelta          Int?
+  notes              String?
 
   @@unique([courseId, name, category])
 }
 
 // Tabla "Hcp Juego" — index range → course handicap, por modalidad/tee
 model CourseHcpRange {
-  id        String  @id @default(cuid())
-  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id        String @id @default(cuid())
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId  String
-  modality  String  // MEDAL | STABLEFORD | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD_IDA | STABLEFORD_VUELTA
-  tee       String  @default("BLANCO") // BLANCO | AZUL | NEGRO | ROJO ...
-  category  String  @default("CAB")    // CAB | DAM
-  indexFrom Float   // ej -8.0
-  indexTo   Float   // ej -7.6
-  courseHcp Int     // ej -11
+  modality  String // MEDAL | STABLEFORD | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD_IDA | STABLEFORD_VUELTA
+  tee       String @default("BLANCO") // BLANCO | AZUL | NEGRO | ROJO ...
+  category  String @default("CAB") // CAB | DAM
+  indexFrom Float // ej -8.0
+  indexTo   Float // ej -7.6
+  courseHcp Int // ej -11
 
   @@index([courseId, modality, tee, category])
 }
@@ -87,10 +87,10 @@ model CourseHole {
   id       String @id @default(cuid())
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId String
-  number   Int    // 1..18
-  par      Int    // 3, 4 ó 5
-  hcpHoyo  Int    // 1..18, índice de handicap del hoyo
-  yards    Int?   // opcional
+  number   Int // 1..18
+  par      Int // 3, 4 ó 5
+  hcpHoyo  Int // 1..18, índice de handicap del hoyo
+  yards    Int? // opcional
 
   @@unique([courseId, number])
 }
@@ -98,33 +98,44 @@ model CourseHole {
 // ============ JUGADORES ============
 
 model Player {
-  id              String        @id @default(cuid())
-  name            String        @unique
-  hcpIndex        Float?        // ej: 8.9
-  isMe            Boolean       @default(false) // marca a Santiago
-  lucilaMatricula String?       @unique // matrícula del socio La Lucila (para sync auto)
-  lastHcpUpdate   DateTime?     // última actualización del HCP via sync
+  id                          String                 @id @default(cuid())
+  name                        String                 @unique
+  hcpIndex                    Float? // ej: 8.9
+  isMe                        Boolean                @default(false) // marca a Santiago
+  lucilaMatricula             String?                @unique // matrícula del socio La Lucila (para sync auto)
+  lastHcpUpdate               DateTime? // última actualización del HCP via sync
   // Niveles personales del Scoring Method — suben cuando lográs perfect run en una ronda
-  enterSzYds        Int @default(50)  // yds que define "Enter SZ"
-  downInSzStrokes   Int @default(3)   // golpes desde SZ que define "Down in SZ"
-  onePuttCircleFt   Int @default(3)   // ft del 1-putt circle
-  twoPuttCircleYds  Int @default(20)  // yds del 2-putt circle
+  enterSzYds                  Int                    @default(50) // yds que define "Enter SZ"
+  downInSzStrokes             Int                    @default(3) // golpes desde SZ que define "Down in SZ"
+  onePuttCircleFt             Int                    @default(3) // ft del 1-putt circle
+  twoPuttCircleYds            Int                    @default(20) // yds del 2-putt circle
   // Mental — Golfing Thermostat (rango habitual de score)
-  scoreThermostatMin Int? // ej 78 — score más bajo que solés hacer
-  scoreThermostatMax Int? // ej 88 — score más alto típico
-  scoreDesired       Int? // score aspiracional (debería estar BAJO el thermostat)
+  scoreThermostatMin          Int? // ej 78 — score más bajo que solés hacer
+  scoreThermostatMax          Int? // ej 88 — score más alto típico
+  scoreDesired                Int? // score aspiracional (debería estar BAJO el thermostat)
   // Mental — Identidad (Be/Do/Have)
-  limitingBelief     String? // historia limitante actual
-  empoweringBelief   String? // historia opuesta que querés contarte
-  admiredGolfer      String? // golfista que admirás (modelado)
-  beDoHave           String? // qué "es", "hace", "tiene" + cómo empezar a serlo
+  limitingBelief              String? // historia limitante actual
+  empoweringBelief            String? // historia opuesta que querés contarte
+  admiredGolfer               String? // golfista que admirás (modelado)
+  beDoHave                    String? // qué "es", "hace", "tiene" + cómo empezar a serlo
   // Mental — Rutinas
-  preShotRoutine     String? // descripción de tu rutina pre-shot
-  postShotRoutine    String? // descripción de tu rutina post-shot
-  createdAt       DateTime      @default(now())
-  roundEntries    RoundPlayer[]
-  visualizations  VisualizationSession[]
-  mentalNotes     MentalNote[]
+  preShotRoutine              String? // descripción de tu rutina pre-shot
+  postShotRoutine             String? // descripción de tu rutina post-shot
+  // Pre-game routine (Workshop 5/6/26 — 10 Keys to Scoring)
+  goToClubOffTheTee           String? // ej DRIVER | HYBRID_4 | IRON_2 — palo confiable sin warm-up
+  goToClubReason              String? // ej "Mi palo más recto"
+  warmupPreference            String? // FULL | SHORT | NONE_OK — preferencia típica
+  typicalConditionAdjustments Json? // [{ factor: "cold", strokesAdded: 2 }, ...]
+  auditModeEnabled            Boolean                @default(false) // habilita "got away with it" tracking (>= 10 rondas)
+  createdAt                   DateTime               @default(now())
+  roundEntries                RoundPlayer[]
+  visualizations              VisualizationSession[]
+  mentalNotes                 MentalNote[]
+  personalPars                RoundPersonalPar[]
+  stupidHoles                 StupidHole[]
+  calibrationSessions         CalibrationSession[]
+  wedgeMatrixSessions         WedgeMatrixSession[]
+  bagGapSessions              BagGapSession[]
 }
 
 // Notas mentales — creencias, self-talk, emociones (Mental Mastery del SM)
@@ -132,10 +143,10 @@ model MentalNote {
   id        String   @id @default(cuid())
   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   playerId  String
-  type      String   // BELIEF | SELF_TALK | EMOTION | STORY
-  context   String?  // ROUND | PRACTICE | GENERAL
-  contextId String?  // id de la ronda/sesión si aplica
-  content   String   // el pensamiento/creencia/emoción
+  type      String // BELIEF | SELF_TALK | EMOTION | STORY
+  context   String? // ROUND | PRACTICE | GENERAL
+  contextId String? // id de la ronda/sesión si aplica
+  content   String // el pensamiento/creencia/emoción
   positive  Boolean? // true si es positivo, false si negativo, null si neutro
   createdAt DateTime @default(now())
 
@@ -148,10 +159,10 @@ model VisualizationSession {
   id        String   @id @default(cuid())
   player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   playerId  String
-  roundId   String?  // si fue pre-ronda específica
+  roundId   String? // si fue pre-ronda específica
   date      DateTime @default(now())
-  score     Int?     // score visualizado
-  notes     String?  // detalles de la ronda visualizada
+  score     Int? // score visualizado
+  notes     String? // detalles de la ronda visualizada
   createdAt DateTime @default(now())
 
   @@index([playerId])
@@ -161,55 +172,66 @@ model VisualizationSession {
 // ============ RONDAS ============
 
 model Round {
-  id     String @id @default(cuid())
-  course Course @relation(fields: [courseId], references: [id])
-  courseId String
-  date   DateTime
-  mode   String // SOLO | TWO_P | THREE_P | FOUR_P
-  modality String @default("MEDAL") // MEDAL | STABLEFORD | MATCH
-  tee      String @default("BLANCO")
+  id                   String    @id @default(cuid())
+  course               Course    @relation(fields: [courseId], references: [id])
+  courseId             String
+  date                 DateTime
+  mode                 String // SOLO | TWO_P | THREE_P | FOUR_P
+  modality             String    @default("MEDAL") // MEDAL | STABLEFORD | MATCH
+  tee                  String    @default("BLANCO")
   // 9 o 18 hoyos — define cuándo la ronda se considera completa
-  holesPlayed Int    @default(18)
-  nineWhich   String? // IDA | VUELTA — solo cuando holesPlayed=9
-  closedAt    DateTime? // marca explícita de "ronda finalizada"
+  holesPlayed          Int       @default(18)
+  nineWhich            String? // IDA | VUELTA — solo cuando holesPlayed=9
+  closedAt             DateTime? // marca explícita de "ronda finalizada"
   // Configs Scoring Method (por ronda — clave de tu planilla)
-  enterSzYds       Int @default(50)  // yds que define "Enter SZ"
-  downInSzStrokes  Int @default(3)   // golpes desde SZ que define "Down in SZ"
-  onePuttCircleFt  Int @default(6)   // ft del 1-putt circle
-  twoPuttCircleYds Int @default(20)  // yds del 2-putt circle (para distribución putt)
+  enterSzYds           Int       @default(50) // yds que define "Enter SZ"
+  downInSzStrokes      Int       @default(3) // golpes desde SZ que define "Down in SZ"
+  onePuttCircleFt      Int       @default(6) // ft del 1-putt circle
+  twoPuttCircleYds     Int       @default(20) // yds del 2-putt circle (para distribución putt)
   // 4P parejas
-  pairs     String?  // JSON: [["playerId1","playerId2"],["playerId3","playerId4"]]
-  notes     String?
+  pairs                String? // JSON: [["playerId1","playerId2"],["playerId3","playerId4"]]
+  notes                String?
   // The Scoring Method — reflexión post-ronda (Level 2)
-  bestParts String?  // JSON array de strings — qué jugaste mejor hoy
-  bestShot  String?  // descripción del mejor tiro del día
+  bestParts            String? // JSON array de strings — qué jugaste mejor hoy
+  bestShot             String? // descripción del mejor tiro del día
   // Mental Mastery — compromiso promedio del día (1-10)
-  commitmentScore Int? // qué tan comprometido estuviste con cada shot
-  emotionPlayed   String? // emoción dominante de la ronda (CONFIANZA, NERVIOS, etc.)
+  commitmentScore      Int? // qué tan comprometido estuviste con cada shot
+  emotionPlayed        String? // emoción dominante de la ronda (CONFIANZA, NERVIOS, etc.)
   // Journaling estructurado (Sprint 5)
-  problemArea     String? // LONG_GAME | SHORT_GAME | BOTH | UNSURE — dónde te sentiste flojo
+  problemArea          String? // LONG_GAME | SHORT_GAME | BOTH | UNSURE — dónde te sentiste flojo
   emotionalStateBefore Json? // array de emociones pre-ronda (chips)
-  createdAt DateTime @default(now())
+  // First/Last segments (Workshop 5/6/26 + Round Assessment Card)
+  firstThreeStrokes    Int?
+  lastThreeStrokes     Int?
+  front9Strokes        Int?
+  back9Strokes         Int?
+  // Compounding detection (Workshop 5/6/26)
+  compoundingDetected  Boolean   @default(false)
+  compoundingHoles     Json? // [13, 14] — hoyos donde se detectó compounding
+  compoundingNotes     String?
+  createdAt            DateTime  @default(now())
 
-  players RoundPlayer[]
-  holes   RoundHole[]
-  bets    RoundBet[]
-  tasks   PracticeTask[]
+  players        RoundPlayer[]
+  holes          RoundHole[]
+  bets           RoundBet[]
+  tasks          PracticeTask[]
+  personalPar    RoundPersonalPar?
+  assessmentCard RoundAssessmentCard?
 }
 
 // Tareas de práctica pendientes — origen Round (PP plan) o RangeSession (FlightScope).
 // Se crean automáticamente y se cierran cuando el jugador las completa.
 model PracticeTask {
   id             String        @id @default(cuid())
-  sourceType     String        // ROUND | RANGE_SESSION
+  sourceType     String // ROUND | RANGE_SESSION
   round          Round?        @relation(fields: [roundId], references: [id], onDelete: Cascade)
   roundId        String?
   rangeSession   RangeSession? @relation(fields: [rangeSessionId], references: [id], onDelete: Cascade)
   rangeSessionId String?
-  code           String        // PP "1"|"2"|"A"|"B" para ronda, "FLIGHTSCOPE" para range
-  label          String        // ej "Putts errados <4ft" o "Revisar análisis Hierro 7"
-  description    String?       // contexto extra
-  timesToAchieve Int           // 1 si es solo "revisar"
+  code           String // PP "1"|"2"|"A"|"B" para ronda, "FLIGHTSCOPE" para range
+  label          String // ej "Putts errados <4ft" o "Revisar análisis Hierro 7"
+  description    String? // contexto extra
+  timesToAchieve Int // 1 si es solo "revisar"
   timesCompleted Int           @default(0)
   status         String        @default("PENDING") // PENDING | DONE | SKIPPED
   createdAt      DateTime      @default(now())
@@ -222,26 +244,26 @@ model PracticeTask {
 
 // Apuestas por ronda — Match/Medal/Stableford con plata
 model RoundBet {
-  id        String @id @default(cuid())
-  round     Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  roundId   String
-  modality  String // MATCH | MATCH_IDA | MATCH_VUELTA | MEDAL | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD | STABLEFORD_IDA | STABLEFORD_VUELTA
-  amount    Float  // plata apostada (cada uno) — el ganador se lleva el total
-  currency  String @default("ARS")
+  id       String @id @default(cuid())
+  round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId  String
+  modality String // MATCH | MATCH_IDA | MATCH_VUELTA | MEDAL | MEDAL_IDA | MEDAL_VUELTA | STABLEFORD | STABLEFORD_IDA | STABLEFORD_VUELTA
+  amount   Float // plata apostada (cada uno) — el ganador se lleva el total
+  currency String @default("ARS")
 
   @@unique([roundId, modality])
 }
 
 model RoundPlayer {
-  id          String @id @default(cuid())
-  round       Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  roundId     String
-  player      Player @relation(fields: [playerId], references: [id])
-  playerId    String
-  hcpIndex    Float?  // index del jugador para esa fecha
-  courseHcp   Int?    // course handicap del día principal (Medal Total) — para stroke allocation por hoyo
-  modalityHcps Json?  // cache de CH por modalidad: { MEDAL: 6, STABLEFORD: 5, MEDAL_IDA: 3, ... }
-  position    Int     // 1..4 orden de display
+  id           String @id @default(cuid())
+  round        Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId      String
+  player       Player @relation(fields: [playerId], references: [id])
+  playerId     String
+  hcpIndex     Float? // index del jugador para esa fecha
+  courseHcp    Int? // course handicap del día principal (Medal Total) — para stroke allocation por hoyo
+  modalityHcps Json? // cache de CH por modalidad: { MEDAL: 6, STABLEFORD: 5, MEDAL_IDA: 3, ... }
+  position     Int // 1..4 orden de display
 
   holes RoundHole[]
 
@@ -267,19 +289,22 @@ model RoundHole {
   puttsInside1PuttCircle Int?
   score                  Int? // golpes totales del hoyo
   // The Scoring Method — Level 2
-  penaltyStrokes  Int?  // golpes de penalidad en el hoyo (key #2)
-  keysBroken      Json? // array de números 1-10 — keys del método rotas
+  penaltyStrokes         Int? // golpes de penalidad en el hoyo (key #2)
+  keysBroken             Json? // array de números 1-10 — keys del método rotas
   // Gears of the Game — goal específico que el jugador eligió para este hoyo
   // (puede diferir del goal de la ronda si bajó/subió táctico)
   // Formato: "100/3" | "100/2" | "125/2" | "150/2"
-  targetGoal      String?
+  targetGoal             String?
   // DECADE — decisiones pre-shot por hoyo
-  pinColor        String?  // GREEN | YELLOW | RED — semáforo de pin location
-  dangerSide      String?  // L | R | NONE — lado peor del fairway (OB/agua)
-  aimedAtCenter   Boolean? // ¿apuntaste al centro del green (no a la bandera)?
-  recoveryMode    Boolean? // ¿estuviste en problemas y jugaste solo para volver?
+  pinColor               String? // GREEN | YELLOW | RED — semáforo de pin location
+  dangerSide             String? // L | R | NONE — lado peor del fairway (OB/agua)
+  aimedAtCenter          Boolean? // ¿apuntaste al centro del green (no a la bandera)?
+  recoveryMode           Boolean? // ¿estuviste en problemas y jugaste solo para volver?
   // Journaling — diagnóstico de putts fallados (Sprint 5)
-  puttAnalysis    String?  // PACE | LINE | BOTH | OTHER — solo para 3-putts o miss <4ft
+  puttAnalysis           String? // PACE | LINE | BOTH | OTHER — solo para 3-putts o miss <4ft
+  // Bunker tracking por hoyo (Round Assessment Card)
+  bunkerShots            Int? // # tiros desde bunker en este hoyo
+  bunkerUpAndDown        Boolean? // true si pasó del bunker al hoyo en 2 tiros
 
   @@unique([roundPlayerId, holeNumber])
 }
@@ -289,10 +314,10 @@ model RoundHole {
 model RangeSession {
   id         String   @id @default(cuid())
   date       DateTime
-  club       String   // DRIVER | WOOD_3 | HYBRID | IRON_7 | etc
+  club       String // DRIVER | WOOD_3 | HYBRID | IRON_7 | etc
   notes      String?
-  imagePath  String?  // path al screenshot subido
-  aiAnalysis String?  // markdown cacheado
+  imagePath  String? // path al screenshot subido
+  aiAnalysis String? // markdown cacheado
   createdAt  DateTime @default(now())
 
   shots RangeShot[]
@@ -301,10 +326,10 @@ model RangeSession {
 
 // Sesión de Purposeful Practice (PP) — Will Robins method
 model PracticeSession {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   date      DateTime
   notes     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
   drills    PracticeDrill[]
 }
 
@@ -316,28 +341,28 @@ model PracticeSession {
 //   WEDGES_50 / WEDGES_70 / WEDGES_100 — 10 wedges desde N yds, # dentro 2-putt circle
 //   GO_TO_CLUB        — N tiros con palo target a fairway, # en fairway
 model PracticeDrill {
-  id         String          @id @default(cuid())
-  session    PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId  String
-  drillType  String          // ONE_PUTT_CIRCLE | TWO_PUTT_CIRCLE | CHIPPING | WEDGES_50 | WEDGES_70 | WEDGES_100 | GO_TO_CLUB
-  distance   Int?            // ft o yds según drill
-  club       String?         // Para GO_TO_CLUB: IRON_7 | IRON_6 | DRIVER | etc
-  ppCode     String?         // A | B | 1 | 2 — qué PP plan code ataca
-  target     Float?          // referencia (mejor marca o config)
-  timesToAchieve  Int?       // veces a lograr el target (vienen del PP plan de la ronda)
-  timesAchieved   Int?       // veces logradas en esta sesión (= # de attempts que cumplieron target)
-  attemptsJson Json?         // array de scores: [8, 6, 9] o para chipping [3,4,2,3,3,2,3,3,2]
-  leveledUp  Boolean         @default(false) // true si cumplió plan completo (timesAchieved >= timesToAchieve)
-  notes      String?
+  id             String          @id @default(cuid())
+  session        PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId      String
+  drillType      String // ONE_PUTT_CIRCLE | TWO_PUTT_CIRCLE | CHIPPING | WEDGES_50 | WEDGES_70 | WEDGES_100 | GO_TO_CLUB
+  distance       Int? // ft o yds según drill
+  club           String? // Para GO_TO_CLUB: IRON_7 | IRON_6 | DRIVER | etc
+  ppCode         String? // A | B | 1 | 2 — qué PP plan code ataca
+  target         Float? // referencia (mejor marca o config)
+  timesToAchieve Int? // veces a lograr el target (vienen del PP plan de la ronda)
+  timesAchieved  Int? // veces logradas en esta sesión (= # de attempts que cumplieron target)
+  attemptsJson   Json? // array de scores: [8, 6, 9] o para chipping [3,4,2,3,3,2,3,3,2]
+  leveledUp      Boolean         @default(false) // true si cumplió plan completo (timesAchieved >= timesToAchieve)
+  notes          String?
 }
 
 model RangeShot {
-  id           String       @id @default(cuid())
-  session      RangeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId    String
-  shotNumber   Int          // 1..N o 0 para AVG/DEV
-  rowType      String       @default("SHOT") // SHOT | AVG | DEV
-  club         String?      // override del club de la sesión — permite mezclar palos en una misma sesión
+  id         String       @id @default(cuid())
+  session    RangeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  shotNumber Int // 1..N o 0 para AVG/DEV
+  rowType    String       @default("SHOT") // SHOT | AVG | DEV
+  club       String? // override del club de la sesión — permite mezclar palos en una misma sesión
 
   carryYds           Float?
   rollYds            Float?
@@ -360,4 +385,290 @@ model RangeShot {
   shotType           String? // Hook | Slice | Push | Pull | Straight | etc
 
   @@unique([sessionId, shotNumber, rowType])
+}
+
+// ============ PRE-GAME ROUTINE (Workshop 5/6/26) ============
+
+// Personal Par definido pre-ronda (ver 10_pre_game_routine.md §10.1)
+model RoundPersonalPar {
+  id                  String   @id @default(cuid())
+  round               Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId             String   @unique
+  player              Player   @relation(fields: [playerId], references: [id])
+  playerId            String
+  coursePar           Int
+  playerHandicap      Float
+  // Asignación propia de los strokes (puede diferir del stroke index del course)
+  strokeAllocation    Json? // [{ holeNumber: 1, strokesAllocated: 1 }, ...]
+  conditionAdjustment Int      @default(0)
+  conditionFactors    Json? // ["cold", "wind", "no_warmup", "first_round"]
+  targetPersonalPar   Int
+  firstThreeBuffer    Int      @default(0) // strokes "regalados" en primeros 3 hoyos
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  @@index([playerId])
+}
+
+// Hoyos "stupid" — estrategia conservativa pre-decidida (§10.4)
+model StupidHole {
+  id          String   @id @default(cuid())
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId    String
+  courseId    String
+  holeNumber  Int
+  strategy    String? // ej "putter putter putter"
+  shotPlan    Json? // [{ shotNum: 1, club: "7-iron", target: "fairway center" }, ...]
+  targetScore Int? // típicamente bogey
+  successRate Float? // % veces que ejecutaste el plan
+  attempts    Int      @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([playerId, courseId, holeNumber])
+  @@index([courseId])
+}
+
+// Calibration drill pre-ronda (§10.3 + Drill #21)
+model CalibrationSession {
+  id                     String   @id @default(cuid())
+  player                 Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId               String
+  roundId                String? // si fue calibración pre-ronda específica
+  date                   DateTime @default(now())
+  calibrationOffsetYards Float? // negativo = left, positivo = right
+  offsetDirection        String? // LEFT | RIGHT | STRAIGHT
+  phase1AvgDispersion    Float? // yds promedio del target en 3 swings sin pensar
+  phase2SuccessRate      Float? // 0-1, % de bolas dentro de ±5 yds tras aplicar offset
+  clubsRotated           Json? // ["driver", "7-iron", "wedge", "hybrid_4"]
+  notes                  String?
+
+  @@index([playerId])
+  @@index([roundId])
+}
+
+// ============ WEDGE MATRIX / BAG GAPPING (Drills #22, #23) ============
+
+// Sesión de Wedge Matrix (4×4: LW/SW/GW/PW × PITCH/HALF/3-4/FULL)
+model WedgeMatrixSession {
+  id       String             @id @default(cuid())
+  player   Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId String
+  date     DateTime           @default(now())
+  notes    String?
+  entries  WedgeMatrixEntry[]
+
+  @@index([playerId])
+}
+
+model WedgeMatrixEntry {
+  id                     String             @id @default(cuid())
+  session                WedgeMatrixSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId              String
+  wedgeType              String // LW | SW | GW | PW
+  swingType              String // PITCH | HALF | THREE_QUARTER | FULL
+  shots                  Json // array de 8 floats (yds)
+  avgYards               Float
+  dispersionYards        Float? // max - min de los buenos
+  goalDispersionYards    Float              @default(4)
+  chunksOrBladesRejected Int                @default(0)
+  isLockedIn             Boolean            @default(false) // 8/9 dentro del goal
+
+  @@unique([sessionId, wedgeType, swingType])
+}
+
+// Full Bag Yardage Gapping — todos los palos, todas las intensidades
+model BagGapSession {
+  id             String        @id @default(cuid())
+  player         Player        @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId       String
+  date           DateTime      @default(now())
+  notes          String?
+  gapsIdentified Json? // [{ between: ["8-iron","9-iron"], gapYards: 20, suggestedFill: "8-iron 3/4" }]
+  entries        BagGapEntry[]
+
+  @@index([playerId])
+}
+
+model BagGapEntry {
+  id              String        @id @default(cuid())
+  session         BagGapSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId       String
+  club            String // DRIVER | WOOD_3 | HYBRID_4 | IRON_5 | ... | LW
+  swingIntensity  String // FULL | THREE_QUARTER | HALF
+  shots           Json // array de floats (yds)
+  avgYards        Float
+  dispersionYards Float?
+  isReliable      Boolean       @default(false) // 6/8 dentro de ±5 yds
+
+  @@unique([sessionId, club, swingIntensity])
+}
+
+// ============ ROUND ASSESSMENT CARD (oficial TSM, ver 11_round_assessment_card.md) ============
+
+model RoundAssessmentCard {
+  id      String @id @default(cuid())
+  round   Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId String @unique
+
+  // A — PRE ROUND PREPARATION
+  practiceRound      Boolean @default(false)
+  yardageBook        Boolean @default(false)
+  writtenPlan        Boolean @default(false)
+  personalParDefined Boolean @default(false)
+
+  // B — PREP THAT DAY
+  warmUp      String?
+  mentalFocus String?
+
+  // C — ENTERING THE SCORING ZONE (counts por zona)
+  enterSz100Y         Int    @default(0)
+  enterSz50Y          Int    @default(0)
+  enterSz25Y          Int    @default(0)
+  enterSzGIR          Int    @default(0)
+  x100                Int?
+  penalties           Int    @default(0)
+  proximityFromGirFt  Float?
+  proximityFrom25YFt  Float?
+  proximityFrom50YFt  Float?
+  proximityFrom100YFt Float?
+
+  // D — DOWN IN THE SCORING ZONE (histograma 0-5)
+  downInSz0 Int @default(0)
+  downInSz1 Int @default(0)
+  downInSz2 Int @default(0)
+  downInSz3 Int @default(0)
+  downInSz4 Int @default(0)
+  downInSz5 Int @default(0)
+
+  // E — PAR BREAKDOWN
+  par5Count Int    @default(0)
+  par4Count Int    @default(0)
+  par3Count Int    @default(0)
+  par5Avg   Float?
+  par4Avg   Float?
+  par3Avg   Float?
+
+  // F — SCORE BREAKDOWN
+  eaglesCount       Int @default(0)
+  birdiesCount      Int @default(0)
+  parsCount         Int @default(0)
+  bogeysCount       Int @default(0)
+  doubleBogeysCount Int @default(0)
+  othersCount       Int @default(0)
+  // first/last/front/back ya están en Round
+
+  // G — STATS
+  bunkerShotsTotal        Int @default(0)
+  bunkerShotsUpAndDown    Int @default(0)
+  greenSideUpDownAttempts Int @default(0)
+  greenSideUpDownMade     Int @default(0)
+  totalPutts              Int @default(0)
+  total3Putts             Int @default(0)
+  puttsMade0to3           Int @default(0)
+  puttsAttempts0to3       Int @default(0)
+  puttsMade3to6           Int @default(0)
+  puttsAttempts3to6       Int @default(0)
+  puttsMade6to10          Int @default(0)
+  puttsAttempts6to10      Int @default(0)
+
+  // H — BEST PART
+  bestPartOfRound String?
+
+  // I — POST ROUND SELF ASSESSMENT (% 0-100)
+  mentalStrengthPct   Int?
+  positiveSelfTalkPct Int?
+  fortitudePct        Int?
+  shotSelectionPct    Int?
+  shotExecutionPct    Int?
+
+  // J — SKILL SETS TO WORK ON
+  skillUnder10Putts String?
+  skillLagPutts     String?
+  skillChippingProx String?
+  skillWedgesProx   String?
+  skillBallStriking String?
+  skillGoToClub     String?
+
+  // K — LESSONS LEARNED
+  lessonsLearned String?
+
+  // Computed (fórmula del card: 95 - GIR*2 = expectedScore)
+  expectedScore         Int?
+  strokesGainedDelta    Int? // round.score - expectedScore
+  strokesGainedCategory String? // GAINED | LOST | NEUTRAL
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============ SHORT GAME TESTS (5 áreas, ver 12_drill_test_taxonomy.md) ============
+// Cada test es one-ball, pressure, high accountability.
+
+// Test #27 — 50 Point Game (Long Putting)
+model LongPuttingTestSession {
+  id             String   @id @default(cuid())
+  playerId       String
+  date           DateTime @default(now())
+  puttsAttempted Int
+  inside3FtCount Int      @default(0)
+  holedCount     Int      @default(0)
+  totalPoints    Int // holedCount*2 + inside3FtCount
+  targetPoints   Int      @default(50)
+  isPassed       Boolean  @default(false)
+  attempts       Json? // [{ distanceFeet, slopeNotes, outcome, pointsScored }]
+  notes          String?
+
+  @@index([playerId])
+}
+
+// Test #29 — 10-Hole Up-and-Down (Chipping)
+model ChippingUpAndDownSession {
+  id             String   @id @default(cuid())
+  playerId       String
+  date           DateTime @default(now())
+  totalStrokes   Int
+  upAndDownCount Int      @default(0)
+  bogeyCount     Int      @default(0)
+  worseCount     Int      @default(0)
+  targetStrokes  Int      @default(24)
+  isPassed       Boolean  @default(false)
+  attempts       Json? // [{ holeNumber, clubUsed, lieType, chipProximityFeet, puttsAfterChip, totalStrokes, isUpAndDown }]
+  notes          String?
+
+  @@index([playerId])
+}
+
+// Test #30 — 9-Hole Wedge Course (Pitching, 30-80 yds)
+model WedgeCourseSession {
+  id                 String   @id @default(cuid())
+  playerId           String
+  date               DateTime @default(now())
+  totalScore         Int
+  parCount           Int      @default(0)
+  bogeyCount         Int      @default(0)
+  doubleOrWorseCount Int      @default(0)
+  attempts           Json? // [{ holeNumber, distanceYards, strokes }]
+  notes              String?
+
+  @@index([playerId])
+}
+
+// Test #32 — 10 Bunker Shots (Bunker Play, points-based)
+model BunkerTestSession {
+  id              String   @id @default(cuid())
+  playerId        String
+  date            DateTime @default(now())
+  totalPoints     Int
+  missGreenCount  Int      @default(0)
+  hitGreenCount   Int      @default(0)
+  inside10FtCount Int      @default(0)
+  inside6FtCount  Int      @default(0)
+  targetPoints    Int      @default(12)
+  isPassed        Boolean  @default(false)
+  attempts        Json? // [{ shotNumber, outcome, pointsScored }]
+  notes           String?
+
+  @@index([playerId])
 }
