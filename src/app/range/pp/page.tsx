@@ -290,8 +290,8 @@ export default async function PPListPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Link href="/range/pp/nueva" className="gf-btn">
-          + Sesión libre
+        <Link href="/range/pp/setup" className="gf-btn">
+          + Nueva sesión
         </Link>
         <Link href="/range/pp/challenges" className="gf-btn gf-btn-secondary">
           🎯 Challenges

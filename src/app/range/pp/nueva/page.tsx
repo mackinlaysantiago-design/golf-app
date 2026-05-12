@@ -82,6 +82,8 @@ export default function NuevaPPPage() {
     challengeId: string | null;
     day: number | null;
   }>({ challengeId: null, day: null });
+  // Drills preseleccionados desde el wizard de /range/pp/setup (?drills=t1,t2,...)
+  const [preselectedDrills, setPreselectedDrills] = useState<Set<DrillType> | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -89,6 +91,10 @@ export default function NuevaPPPage() {
       challengeId: url.searchParams.get("challenge"),
       day: url.searchParams.get("day") ? parseInt(url.searchParams.get("day")!) : null,
     });
+    const drillsParam = url.searchParams.get("drills");
+    if (drillsParam) {
+      setPreselectedDrills(new Set(drillsParam.split(",") as DrillType[]));
+    }
   }, []);
   const challenge = challengeCtx.challengeId
     ? ALL_CHALLENGES.find((c) => c.id === challengeCtx.challengeId)
@@ -159,12 +165,19 @@ export default function NuevaPPPage() {
                 enabled: true,
               };
             }
+            // Pre-tildar drills preseleccionados por el wizard de /setup
+            if (preselectedDrills?.has(drill.type)) {
+              next[drill.type] = {
+                ...next[drill.type],
+                enabled: true,
+              };
+            }
           }
           return next;
         });
       })
       .catch(() => {});
-  }, []);
+  }, [preselectedDrills, challengeDayInfo]);
 
   function update<T extends keyof DrillEntry>(type: DrillType, field: T, value: DrillEntry[T]) {
     setDrills((prev) => ({ ...prev, [type]: { ...prev[type], [field]: value } }));
