@@ -112,13 +112,16 @@ body {
     border: 1px solid var(--border);
   }
   .gf-section-header {
-    background: var(--fairway);
-    color: var(--white);
-    padding: 12px 16px;
-    border-radius: 14px;
+    /* Title sutil — separa secciones sin competir con los botones primarios.
+       Bebas font + underline verde claro + uppercase. NO usa fondo lleno. */
+    color: var(--fairway);
+    padding: 14px 4px 6px;
     font-family: var(--font-bebas), sans-serif;
-    font-size: 22px;
-    letter-spacing: 0.04em;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--green-pale);
+    margin-bottom: 6px;
   }
   .gf-table {
     width: 100%;

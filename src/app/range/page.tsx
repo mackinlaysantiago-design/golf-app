@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { SectionHeader } from "@/components/ui/Card";
+import { Card, SectionHeader } from "@/components/ui/Card";
 import Link from "next/link";
 import PendingTasks from "./PendingTasks";
 import DispersionUploader from "./DispersionUploader";
@@ -57,19 +57,33 @@ export default async function RangePage() {
     <div className="px-4 pt-6 pb-4 space-y-4">
       <header>
         <h1 className="gf-display text-4xl text-[var(--fairway)]">Range</h1>
-        <p className="text-sm text-[var(--muted)]">Dispersión por palo · Purposeful Practice</p>
+        <p className="text-sm text-[var(--muted)]">Tareas · Dispersión · Práctica</p>
       </header>
 
-      <Link href="/range/pp" className="gf-btn gf-btn-secondary w-full">
-        🎯 Purposeful Practice
-      </Link>
-
+      {/* 1. Tareas pendientes */}
       <SectionHeader>Tareas pendientes ({pendingTasks.length})</SectionHeader>
       <PendingTasks tasks={tasksSerialized} />
 
+      {/* 2. Dispersión por palo */}
       <SectionHeader>Dispersión por palo</SectionHeader>
       <DispersionUploader />
       <DispersionList rows={dispersions} />
+
+      {/* 3. Purposeful Practice — botón prominente al final */}
+      <SectionHeader>Purposeful Practice</SectionHeader>
+      <Link href="/range/pp" className="block">
+        <Card className="!p-4 flex items-center justify-between hover:shadow-lg transition-shadow" style={{ borderLeft: "4px solid var(--green)" }}>
+          <div>
+            <div className="font-bold text-base text-[var(--fairway)]">
+              🎯 Empezar Purposeful Practice
+            </div>
+            <div className="text-xs text-[var(--muted)] mt-0.5">
+              Wizard de drills · Auto-PP o Custom · Historial de sesiones
+            </div>
+          </div>
+          <span className="text-[var(--green)] text-2xl">›</span>
+        </Card>
+      </Link>
     </div>
   );
 }
