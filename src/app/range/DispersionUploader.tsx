@@ -9,10 +9,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 
-const PLACEHOLDER = `club,carry_avg_yds,carry_dev_yds,lateral_dev_yds,lateral_bias_yds,lateral_bias_dir,ellipse_length_yds,ellipse_width_yds,sessions_count,last_updated
-PW,114,6,5,0.6,R,12,10,2,2026-05
-7I,164,7,15,0.9,L,14,30,2,2026-05
-Driver,262,6,20,4.3,R,12,40,7,2026-05`;
+const PLACEHOLDER = `club,n,carry_p25,carry_p50,carry_p90,confidence_pct,lat_p50,pct_right,lat_spread_p90,sessions_count,last_updated
+Driver,73,234.2,252.8,270.0,37.0,7.2,61.6,54.5,5,2026-05
+7 Iron,47,141.1,146.6,156.7,76.6,0.8,53.2,25.4,2,2026-05
+PW,26,100.3,108.0,122.5,61.5,2.3,57.7,11.5,2,2026-05`;
 
 export default function DispersionUploader() {
   const router = useRouter();
@@ -79,7 +79,7 @@ export default function DispersionUploader() {
         spellCheck={false}
       />
       <div className="text-[10px] text-[var(--muted)]">
-        Header requerido: <span className="gf-mono">club, carry_avg_yds, carry_dev_yds, lateral_dev_yds, lateral_bias_yds, lateral_bias_dir, ellipse_length_yds, ellipse_width_yds, sessions_count, last_updated</span>
+        Header requerido: <span className="gf-mono">club, n, carry_p25, carry_p50, carry_p90, confidence_pct, lat_p50, pct_right, lat_spread_p90, sessions_count, last_updated</span>
       </div>
       {error && <div className="rounded bg-red-50 px-2 py-1 text-xs text-red-700">{error}</div>}
       {success && <div className="rounded bg-green-50 px-2 py-1 text-xs text-green-700">{success}</div>}

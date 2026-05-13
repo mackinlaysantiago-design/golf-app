@@ -1,19 +1,24 @@
 /**
- * Lista de cards con la dispersión por palo.
- * Cada card muestra el óvalo dibujado a escala + métricas.
+ * Lista de cards con la dispersión por palo (formato percentiles).
+ * Replica la viz vieja de /range/stats:
+ *   - Barra horizontal safe → typical → good (P25 - P50 - P90)
+ *   - Aim card destacada con la dirección típica
+ *   - Stats: confidence, total típico, bias, spread
  */
 
 import { Card } from "@/components/ui/Card";
+import { aimText } from "@/lib/club-dispersion";
 
 type Row = {
   club: string;
-  carryAvgYds: number;
-  carryDevYds: number;
-  lateralDevYds: number;
-  lateralBiasYds: number;
-  lateralBiasDir: string;
-  ellipseLengthYds: number;
-  ellipseWidthYds: number;
+  n: number;
+  carryP25: number;
+  carryP50: number;
+  carryP90: number;
+  confidencePct: number;
+  latP50: number;
+  pctRight: number;
+  latSpreadP90: number;
   sessionsCount: number;
   lastUpdated: string;
 };
@@ -24,119 +29,167 @@ export default function DispersionList({ rows }: { rows: Row[] }) {
       <Card className="text-center text-sm text-[var(--muted)] !p-4">
         Todavía no subiste dispersión.
         <br />
-        Hacé tu sesión de FlightScope en un chat de Claude, después pegá acá el CSV resumen.
+        Hacé tu sesión de FlightScope en un chat de Claude, después pegá acá el CSV de percentiles.
       </Card>
     );
   }
 
-  // Escala global: el óvalo más grande del set marca el max para que todos sean comparables visualmente
-  const maxLen = Math.max(...rows.map((r) => r.ellipseLengthYds || r.carryDevYds * 2));
-  const maxWidth = Math.max(...rows.map((r) => r.ellipseWidthYds || r.lateralDevYds * 2));
-  const maxBias = Math.max(...rows.map((r) => Math.abs(r.lateralBiasYds)));
-
   return (
     <div className="space-y-2">
-      {rows.map((r) => (
-        <Card key={r.club} className="!p-3">
-          <div className="flex items-center justify-between gap-3">
-            {/* Columna izq: data */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-bold text-[var(--fairway)] text-base">{r.club}</span>
-                <span className="text-[10px] text-[var(--muted)]">
-                  {r.sessionsCount} {r.sessionsCount === 1 ? "sesión" : "sesiones"} · {r.lastUpdated}
-                </span>
+      {/* Tabla compacta para decisión rápida */}
+      <Card className="!p-2 overflow-x-auto">
+        <table className="w-full text-[11px] gf-mono">
+          <thead>
+            <tr className="text-[var(--muted)] uppercase tracking-wider text-[9px]">
+              <th className="text-left py-1 pr-2">Palo</th>
+              <th className="text-right" title="P25 · llegás casi siempre">Seguro</th>
+              <th className="text-right" title="Mediana · lo más común">Típico</th>
+              <th className="text-right" title="P90 · cuando le pegás bien">Bueno</th>
+              <th className="text-right" title="% shots ±10y de mediana">Conf</th>
+              <th className="text-right" title="Para dónde sale en promedio">Suele ir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s) => {
+              const aim = aimText(s.latP50, s.pctRight);
+              return (
+                <tr key={s.club} className="border-t border-[var(--green-pale)]">
+                  <td className="py-1.5 pr-2 font-semibold">
+                    {s.club}
+                    <span className="text-[9px] text-[var(--muted)] font-normal ml-1">({s.n})</span>
+                  </td>
+                  <td className="text-right text-[var(--muted)]">{s.carryP25.toFixed(0)}</td>
+                  <td className="text-right font-bold text-[var(--fairway)]">{s.carryP50.toFixed(0)}</td>
+                  <td className="text-right text-[var(--muted)]">{s.carryP90.toFixed(0)}</td>
+                  <td
+                    className="text-right"
+                    style={{
+                      color:
+                        s.confidencePct >= 60
+                          ? "var(--green)"
+                          : s.confidencePct >= 40
+                          ? "var(--accent)"
+                          : "var(--red)",
+                    }}
+                  >
+                    {s.confidencePct.toFixed(0)}%
+                  </td>
+                  <td
+                    className="text-right"
+                    style={{ color: aim.dir === "C" ? "var(--green)" : "var(--accent)" }}
+                  >
+                    {aim.dir === "C" ? "—" : `${aim.dir} ${aim.magnitude.toFixed(0)}y`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="text-[10px] text-[var(--muted)] mt-2 px-1 leading-snug">
+          <strong>Seguro</strong>: casi siempre llegás · <strong>Típico</strong>: tu distancia normal ·{" "}
+          <strong>Bueno</strong>: cuando le pegás bien · <strong>Conf</strong>: repetibilidad ·{" "}
+          <strong>Suele ir</strong>: si dice <strong>R 10y</strong>, apuntá 10y a la izquierda
+        </p>
+      </Card>
+
+      {/* Detalle expandido por palo */}
+      {rows.map((s) => {
+        const aim = aimText(s.latP50, s.pctRight);
+        return (
+          <Card key={`detail-${s.club}`} className="space-y-2">
+            <div className="flex justify-between items-baseline border-b border-[var(--green-pale)] pb-2">
+              <h2 className="font-bold text-lg text-[var(--fairway)]">{s.club}</h2>
+              <span className="text-[10px] text-[var(--muted)] gf-mono">
+                {s.n} shots · {s.sessionsCount} ses · {s.lastUpdated}
+              </span>
+            </div>
+
+            {/* Barra safe → typical → good */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-[var(--muted)] gf-mono">
+                <span>Seguro {s.carryP25.toFixed(0)}y</span>
+                <span className="text-[var(--fairway)] font-bold">Típico {s.carryP50.toFixed(0)}y</span>
+                <span>Bueno {s.carryP90.toFixed(0)}y</span>
               </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-                <Stat label="Carry avg" value={`${Math.round(r.carryAvgYds)} yds`} bold />
-                <Stat
-                  label="Bias"
-                  value={
-                    r.lateralBiasYds === 0
-                      ? "centrado"
-                      : `${r.lateralBiasYds.toFixed(1)} ${r.lateralBiasDir}`
-                  }
-                />
-                <Stat label="Carry σ" value={`±${r.carryDevYds.toFixed(0)}`} />
-                <Stat label="Lateral σ" value={`±${r.lateralDevYds.toFixed(0)}`} />
-              </div>
-              <div className="mt-1.5 text-[10px] text-[var(--muted)]">
-                Óvalo: <span className="gf-mono">{r.ellipseLengthYds.toFixed(0)}×{r.ellipseWidthYds.toFixed(0)} yds</span>
+              <div className="relative h-3 bg-[var(--green-pale)] rounded-full overflow-hidden">
+                {(() => {
+                  const range = Math.max(s.carryP90 - s.carryP25, 1);
+                  const typicalPct = ((s.carryP50 - s.carryP25) / range) * 100;
+                  return (
+                    <>
+                      <div
+                        className="absolute inset-y-0"
+                        style={{
+                          left: 0,
+                          width: "100%",
+                          background:
+                            "linear-gradient(to right, var(--accent) 0%, var(--green) 50%, var(--accent) 100%)",
+                          opacity: 0.4,
+                        }}
+                      />
+                      <div
+                        className="absolute top-0 bottom-0 w-1 bg-[var(--fairway)]"
+                        style={{ left: `${typicalPct}%`, transform: "translateX(-50%)" }}
+                      />
+                    </>
+                  );
+                })()}
               </div>
             </div>
-            {/* Columna der: SVG del óvalo a escala */}
-            <EllipseViz
-              lengthYds={r.ellipseLengthYds || r.carryDevYds * 2}
-              widthYds={r.ellipseWidthYds || r.lateralDevYds * 2}
-              biasYds={r.lateralBiasYds}
-              biasDir={r.lateralBiasDir}
-              maxLen={maxLen}
-              maxWidth={Math.max(maxWidth, maxBias * 2 + 10)}
-            />
-          </div>
-        </Card>
-      ))}
+
+            {/* Aim card destacada */}
+            <div
+              className="rounded-lg p-2 text-center"
+              style={{
+                background: aim.dir === "C" ? "var(--green-pale)" : "var(--accent)",
+                color: aim.dir === "C" ? "var(--fairway)" : "white",
+              }}
+            >
+              <div className="text-[9px] uppercase tracking-wider opacity-80">Suele caer</div>
+              <div className="text-lg font-bold gf-display">{aim.label}</div>
+              <div className="text-[10px] opacity-90 mt-0.5">{aim.aim}</div>
+              {aim.dir !== "C" && (
+                <div className="text-[9px] opacity-70 mt-0.5 gf-mono">
+                  {s.pctRight.toFixed(0)}% R · {(100 - s.pctRight).toFixed(0)}% L · spread ±
+                  {s.latSpreadP90.toFixed(0)}y
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-[11px] gf-mono pt-1">
+              <div>
+                <div className="text-[9px] text-[var(--muted)] uppercase">Confianza</div>
+                <div
+                  className="font-bold text-base"
+                  style={{
+                    color:
+                      s.confidencePct >= 60
+                        ? "var(--green)"
+                        : s.confidencePct >= 40
+                        ? "var(--accent)"
+                        : "var(--red)",
+                  }}
+                >
+                  {s.confidencePct.toFixed(0)}%
+                </div>
+                <div className="text-[9px] text-[var(--muted)]">±10y de mediana</div>
+              </div>
+              <div>
+                <div className="text-[9px] text-[var(--muted)] uppercase">Bias</div>
+                <div className="font-bold text-base">
+                  {aim.dir === "C" ? "—" : `${aim.dir} ${aim.magnitude.toFixed(0)}y`}
+                </div>
+                <div className="text-[9px] text-[var(--muted)]">mediana lateral</div>
+              </div>
+              <div>
+                <div className="text-[9px] text-[var(--muted)] uppercase">Spread</div>
+                <div className="font-bold text-base">±{s.latSpreadP90.toFixed(0)}y</div>
+                <div className="text-[9px] text-[var(--muted)]">P90 desde bias</div>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
     </div>
-  );
-}
-
-function Stat({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex items-baseline gap-1">
-      <span className="text-[var(--muted)] uppercase tracking-wider text-[9px]">{label}</span>
-      <span className={`gf-mono ${bold ? "font-bold" : ""}`}>{value}</span>
-    </div>
-  );
-}
-
-function EllipseViz({
-  lengthYds,
-  widthYds,
-  biasYds,
-  biasDir,
-  maxLen,
-  maxWidth,
-}: {
-  lengthYds: number;
-  widthYds: number;
-  biasYds: number;
-  biasDir: string;
-  maxLen: number;
-  maxWidth: number;
-}) {
-  // SVG vista aérea: vertical = carry (length), horizontal = lateral (width)
-  // Target en (0,0). El óvalo se centra en (bias, 0).
-  const W = 110;
-  const H = 90;
-  const cx = W / 2;
-  const cy = H / 2;
-  // Escala (mismo factor para X y Y para mantener proporciones reales)
-  const maxDim = Math.max(maxLen, maxWidth);
-  const scale = Math.min(W, H) / (maxDim * 1.15); // pequeño margen
-  const rx = (widthYds / 2) * scale;
-  const ry = (lengthYds / 2) * scale;
-  const biasPx = biasYds * scale * (biasDir === "L" ? -1 : 1);
-  const ellipseCx = cx + biasPx;
-
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="flex-shrink-0">
-      {/* Target line (vertical center) */}
-      <line x1={cx} y1={4} x2={cx} y2={H - 4} stroke="#d0d0d0" strokeWidth="1" strokeDasharray="2 2" />
-      <line x1={4} y1={cy} x2={W - 4} y2={cy} stroke="#d0d0d0" strokeWidth="1" strokeDasharray="2 2" />
-      {/* Target dot */}
-      <circle cx={cx} cy={cy} r="2" fill="#1a7a3c" />
-      {/* Ellipse (donde caen las bolas) */}
-      <ellipse
-        cx={ellipseCx}
-        cy={cy}
-        rx={Math.max(rx, 2)}
-        ry={Math.max(ry, 2)}
-        fill="rgba(26, 122, 60, 0.18)"
-        stroke="#1a7a3c"
-        strokeWidth="1.2"
-      />
-      {/* Bias dot center */}
-      <circle cx={ellipseCx} cy={cy} r="1.5" fill="#0f4a24" />
-    </svg>
   );
 }

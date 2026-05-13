@@ -4,7 +4,7 @@
  *   Parsea y upserta cada palo en ClubDispersion (1 row por palo).
  *
  * GET /api/range/dispersion
- *   Devuelve la lista actual de dispersiones, ordenadas por distancia desc.
+ *   Devuelve la lista actual de dispersiones, ordenadas por carry desc.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ import { parseDispersionCsv } from "@/lib/club-dispersion";
 
 export async function GET() {
   const rows = await prisma.clubDispersion.findMany({
-    orderBy: { carryAvgYds: "desc" },
+    orderBy: { carryP50: "desc" },
   });
   return NextResponse.json({ rows });
 }
@@ -33,29 +33,8 @@ export async function POST(req: NextRequest) {
   for (const row of parsed.rows) {
     await prisma.clubDispersion.upsert({
       where: { club: row.club },
-      create: {
-        club: row.club,
-        carryAvgYds: row.carryAvgYds,
-        carryDevYds: row.carryDevYds,
-        lateralDevYds: row.lateralDevYds,
-        lateralBiasYds: row.lateralBiasYds,
-        lateralBiasDir: row.lateralBiasDir,
-        ellipseLengthYds: row.ellipseLengthYds,
-        ellipseWidthYds: row.ellipseWidthYds,
-        sessionsCount: row.sessionsCount,
-        lastUpdated: row.lastUpdated,
-      },
-      update: {
-        carryAvgYds: row.carryAvgYds,
-        carryDevYds: row.carryDevYds,
-        lateralDevYds: row.lateralDevYds,
-        lateralBiasYds: row.lateralBiasYds,
-        lateralBiasDir: row.lateralBiasDir,
-        ellipseLengthYds: row.ellipseLengthYds,
-        ellipseWidthYds: row.ellipseWidthYds,
-        sessionsCount: row.sessionsCount,
-        lastUpdated: row.lastUpdated,
-      },
+      create: row,
+      update: row,
     });
     upserted++;
   }

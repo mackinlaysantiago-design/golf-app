@@ -14,7 +14,7 @@ export default async function RangePage() {
 
   const [dispersions, pendingTasks] = await Promise.all([
     prisma.clubDispersion.findMany({
-      orderBy: { carryAvgYds: "desc" },
+      orderBy: { carryP50: "desc" },
     }),
     prisma.practiceTask.findMany({
       where: { status: "PENDING" },

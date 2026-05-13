@@ -2,21 +2,24 @@
  * Helpers para Club Dispersion (CSV parsing + tipos).
  *
  * Formato esperado del CSV (header obligatorio):
- *   club,carry_avg_yds,carry_dev_yds,lateral_dev_yds,lateral_bias_yds,lateral_bias_dir,ellipse_length_yds,ellipse_width_yds,sessions_count,last_updated
+ *   club,n,carry_p25,carry_p50,carry_p90,confidence_pct,lat_p50,pct_right,lat_spread_p90,sessions_count,last_updated
  *
  * Ejemplo de fila:
- *   7I,164,7,15,0.9,L,14,30,2,2026-05
+ *   Driver,73,234.2,252.8,270.0,37.0,7.2,61.6,54.5,5,2026-05
+ *
+ * Usa percentiles (no σ) — más robusto a outliers. Replica el approach de /range/stats viejo.
  */
 
 export type DispersionRow = {
   club: string;
-  carryAvgYds: number;
-  carryDevYds: number;
-  lateralDevYds: number;
-  lateralBiasYds: number;
-  lateralBiasDir: "L" | "R";
-  ellipseLengthYds: number;
-  ellipseWidthYds: number;
+  n: number;
+  carryP25: number;
+  carryP50: number;
+  carryP90: number;
+  confidencePct: number;
+  latP50: number; // firmado: + derecha, − izquierda
+  pctRight: number;
+  latSpreadP90: number;
   sessionsCount: number;
   lastUpdated: string; // "YYYY-MM"
 };
@@ -28,13 +31,14 @@ export type ParseResult =
 /** Mapping del header CSV (snake_case) a las keys del tipo (camelCase). */
 const HEADER_MAP: Record<string, keyof DispersionRow> = {
   club: "club",
-  carry_avg_yds: "carryAvgYds",
-  carry_dev_yds: "carryDevYds",
-  lateral_dev_yds: "lateralDevYds",
-  lateral_bias_yds: "lateralBiasYds",
-  lateral_bias_dir: "lateralBiasDir",
-  ellipse_length_yds: "ellipseLengthYds",
-  ellipse_width_yds: "ellipseWidthYds",
+  n: "n",
+  carry_p25: "carryP25",
+  carry_p50: "carryP50",
+  carry_p90: "carryP90",
+  confidence_pct: "confidencePct",
+  lat_p50: "latP50",
+  pct_right: "pctRight",
+  lat_spread_p90: "latSpreadP90",
   sessions_count: "sessionsCount",
   last_updated: "lastUpdated",
 };
@@ -57,10 +61,10 @@ export function parseDispersionCsv(raw: string): ParseResult {
   }
   const required: (keyof DispersionRow)[] = [
     "club",
-    "carryAvgYds",
-    "carryDevYds",
-    "lateralDevYds",
-    "lateralBiasDir",
+    "carryP25",
+    "carryP50",
+    "carryP90",
+    "latP50",
   ];
   for (const r of required) {
     if (colIndex[r] === undefined) {
@@ -74,20 +78,18 @@ export function parseDispersionCsv(raw: string): ParseResult {
     const cells = lines[i].split(",").map((c) => c.trim());
     const club = cells[colIndex.club!];
     if (!club) continue; // skip empty
-    const dir = cells[colIndex.lateralBiasDir!].toUpperCase();
-    if (dir !== "L" && dir !== "R") {
-      return { ok: false, error: `Fila ${i}: lateral_bias_dir debe ser L o R, vino "${cells[colIndex.lateralBiasDir!]}"` };
-    }
+
     const row: DispersionRow = {
       club,
-      carryAvgYds: numOr(cells[colIndex.carryAvgYds!], 0),
-      carryDevYds: numOr(cells[colIndex.carryDevYds!], 0),
-      lateralDevYds: numOr(cells[colIndex.lateralDevYds!], 0),
-      lateralBiasYds: numOr(colIndex.lateralBiasYds !== undefined ? cells[colIndex.lateralBiasYds] : "0", 0),
-      lateralBiasDir: dir as "L" | "R",
-      ellipseLengthYds: numOr(colIndex.ellipseLengthYds !== undefined ? cells[colIndex.ellipseLengthYds] : "0", 0),
-      ellipseWidthYds: numOr(colIndex.ellipseWidthYds !== undefined ? cells[colIndex.ellipseWidthYds] : "0", 0),
-      sessionsCount: Math.max(1, Math.round(numOr(colIndex.sessionsCount !== undefined ? cells[colIndex.sessionsCount] : "1", 1))),
+      n: Math.max(1, Math.round(numAt(cells, colIndex.n, 0))),
+      carryP25: numAt(cells, colIndex.carryP25, 0),
+      carryP50: numAt(cells, colIndex.carryP50, 0),
+      carryP90: numAt(cells, colIndex.carryP90, 0),
+      confidencePct: numAt(cells, colIndex.confidencePct, 0),
+      latP50: numAt(cells, colIndex.latP50, 0),
+      pctRight: numAt(cells, colIndex.pctRight, 50),
+      latSpreadP90: numAt(cells, colIndex.latSpreadP90, 0),
+      sessionsCount: Math.max(1, Math.round(numAt(cells, colIndex.sessionsCount, 1))),
       lastUpdated: colIndex.lastUpdated !== undefined ? cells[colIndex.lastUpdated] : "",
     };
     rows.push(row);
@@ -100,39 +102,36 @@ export function parseDispersionCsv(raw: string): ParseResult {
   return { ok: true, rows };
 }
 
-function numOr(v: string, def: number): number {
-  const n = parseFloat(v);
+function numAt(cells: string[], idx: number | undefined, def: number): number {
+  if (idx === undefined) return def;
+  const n = parseFloat(cells[idx]);
   return isNaN(n) ? def : n;
 }
 
-/** Orden canónico de palos (desde driver al más corto). */
-export const CLUB_ORDER_DISPERSION = [
-  "Driver",
-  "3W",
-  "5W",
-  "7W",
-  "2H",
-  "3H",
-  "4H",
-  "5H",
-  "2I",
-  "3I",
-  "4I",
-  "5I",
-  "6I",
-  "7I",
-  "8I",
-  "9I",
-  "PW",
-  "GW",
-  "SW",
-  "LW",
-];
-
-export function sortClubsByDistance(rows: DispersionRow[]): DispersionRow[] {
-  return [...rows].sort((a, b) => {
-    // Primero por avg desc (driver primero), después por nombre
-    if (a.carryAvgYds !== b.carryAvgYds) return b.carryAvgYds - a.carryAvgYds;
-    return a.club.localeCompare(b.club);
-  });
+/**
+ * Texto del "aim recomendado" — replica la lógica del /range/stats viejo.
+ * Si bias < 3 yds → centrado. Si no → apuntá al lado opuesto.
+ */
+export function aimText(latP50: number, pctRight: number): {
+  dir: "L" | "R" | "C";
+  magnitude: number;
+  label: string;
+  aim: string;
+  dominance: number;
+} {
+  const abs = Math.abs(latP50);
+  if (abs < 3) {
+    return { dir: "C", magnitude: 0, label: "centrado", aim: "Apuntá al target", dominance: 50 };
+  }
+  const dir = latP50 > 0 ? "R" : "L";
+  const sideName = dir === "R" ? "derecha" : "izquierda";
+  const oppSide = dir === "R" ? "izquierda" : "derecha";
+  const dominance = dir === "R" ? pctRight : 100 - pctRight;
+  return {
+    dir,
+    magnitude: abs,
+    label: `${abs.toFixed(0)}y a la ${sideName}`,
+    aim: `Apuntá ${abs.toFixed(0)}y a la ${oppSide}${dominance >= 70 ? "" : ` (${dominance.toFixed(0)}% de las veces)`}`,
+    dominance,
+  };
 }
