@@ -13,6 +13,22 @@ import {
   type DrillDef,
   type DrillArea,
 } from "@/lib/pp-drills";
+import { DRILL_TO_AREA, AREA_ORDER } from "@/lib/pp-areas";
+
+// Key del localStorage para auto-save del progreso
+const DRAFT_KEY = "pp-session-draft-v1";
+
+/** Sortea drills por área TSM, después DRILL primero, TEST después. */
+function sortDrillsTsm(drills: DrillDef[]): DrillDef[] {
+  return [...drills].sort((a, b) => {
+    const am = DRILL_TO_AREA[a.type];
+    const bm = DRILL_TO_AREA[b.type];
+    const areaCmp = AREA_ORDER.indexOf(am.area) - AREA_ORDER.indexOf(bm.area);
+    if (areaCmp !== 0) return areaCmp;
+    if (am.kind !== bm.kind) return am.kind === "DRILL" ? -1 : 1;
+    return 0;
+  });
+}
 
 // Estado de input por drill: vamos a usar shapes distintos por formato.
 // Para simplificar, manejamos un único objeto por drill.
@@ -120,6 +136,45 @@ export default function NuevaPPPage() {
     DRILLS.map((d) => [d.type, emptyEntry(d)]),
   ) as Record<DrillType, DrillEntry>;
   const [drills, setDrills] = useState(initial);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // ===== Auto-save: restaurar draft al montar =====
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        date?: string;
+        notes?: string;
+        drills?: Record<DrillType, DrillEntry>;
+        savedAt?: string;
+      };
+      if (parsed.drills) {
+        setDrills((prev) => ({ ...prev, ...parsed.drills }));
+        if (parsed.date) setDate(parsed.date);
+        if (parsed.notes != null) setNotes(parsed.notes);
+        setDraftRestored(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // ===== Auto-save: persistir cada cambio relevante =====
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Solo guardar si hay al menos un drill enabled o notes (evita saves vacíos)
+    const anyEnabled = Object.values(drills).some((e) => e.enabled);
+    if (!anyEnabled && !notes) {
+      sessionStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    sessionStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ date, notes, drills, savedAt: new Date().toISOString() }),
+    );
+  }, [date, notes, drills]);
 
   useEffect(() => {
     Promise.all([
@@ -297,6 +352,10 @@ export default function NuevaPPPage() {
       }),
     });
     if (res.ok) {
+      // Limpiar draft al guardar exitoso
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(DRAFT_KEY);
+      }
       router.push("/range/pp");
       router.refresh();
     } else {
@@ -310,9 +369,15 @@ export default function NuevaPPPage() {
       <header>
         <h1 className="gf-display text-3xl text-[var(--fairway)]">Nueva sesión PP</h1>
         <p className="text-sm text-[var(--muted)]">
-          Marcá los drills, agregá tantos intentos como hagas.
+          Marcá los drills, agregá tantos intentos como hagas. Se guarda automáticamente mientras cargás.
         </p>
       </header>
+
+      {draftRestored && (
+        <div className="rounded-md border-l-4 bg-[var(--accent-light)] p-2 text-[11px]" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
+          <strong>Borrador restaurado.</strong> Si querés empezar de cero, desmarcá todos los drills y recargá.
+        </div>
+      )}
 
       {Object.keys(plan.drillTargets).length > 0 && (
         <Card style={{ borderLeft: "4px solid var(--accent)" }}>
@@ -363,9 +428,12 @@ export default function NuevaPPPage() {
         const AREA_ORDER: DrillArea[] = ["PUTTING", "CHIPPING", "WEDGES", "LONG_GAME"];
         const cameFromWizard = preselectedDrills != null;
 
-        // Modo wizard: UNA sola sección con todos los drills elegidos (incluye los del plan).
+        // Modo wizard: UNA sola sección con todos los drills elegidos,
+        // ordenados por área TSM y dentro de cada área DRILL primero, TEST después.
         if (cameFromWizard) {
-          const wizardDrills = DRILLS.filter((d) => preselectedDrills!.has(d.type));
+          const wizardDrills = sortDrillsTsm(
+            DRILLS.filter((d) => preselectedDrills!.has(d.type)),
+          );
           return (
             <>
               <SectionHeader>Drills elegidos ({wizardDrills.length})</SectionHeader>
@@ -447,6 +515,7 @@ export default function NuevaPPPage() {
 
         {e.enabled && (
           <div className="space-y-2 pl-6">
+            {renderProgressBadge(d, e, lvl)}
             {d.format === "STREAK_BY_DIST" && renderStreakInputs(d, e)}
             {d.format === "RATIO_LOWER_BY_DIST" && renderRatioLowerInputs(d, e)}
             {d.format === "RATIO_HIGHER" && renderRatioHigherInputs(d, e)}
@@ -454,6 +523,93 @@ export default function NuevaPPPage() {
           </div>
         )}
       </Card>
+    );
+  }
+
+  /**
+   * Badge en vivo que muestra:
+   *   - Cuál es el objetivo del drill (cómo se considera "logrado")
+   *   - Cuántas veces lo lográs ahora vs cuántas necesitás (timesToAchieve)
+   *   - Visual: verde cuando completo, accent cuando en progreso, muted si nada aún
+   */
+  function renderProgressBadge(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
+    const target = e.timesToAchieve ? parseInt(e.timesToAchieve) : 1;
+    let achieved = 0;
+    let goalText = "";
+
+    if (d.format === "STREAK_BY_DIST") {
+      const N = d.levelUpStreak ?? d.scoreOf;
+      goalText = `Lograr racha ≥${N} a ${e.distance || d.defaultDistance}${d.distanceUnit}`;
+      const dist = parseFloat(e.distance);
+      const rows = e.streakRows ?? [];
+      achieved = rows.filter((r) => {
+        const dd = parseFloat(r.distance);
+        const ss = parseInt(r.streak);
+        return !isNaN(dd) && !isNaN(ss) && (isNaN(dist) || dd >= dist) && ss >= N;
+      }).length;
+    } else if (d.format === "LEGACY_NUMBER_ARRAY") {
+      // Go-To Club: lograr scoreOf (típicamente 9/9)
+      goalText = `Lograr ${d.scoreOf}/${d.scoreOf}${d.type === "GO_TO_CLUB" ? " en FW" : ""}`;
+      const arr = (e.legacyRows ?? []).map((r) => parseInt(r.value)).filter((n) => !isNaN(n));
+      achieved = arr.filter((n) => n >= d.scoreOf).length;
+    } else if (d.format === "RATIO_LOWER_BY_DIST") {
+      // Chipping: batir el mejor previo a la distancia (lower = mejor)
+      const records = lvl?.bestRatioByDist ?? {};
+      const dist = parseFloat(e.distance);
+      const best = !isNaN(dist) ? records[dist]?.ratio ?? Infinity : Infinity;
+      goalText = isFinite(best)
+        ? `Mejorar ratio anterior (${best.toFixed(2)}) a ${e.distance || d.defaultDistance}${d.distanceUnit}`
+        : `Primer marca a ${e.distance || d.defaultDistance}${d.distanceUnit}`;
+      const rows = e.ratioLowerRows ?? [];
+      achieved = rows.filter((r) => {
+        const strokes = parseInt(r.strokes);
+        const balls = parseInt(r.balls);
+        const rDist = parseFloat(r.distance);
+        if (isNaN(strokes) || isNaN(balls) || balls === 0) return false;
+        const ratio = strokes / balls;
+        if (!isNaN(dist) && rDist !== dist) return false;
+        return ratio < best;
+      }).length;
+    } else if (d.format === "RATIO_HIGHER") {
+      // Wedges 50/70/100: batir % anterior (higher = mejor)
+      const best = lvl?.bestRatio?.ratio ?? -Infinity;
+      const bestPct = lvl?.bestRatio ? `${(best * 100).toFixed(0)}%` : "—";
+      goalText = isFinite(best)
+        ? `Mejorar ${bestPct} en target`
+        : `Primera marca en target`;
+      const rows = e.ratioHigherRows ?? [];
+      achieved = rows.filter((r) => {
+        const it = parseInt(r.inTarget);
+        const bb = parseInt(r.balls);
+        if (isNaN(it) || isNaN(bb) || bb === 0) return false;
+        return it / bb > best;
+      }).length;
+    }
+
+    const done = achieved >= target;
+    const inProgress = achieved > 0 && !done;
+    const color = done ? "var(--green)" : inProgress ? "var(--accent)" : "var(--muted)";
+    const bg = done ? "var(--green-pale)" : inProgress ? "var(--accent-light)" : "#f4f4f4";
+    const icon = done ? "✓" : inProgress ? "⏳" : "○";
+
+    return (
+      <div
+        className="rounded-md p-2 flex items-center justify-between gap-2 text-[11px]"
+        style={{ background: bg, color }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="font-bold uppercase tracking-wider text-[9px] opacity-80">
+            Objetivo
+          </div>
+          <div className="leading-tight">{goalText}</div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-lg leading-none">{icon}</span>
+          <span className="gf-mono font-bold text-base">
+            {achieved}/{target}
+          </span>
+        </div>
+      </div>
     );
   }
 
