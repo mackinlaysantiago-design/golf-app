@@ -387,6 +387,24 @@ model RangeShot {
   @@unique([sessionId, shotNumber, rowType])
 }
 
+// Dispersion por palo — armada offline (chat de Claude con la sesión de FlightScope),
+// pegamos el CSV resumen y se upserta acá. 1 row por palo.
+// Reemplaza el flow viejo de RangeSession para tracking de dispersión.
+model ClubDispersion {
+  id               String   @id @default(cuid())
+  club             String   @unique // PW | 9I | 8I | 7I | 6I | 5I | 4I | 3W | Driver | etc (formato del CSV)
+  carryAvgYds      Float
+  carryDevYds      Float    // desviación de distancia (radio vertical del elipse)
+  lateralDevYds    Float    // desviación lateral (radio horizontal del elipse)
+  lateralBiasYds   Float    // bias lateral promedio (cuánto va a un lado)
+  lateralBiasDir   String   // L | R
+  ellipseLengthYds Float    // largo del óvalo (típicamente 2 * carryDev)
+  ellipseWidthYds  Float    // ancho del óvalo (típicamente 2 * lateralDev)
+  sessionsCount    Int      @default(1) // cuántas sesiones aportaron a este dato
+  lastUpdated      String   // "2026-05" (formato YYYY-MM, lo trae el CSV)
+  updatedAt        DateTime @updatedAt
+}
+
 // ============ PRE-GAME ROUTINE (Workshop 5/6/26) ============
 
 // Personal Par definido pre-ronda (ver 10_pre_game_routine.md §10.1)
