@@ -71,17 +71,8 @@ export function suggestAutoPp(tasks: PracticeTaskInput[]): AreaSuggestion[] {
       ...areaTasks.map((t: PracticeTaskInput) => t.timesToAchieve - t.timesCompleted),
     );
 
+    // Orden TSM canónico: DRILL primero (build skill) → TEST después (measure under pressure)
     const suggestedDrills: AreaSuggestion["suggestedDrills"] = [];
-    if (test) {
-      const def = DRILL_BY_TYPE[test];
-      suggestedDrills.push({
-        type: test,
-        kind: "TEST",
-        reason: `Test · ${def.shortLabel}`,
-        timesToAchieve,
-        sourceTaskIds: areaTasks.map((t: PracticeTaskInput) => t.id),
-      });
-    }
     if (drill && drill !== test) {
       const def = DRILL_BY_TYPE[drill];
       suggestedDrills.push({
@@ -89,6 +80,16 @@ export function suggestAutoPp(tasks: PracticeTaskInput[]): AreaSuggestion[] {
         kind: "DRILL",
         reason: `Drill · ${def.shortLabel}`,
         timesToAchieve: 1,
+        sourceTaskIds: areaTasks.map((t: PracticeTaskInput) => t.id),
+      });
+    }
+    if (test) {
+      const def = DRILL_BY_TYPE[test];
+      suggestedDrills.push({
+        type: test,
+        kind: "TEST",
+        reason: `Test · ${def.shortLabel}`,
+        timesToAchieve,
         sourceTaskIds: areaTasks.map((t: PracticeTaskInput) => t.id),
       });
     }
