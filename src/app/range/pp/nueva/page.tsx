@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CHALLENGES } from "@/lib/sm-challenges";
 import { Card, SectionHeader } from "@/components/ui/Card";
@@ -14,8 +14,9 @@ import {
   type DrillArea,
 } from "@/lib/pp-drills";
 import { DRILL_TO_AREA, AREA_ORDER } from "@/lib/pp-areas";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
-// Key del localStorage para auto-save del progreso
+// Key del IndexedDB draft (única por tipo de form, app-wide)
 const DRAFT_KEY = "pp-session-draft-v1";
 
 /** Sortea drills por área TSM, después DRILL primero, TEST después. */
@@ -137,44 +138,48 @@ export default function NuevaPPPage() {
   ) as Record<DrillType, DrillEntry>;
   const [drills, setDrills] = useState(initial);
   const [draftRestored, setDraftRestored] = useState(false);
+  const draftMountedRef = useRef(false);
 
-  // ===== Auto-save: restaurar draft al montar =====
+  // ===== Auto-save vía IndexedDB =====
+  // Patrón de agroflow-platform: idb async + debounce 2s + cleanup automático.
+  const draft = useFormDraft({ key: DRAFT_KEY, formType: "pp-session", debounceMs: 1500 });
+
+  // Restaurar draft al montar (una sola vez)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as {
-        date?: string;
-        notes?: string;
-        drills?: Record<DrillType, DrillEntry>;
-        savedAt?: string;
-      };
-      if (parsed.drills) {
-        setDrills((prev) => ({ ...prev, ...parsed.drills }));
-        if (parsed.date) setDate(parsed.date);
-        if (parsed.notes != null) setNotes(parsed.notes);
+    let cancelled = false;
+    (async () => {
+      const saved = (await draft.load()) as
+        | { date?: string; notes?: string; drills?: Record<DrillType, DrillEntry> }
+        | null;
+      if (cancelled || !saved) {
+        draftMountedRef.current = true;
+        return;
+      }
+      if (saved.drills) {
+        setDrills((prev) => ({ ...prev, ...saved.drills }));
+        if (saved.date) setDate(saved.date);
+        if (saved.notes != null) setNotes(saved.notes);
         setDraftRestored(true);
       }
-    } catch {
-      /* ignore */
-    }
-  }, []);
+      draftMountedRef.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft]);
 
-  // ===== Auto-save: persistir cada cambio relevante =====
+  // Persistir cada cambio relevante (debounced, async).
+  // Skip hasta que el restore inicial termine para no pisar el draft con state vacío.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Solo guardar si hay al menos un drill enabled o notes (evita saves vacíos)
+    if (!draftMountedRef.current) return;
     const anyEnabled = Object.values(drills).some((e) => e.enabled);
     if (!anyEnabled && !notes) {
-      sessionStorage.removeItem(DRAFT_KEY);
+      // Sin nada cargado: limpiar el draft existente (si lo había)
+      draft.clear();
       return;
     }
-    sessionStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({ date, notes, drills, savedAt: new Date().toISOString() }),
-    );
-  }, [date, notes, drills]);
+    draft.save({ date, notes, drills });
+  }, [date, notes, drills, draft]);
 
   useEffect(() => {
     Promise.all([
@@ -353,9 +358,7 @@ export default function NuevaPPPage() {
     });
     if (res.ok) {
       // Limpiar draft al guardar exitoso
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem(DRAFT_KEY);
-      }
+      await draft.clear();
       router.push("/range/pp");
       router.refresh();
     } else {
