@@ -362,6 +362,9 @@ export default function NuevaPPPage() {
         const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
         // Áreas en orden: Putting → Chipping → Wedges → Long Game
         const AREA_ORDER: DrillArea[] = ["PUTTING", "CHIPPING", "WEDGES", "LONG_GAME"];
+        // Si venís del wizard (?drills=...), solo mostramos los que elegiste.
+        // Si no, mostramos todos los drills no-obligatorios agrupados por área (modo libre).
+        const cameFromWizard = preselectedDrills != null;
         return (
           <>
             {/* Obligatorios primero (si hay) — del plan de la última ronda */}
@@ -371,8 +374,23 @@ export default function NuevaPPPage() {
                 {obligatorios.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
               </>
             )}
-            {/* Por área */}
-            {AREA_ORDER.map((area) => {
+            {/* Drills del wizard (si venís de /range/pp/setup) */}
+            {cameFromWizard && (
+              (() => {
+                const wizardDrills = DRILLS.filter(
+                  (d) => preselectedDrills!.has(d.type) && !plan.drillTargets[d.type],
+                );
+                if (wizardDrills.length === 0) return null;
+                return (
+                  <>
+                    <SectionHeader>Tus drills elegidos</SectionHeader>
+                    {wizardDrills.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
+                  </>
+                );
+              })()
+            )}
+            {/* Modo libre: por área. Solo si NO venís del wizard */}
+            {!cameFromWizard && AREA_ORDER.map((area) => {
               const drillsInArea = DRILLS.filter(
                 (d) => d.area === area && !plan.drillTargets[d.type],
               );
