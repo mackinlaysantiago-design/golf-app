@@ -359,38 +359,38 @@ export default function NuevaPPPage() {
       </Card>
 
       {(() => {
-        const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
         // Áreas en orden: Putting → Chipping → Wedges → Long Game
         const AREA_ORDER: DrillArea[] = ["PUTTING", "CHIPPING", "WEDGES", "LONG_GAME"];
-        // Si venís del wizard (?drills=...), solo mostramos los que elegiste.
-        // Si no, mostramos todos los drills no-obligatorios agrupados por área (modo libre).
         const cameFromWizard = preselectedDrills != null;
+
+        // Modo wizard: UNA sola sección con todos los drills elegidos (incluye los del plan).
+        if (cameFromWizard) {
+          const wizardDrills = DRILLS.filter((d) => preselectedDrills!.has(d.type));
+          return (
+            <>
+              <SectionHeader>Drills elegidos ({wizardDrills.length})</SectionHeader>
+              {wizardDrills.length === 0 ? (
+                <div className="text-sm text-[var(--muted)] italic px-1">
+                  No elegiste ningún drill en el wizard.
+                </div>
+              ) : (
+                wizardDrills.map((d) => <div key={d.type}>{renderDrill(d)}</div>)
+              )}
+            </>
+          );
+        }
+
+        // Modo libre: obligatorios del plan + el resto agrupado por área.
+        const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
         return (
           <>
-            {/* Obligatorios primero (si hay) — del plan de la última ronda */}
             {obligatorios.length > 0 && (
               <>
                 <SectionHeader>Obligatorios (del plan)</SectionHeader>
                 {obligatorios.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
               </>
             )}
-            {/* Drills del wizard (si venís de /range/pp/setup) */}
-            {cameFromWizard && (
-              (() => {
-                const wizardDrills = DRILLS.filter(
-                  (d) => preselectedDrills!.has(d.type) && !plan.drillTargets[d.type],
-                );
-                if (wizardDrills.length === 0) return null;
-                return (
-                  <>
-                    <SectionHeader>Tus drills elegidos</SectionHeader>
-                    {wizardDrills.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
-                  </>
-                );
-              })()
-            )}
-            {/* Modo libre: por área. Solo si NO venís del wizard */}
-            {!cameFromWizard && AREA_ORDER.map((area) => {
+            {AREA_ORDER.map((area) => {
               const drillsInArea = DRILLS.filter(
                 (d) => d.area === area && !plan.drillTargets[d.type],
               );
