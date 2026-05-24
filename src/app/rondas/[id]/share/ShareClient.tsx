@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 
+type ShareData_NavigatorPayload = { files: File[] };
+
 export type ShareData = {
   roundId: string;
   courseName: string;
@@ -68,71 +70,98 @@ const C = {
 export default function ShareClient({ data }: { data: ShareData }) {
   const snapshotRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  function showStatus(msg: string, autoHideMs = 4000) {
+    setStatus(msg);
+    if (autoHideMs > 0) {
+      setTimeout(() => setStatus((s) => (s === msg ? null : s)), autoHideMs);
+    }
+  }
+
+  async function captureCanvas() {
+    if (!snapshotRef.current) throw new Error("No hay nada para capturar");
+    const html2canvas = (await import("html2canvas-pro")).default;
+    // scale=2 en desktop, 1.5 en mobile para que el PNG no sea demasiado grande
+    // (algunos browsers fallan share con archivos > 1-2 MB silenciosamente)
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    return html2canvas(snapshotRef.current, {
+      scale: isMobile ? 1.5 : 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false,
+    });
+  }
+
+  function makeFilename() {
+    const safeCourse = data.courseName.replace(/\s+/g, "-");
+    const safeDate = new Date(data.date).toISOString().slice(0, 10);
+    return `ronda-${safeCourse}-${safeDate}.png`;
+  }
 
   async function handleDownload() {
-    if (!snapshotRef.current) return;
     setDownloading(true);
+    setStatus(null);
     try {
-      const html2canvas = (await import("html2canvas-pro")).default;
-      const canvas = await html2canvas(snapshotRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-      });
+      const canvas = await captureCanvas();
       const link = document.createElement("a");
-      const safeCourse = data.courseName.replace(/\s+/g, "-");
-      const safeDate = new Date(data.date).toISOString().slice(0, 10);
-      link.download = `ronda-${safeCourse}-${safeDate}.png`;
+      link.download = makeFilename();
       link.href = canvas.toDataURL("image/png");
       link.click();
+      showStatus("✓ PNG descargado");
+    } catch (e) {
+      showStatus(`✗ Error: ${(e as Error).message}`, 6000);
     } finally {
       setDownloading(false);
     }
   }
 
   async function handleNativeShare() {
-    if (!snapshotRef.current) return;
     setDownloading(true);
+    setStatus(null);
     try {
-      const html2canvas = (await import("html2canvas-pro")).default;
-      const canvas = await html2canvas(snapshotRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-      });
+      // Sanity check del API
+      if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+        showStatus("⚠️ Tu navegador no soporta compartir nativo · descargando PNG…", 4000);
+        await handleDownload();
+        return;
+      }
+
+      const canvas = await captureCanvas();
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-      if (!blob) return;
-      const safeCourse = data.courseName.replace(/\s+/g, "-");
-      const safeDate = new Date(data.date).toISOString().slice(0, 10);
-      const file = new File([blob], `ronda-${safeCourse}-${safeDate}.png`, { type: "image/png" });
-      // Native Share API: iOS/Android lo soportan; en desktop hace fallback
-      if (
-        navigator.share &&
-        navigator.canShare &&
-        navigator.canShare({ files: [file] })
-      ) {
-        await navigator.share({
-          files: [file],
-          title: `Ronda en ${data.courseName}`,
-          text: `Ronda del ${new Date(data.date).toLocaleDateString("es-AR")}`,
-        });
-      } else {
-        // Fallback: download
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = file.name;
-        link.click();
-        URL.revokeObjectURL(url);
+      if (!blob) {
+        throw new Error("No se pudo generar el PNG");
       }
+      const file = new File([blob], makeFilename(), { type: "image/png" });
+
+      // Algunos browsers soportan share() pero no canShare({files}). Mejor probar
+      // share() directo y catchear el error si falla.
+      const payload: ShareData_NavigatorPayload = { files: [file] };
+      const supportsFiles =
+        typeof navigator.canShare === "function" ? navigator.canShare(payload) : true;
+
+      if (!supportsFiles) {
+        showStatus("⚠️ Este navegador no soporta compartir imágenes · descargando…", 4000);
+        await handleDownload();
+        return;
+      }
+
+      await navigator.share({
+        ...payload,
+        title: `Ronda en ${data.courseName}`,
+        text: `Ronda del ${new Date(data.date).toLocaleDateString("es-AR")}`,
+      });
+      showStatus("✓ Compartido", 2500);
     } catch (e) {
-      // El usuario puede cancelar el share — no es error
-      const msg = (e as Error).message || "";
-      if (!msg.includes("cancel")) {
-        console.error(e);
+      const err = e as Error;
+      const msg = err.message || String(err);
+      // AbortError = el usuario canceló el share sheet → no es error real
+      if (err.name === "AbortError" || msg.toLowerCase().includes("cancel")) {
+        setStatus(null);
+        return;
       }
+      console.error("[share]", err);
+      showStatus(`✗ ${msg}`, 6000);
     } finally {
       setDownloading(false);
     }
@@ -193,6 +222,23 @@ export default function ShareClient({ data }: { data: ShareData }) {
             </button>
           </div>
         </div>
+        {status && (
+          <div
+            style={{
+              maxWidth: 820,
+              margin: "6px auto 0",
+              padding: "6px 10px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              background: status.startsWith("✗") ? "#FBE5E1" : status.startsWith("⚠️") ? "#FDF3D0" : "#E8F5ED",
+              color: status.startsWith("✗") ? C.red : status.startsWith("⚠️") ? C.accent : C.green,
+              textAlign: "center",
+            }}
+          >
+            {status}
+          </div>
+        )}
       </div>
 
       {/* Snapshot capturable */}
