@@ -38,6 +38,14 @@ export default function ResumenActions({ round }: { round: Round }) {
       >
         {isClosed ? "🔓 Reabrir" : "🔒 Cerrar ronda"}
       </button>
+      <Link
+        href={`/rondas/${round.id}/share`}
+        className="gf-pill"
+        style={{ background: "var(--fairway)", color: "white" }}
+        title="Compartir resumen como imagen"
+      >
+        📤 Compartir
+      </Link>
       <button
         type="button"
         onClick={() => setOpen(true)}

@@ -155,7 +155,12 @@ export default function RondaTracker({
   }, [round.players]);
 
   const [data, setData] = useState<CellState>(initial);
-  const [scorecardOpen, setScorecardOpen] = useState(false);
+  // Scorecard live: abierta por default si la ronda ya tiene scores cargados.
+  // Si recién arrancás (0 scores), arranca cerrada para no agregar ruido.
+  const hasAnyScore = round.players.some((rp) =>
+    rp.holes.some((h) => h.score != null && h.score > 0),
+  );
+  const [scorecardOpen, setScorecardOpen] = useState(hasAnyScore);
   const [setupOpen, setSetupOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
