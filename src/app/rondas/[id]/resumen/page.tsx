@@ -716,11 +716,19 @@ export default async function ResumenPage({
                 <div className="mt-1 text-xs">
                   {br.tie ? (
                     <Pill variant="accent">Empate · sin ganador</Pill>
-                  ) : br.winnerNames.length === 1 ? (
-                    <span>
-                      Ganó <strong>{br.winnerNames[0]}</strong> · cobra ${" "}
-                      {(br.amount * (round.players.length - 1)).toLocaleString("es-AR")}
-                    </span>
+                  ) : br.winnerNames.length >= 1 ? (
+                    (() => {
+                      // Total cobrado por el "lado" ganador (suma de payouts positivos)
+                      const totalCobra = Object.values(br.payouts)
+                        .filter((v) => v > 0)
+                        .reduce((s, v) => s + v, 0);
+                      return (
+                        <span>
+                          Ganó <strong>{br.winnerNames.join(" + ")}</strong> · cobra ${" "}
+                          {totalCobra.toLocaleString("es-AR")}
+                        </span>
+                      );
+                    })()
                   ) : (
                     <span className="text-[var(--muted)]">— sin definir</span>
                   )}
