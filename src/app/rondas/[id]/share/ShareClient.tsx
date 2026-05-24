@@ -211,11 +211,11 @@ export default function ShareClient({ data }: { data: ShareData }) {
           }}
         >
           <Header data={data} />
-          {data.betResults.length > 0 && <BetsSection bets={data.betResults} />}
+          <ScorecardTable scorecard={data.scorecard} />
           {data.pairsProgression && (
             <ProgressionSection prog={data.pairsProgression} />
           )}
-          <ScorecardTable scorecard={data.scorecard} />
+          {data.betResults.length > 0 && <BetsSection bets={data.betResults} />}
           <Footer />
         </div>
       </div>
@@ -250,7 +250,7 @@ function Header({ data }: { data: ShareData }) {
 function BetsSection({ bets }: { bets: ShareData["betResults"] }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <SectionTitle>🏆 Resultado de apuestas</SectionTitle>
+      <SectionTitle>🏆 Resultados por juego</SectionTitle>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {bets.map((br) => (
           <div

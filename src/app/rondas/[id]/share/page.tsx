@@ -101,11 +101,20 @@ export default async function SharePage({
     par: h.par,
     hcpHoyo: h.hcpHoyo,
   }));
+  // IMPORTANTE: round.pairs guarda Player.id en DB pero computeBetWinner
+  // espera RoundPlayer.id (que es lo que usa playerScoresForBets).
+  // Sin esta traducción, computeBetWinner no encuentra los players de la
+  // pareja → "sin definir" en TODOS los juegos.
   const pairsArr: string[][] | undefined =
     round.mode === "FOUR_P" && round.pairs
       ? (() => {
           try {
-            return JSON.parse(round.pairs) as string[][];
+            const raw: string[][] = JSON.parse(round.pairs!);
+            return raw.map((pair) =>
+              pair
+                .map((pid) => round.players.find((rp) => rp.player.id === pid)?.id)
+                .filter((id): id is string => Boolean(id)),
+            );
           } catch {
             return undefined;
           }
