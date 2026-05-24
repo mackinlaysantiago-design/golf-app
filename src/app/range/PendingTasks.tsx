@@ -23,15 +23,6 @@ export default function PendingTasks({ tasks }: { tasks: Task[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
-  if (tasks.length === 0) {
-    return (
-      <Card className="text-center text-sm text-[var(--muted)] !p-3">
-        Sin tareas pendientes — entrá una ronda o sesión FlightScope para
-        generar nuevas
-      </Card>
-    );
-  }
-
   async function markDone(id: string) {
     setBusy(id);
     const res = await fetch(`/api/practice-tasks/${id}`, {
@@ -43,20 +34,42 @@ export default function PendingTasks({ tasks }: { tasks: Task[] }) {
     if (res.ok) router.refresh();
   }
 
-  async function skip(id: string) {
-    if (!confirm("¿Saltear esta tarea?")) return;
+  async function deleteTask(id: string) {
+    if (!confirm("¿Eliminar esta tarea? Se borra definitivamente (no queda en historial).")) return;
     setBusy(id);
-    const res = await fetch(`/api/practice-tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "SKIPPED" }),
-    });
+    const res = await fetch(`/api/practice-tasks/${id}`, { method: "DELETE" });
     setBusy(null);
     if (res.ok) router.refresh();
   }
 
+  async function deleteAllPending() {
+    if (!confirm(`¿Eliminar TODAS las ${tasks.length} tareas pendientes? Se borran definitivamente.`)) return;
+    setBusy("__all__");
+    const res = await fetch(`/api/practice-tasks?status=PENDING`, { method: "DELETE" });
+    setBusy(null);
+    if (res.ok) router.refresh();
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <Card className="text-center text-sm text-[var(--muted)] !p-3">
+        Sin tareas pendientes — entrá una ronda o sesión FlightScope para
+        generar nuevas
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-2">
+      <div className="flex justify-end">
+        <button
+          onClick={deleteAllPending}
+          disabled={busy === "__all__"}
+          className="text-[10px] text-[var(--muted)] hover:text-[var(--red)] underline"
+        >
+          {busy === "__all__" ? "Eliminando…" : `🗑 Eliminar todas (${tasks.length})`}
+        </button>
+      </div>
       {tasks.map((t) => {
         const pct = t.timesToAchieve > 0 ? Math.round((t.timesCompleted / t.timesToAchieve) * 100) : 0;
         const isFlightScope = t.sourceType === "RANGE_SESSION";
@@ -123,9 +136,10 @@ export default function PendingTasks({ tasks }: { tasks: Task[] }) {
                 ✓ Completar
               </button>
               <button
-                onClick={() => skip(t.id)}
+                onClick={() => deleteTask(t.id)}
                 disabled={busy === t.id}
-                className="text-[var(--muted)] text-xs px-2"
+                className="text-[var(--muted)] text-xs px-2 hover:text-[var(--red)]"
+                title="Eliminar definitivamente"
               >
                 ✕
               </button>
