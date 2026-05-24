@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type ShareData_NavigatorPayload = { files: File[] };
@@ -71,6 +71,12 @@ export default function ShareClient({ data }: { data: ShareData }) {
   const snapshotRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // Pre-cache del PNG. iOS Safari requiere que navigator.share() se invoque
+  // SÍNCRONO al user gesture; cualquier await previo rompe el gesture y
+  // tira "request is not allowed by the user agent". Solución: generar el
+  // blob al montar y al click solo invocar share().
+  const [cachedFile, setCachedFile] = useState<File | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   function showStatus(msg: string, autoHideMs = 4000) {
     setStatus(msg);
@@ -79,11 +85,15 @@ export default function ShareClient({ data }: { data: ShareData }) {
     }
   }
 
+  function makeFilename() {
+    const safeCourse = data.courseName.replace(/\s+/g, "-");
+    const safeDate = new Date(data.date).toISOString().slice(0, 10);
+    return `ronda-${safeCourse}-${safeDate}.png`;
+  }
+
   async function captureCanvas() {
     if (!snapshotRef.current) throw new Error("No hay nada para capturar");
     const html2canvas = (await import("html2canvas-pro")).default;
-    // scale=2 en desktop, 1.5 en mobile para que el PNG no sea demasiado grande
-    // (algunos browsers fallan share con archivos > 1-2 MB silenciosamente)
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     return html2canvas(snapshotRef.current, {
       scale: isMobile ? 1.5 : 2,
@@ -93,21 +103,49 @@ export default function ShareClient({ data }: { data: ShareData }) {
     });
   }
 
-  function makeFilename() {
-    const safeCourse = data.courseName.replace(/\s+/g, "-");
-    const safeDate = new Date(data.date).toISOString().slice(0, 10);
-    return `ronda-${safeCourse}-${safeDate}.png`;
+  async function generateFile(): Promise<File> {
+    const canvas = await captureCanvas();
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+    if (!blob) throw new Error("No se pudo generar el PNG");
+    return new File([blob], makeFilename(), { type: "image/png" });
   }
+
+  // Pre-generar el PNG en background después del mount, así share() es síncrono al click
+  useEffect(() => {
+    if (cachedFile || preparing) return;
+    let cancelled = false;
+    setPreparing(true);
+    // Pequeño delay para que el DOM esté pintado del todo
+    const timer = setTimeout(() => {
+      generateFile()
+        .then((file) => {
+          if (!cancelled) setCachedFile(file);
+        })
+        .catch((e) => {
+          if (!cancelled) console.error("[share] pre-cache failed", e);
+        })
+        .finally(() => {
+          if (!cancelled) setPreparing(false);
+        });
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleDownload() {
     setDownloading(true);
     setStatus(null);
     try {
-      const canvas = await captureCanvas();
+      const file = cachedFile ?? (await generateFile());
+      const url = URL.createObjectURL(file);
       const link = document.createElement("a");
-      link.download = makeFilename();
-      link.href = canvas.toDataURL("image/png");
+      link.href = url;
+      link.download = file.name;
       link.click();
+      URL.revokeObjectURL(url);
       showStatus("✓ PNG descargado");
     } catch (e) {
       showStatus(`✗ Error: ${(e as Error).message}`, 6000);
@@ -116,55 +154,45 @@ export default function ShareClient({ data }: { data: ShareData }) {
     }
   }
 
-  async function handleNativeShare() {
-    setDownloading(true);
+  // SÍNCRONO al click (no async) para preservar el user gesture en iOS Safari.
+  // El file viene pre-cacheado del useEffect. Si todavía no está listo,
+  // mostramos un warning y caemos a download (que no requiere gesture sync).
+  function handleNativeShare() {
     setStatus(null);
-    try {
-      // Sanity check del API
-      if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-        showStatus("⚠️ Tu navegador no soporta compartir nativo · descargando PNG…", 4000);
-        await handleDownload();
-        return;
-      }
-
-      const canvas = await captureCanvas();
-      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-      if (!blob) {
-        throw new Error("No se pudo generar el PNG");
-      }
-      const file = new File([blob], makeFilename(), { type: "image/png" });
-
-      // Algunos browsers soportan share() pero no canShare({files}). Mejor probar
-      // share() directo y catchear el error si falla.
-      const payload: ShareData_NavigatorPayload = { files: [file] };
-      const supportsFiles =
-        typeof navigator.canShare === "function" ? navigator.canShare(payload) : true;
-
-      if (!supportsFiles) {
-        showStatus("⚠️ Este navegador no soporta compartir imágenes · descargando…", 4000);
-        await handleDownload();
-        return;
-      }
-
-      await navigator.share({
+    if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+      showStatus("⚠️ Tu navegador no soporta compartir nativo · descargando PNG…", 4000);
+      handleDownload();
+      return;
+    }
+    if (!cachedFile) {
+      showStatus(preparing ? "Generando imagen, probá de nuevo en 2s…" : "⚠️ Imagen no lista · descargando…", 3000);
+      handleDownload();
+      return;
+    }
+    const payload: ShareData_NavigatorPayload = { files: [cachedFile] };
+    const supportsFiles =
+      typeof navigator.canShare === "function" ? navigator.canShare(payload) : true;
+    if (!supportsFiles) {
+      showStatus("⚠️ Este navegador no soporta compartir imágenes · descargando…", 4000);
+      handleDownload();
+      return;
+    }
+    // navigator.share() INMEDIATO sin awaits previos → preserva el user gesture
+    navigator
+      .share({
         ...payload,
         title: `Ronda en ${data.courseName}`,
         text: `Ronda del ${new Date(data.date).toLocaleDateString("es-AR")}`,
+      })
+      .then(() => showStatus("✓ Compartido", 2500))
+      .catch((e: Error) => {
+        if (e.name === "AbortError" || (e.message ?? "").toLowerCase().includes("cancel")) {
+          setStatus(null);
+          return;
+        }
+        console.error("[share]", e);
+        showStatus(`✗ ${e.message}`, 6000);
       });
-      showStatus("✓ Compartido", 2500);
-    } catch (e) {
-      const err = e as Error;
-      const msg = err.message || String(err);
-      // AbortError = el usuario canceló el share sheet → no es error real
-      if (err.name === "AbortError" || msg.toLowerCase().includes("cancel")) {
-        setStatus(null);
-        return;
-      }
-      console.error("[share]", err);
-      showStatus(`✗ ${msg}`, 6000);
-    } finally {
-      setDownloading(false);
-    }
   }
 
   return (
@@ -188,7 +216,7 @@ export default function ShareClient({ data }: { data: ShareData }) {
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={handleNativeShare}
-              disabled={downloading}
+              disabled={downloading || preparing}
               style={{
                 background: C.fairway,
                 color: "white",
@@ -197,11 +225,11 @@ export default function ShareClient({ data }: { data: ShareData }) {
                 padding: "6px 12px",
                 borderRadius: 8,
                 border: "none",
-                cursor: downloading ? "not-allowed" : "pointer",
-                opacity: downloading ? 0.5 : 1,
+                cursor: (downloading || preparing) ? "not-allowed" : "pointer",
+                opacity: (downloading || preparing) ? 0.5 : 1,
               }}
             >
-              {downloading ? "…" : "📤 Compartir"}
+              {preparing ? "Preparando…" : downloading ? "…" : "📤 Compartir"}
             </button>
             <button
               onClick={handleDownload}
