@@ -632,44 +632,84 @@ export default function NuevaRondaClient({
 
       {step === 5 && (
         <>
-          <SectionHeader>Goal del día (Scoring Method)</SectionHeader>
-          <Card className="space-y-3">
+          <SectionHeader>Goals del día (Scoring Method)</SectionHeader>
+          <Card className="space-y-4">
             <p className="text-xs text-[var(--muted)]">
-              Elegí tu <strong>goal combinado</strong>: distancia para entrar a SZ + golpes desde
-              SZ. Es UN solo objetivo por hoyo. Si lográs perfect run, subí al
-              siguiente.
+              Dos metas <strong>independientes</strong> que se trackean por separado en cada hoyo.
+              Elegí el nivel que te exija pero no te frustre.
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "100/3", enter: 100, down: 3, hint: "Bogey golfer" },
-                { label: "100/2", enter: 100, down: 2, hint: "Mid-handicap" },
-                { label: "125/2", enter: 125, down: 2, hint: "Single digit" },
-                { label: "150/2", enter: 150, down: 2, hint: "Scratch" },
-              ].map((g) => {
-                const isSelected =
-                  enterSzYds === g.enter && parseInt(downInSzStrokes) === g.down;
-                return (
-                  <button
-                    key={g.label}
-                    type="button"
-                    onClick={() => {
-                      setEnterSzYds(g.enter);
-                      setDownInSzStrokes(String(g.down));
-                    }}
-                    className="rounded-lg p-3 text-left"
-                    style={{
-                      background: isSelected ? "var(--fairway)" : "var(--green-pale)",
-                      color: isSelected ? "white" : "var(--fairway)",
-                    }}
-                  >
-                    <div className="gf-display text-2xl font-bold">{g.label}</div>
-                    <div className="text-[10px] mt-0.5 opacity-80">
-                      {g.enter} yds + {g.down} golpes
-                    </div>
-                    <div className="text-[10px] opacity-70 italic">{g.hint}</div>
-                  </button>
-                );
-              })}
+
+            {/* Goal 1: Enter SZ */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--fairway)] mb-1">
+                ① Enter Scoring Zone · qué tan cerca tenés que llegar
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: "100 yds", value: 100, hint: "Llegar con un wedge" },
+                  { label: "50 yds", value: 50, hint: "Pitching range" },
+                  { label: "25 yds", value: 25, hint: "Chip range" },
+                  { label: "GIR", value: 0, hint: "On the green" },
+                ].map((g) => {
+                  const isSelected = enterSzYds === g.value;
+                  return (
+                    <button
+                      key={g.label}
+                      type="button"
+                      onClick={() => setEnterSzYds(g.value)}
+                      className="rounded-lg p-2 text-center"
+                      style={{
+                        background: isSelected ? "var(--fairway)" : "var(--green-pale)",
+                        color: isSelected ? "white" : "var(--fairway)",
+                      }}
+                      title={g.hint}
+                    >
+                      <div className="gf-display text-lg font-bold leading-none">{g.label}</div>
+                      <div className="text-[9px] mt-1 opacity-80 leading-tight">{g.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Goal 2: Down in SZ */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--fairway)] mb-1">
+                ② Down in Scoring Zone · golpes para terminar desde ahí
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { label: "3 golpes", value: 3, hint: "Chip + 2 putts = bogey" },
+                  { label: "2 golpes", value: 2, hint: "Up & down = par" },
+                  { label: "1 golpe", value: 1, hint: "Chip-in / 1 putt desde GIR = birdie" },
+                ].map((g) => {
+                  const isSelected = parseInt(downInSzStrokes) === g.value;
+                  return (
+                    <button
+                      key={g.label}
+                      type="button"
+                      onClick={() => setDownInSzStrokes(String(g.value))}
+                      className="rounded-lg p-2 text-center"
+                      style={{
+                        background: isSelected ? "var(--fairway)" : "var(--green-pale)",
+                        color: isSelected ? "white" : "var(--fairway)",
+                      }}
+                      title={g.hint}
+                    >
+                      <div className="gf-display text-lg font-bold leading-none">{g.label}</div>
+                      <div className="text-[9px] mt-1 opacity-80 leading-tight">{g.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-md bg-[var(--accent-light)] px-2 py-1.5 text-[10px] text-[var(--accent)]">
+              <strong>Tu combinación actual:</strong>{" "}
+              {enterSzYds === 0 ? "GIR" : `≤${enterSzYds} yds`} · Down in {downInSzStrokes}.
+              {enterSzYds === 0 && downInSzStrokes === "2" && " (Par desde green)"}
+              {enterSzYds === 0 && downInSzStrokes === "1" && " (Birdie 🦅)"}
+              {enterSzYds === 25 && downInSzStrokes === "2" && " (Up & down desde chip range)"}
             </div>
             <details className="text-xs">
               <summary className="cursor-pointer text-[var(--muted)]">
