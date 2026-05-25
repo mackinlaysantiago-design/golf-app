@@ -10,12 +10,13 @@ import EditarSetupModal from "./EditarSetupModal";
 import ScoreMark from "@/components/ui/ScoreMark";
 import { SM_KEYS } from "@/lib/sm-keys";
 import {
-  GOAL_LADDER,
   findGoalByConfig,
   findGoalByLabel,
-  previousGoal,
-  nextGoal,
-  holeAchievedGoal,
+  ENTRY_OPTIONS,
+  DOWN_OPTIONS,
+  relaxEntry,
+  relaxDown,
+  holeDiagnostic,
 } from "@/lib/sm-goals";
 import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 
@@ -1582,11 +1583,14 @@ function VsParPill({ score, par }: { score: number; par: number }) {
   );
 }
 
-// Gear (goal) selector por hoyo con recomendación dinámica.
-// Lógica:
-//  - Default = goal de la ronda (si está en GOAL_LADDER) o el último elegido
-//  - Si los 2 hoyos previos NO lograron el goal → recomienda BAJAR
-//  - Si los 2 hoyos previos SÍ lograron el goal bajado → recomienda VOLVER A SUBIR
+// Goal selector por hoyo con 2 ejes separados (Entry SZ + Down in SZ).
+// Reemplaza el sistema viejo de "Gears combinados".
+//
+// Recomendación dinámica:
+//  - Si los 2 hoyos previos fallaron AMBOS ejes (entry + down) → "Bajá ambos"
+//  - Si solo falló entry → "Relajá entry" (de 25→50, 50→100)
+//  - Si solo falló down → "Relajá down" (de 1→2, 2→3)
+//  - Si los 2 hoyos previos cumplieron con goal bajado → "Volvé a subir"
 function GearSelector({
   currentHole,
   roundGoal,
@@ -1605,6 +1609,7 @@ function GearSelector({
   const currentEntry = cells[currentHole] ?? {};
   // Goal "efectivo" del hoyo: el guardado, o el de la ronda si no hay
   const effectiveGoal = currentEntry.targetGoal ?? roundGoal;
+  const goalObj = effectiveGoal ? findGoalByLabel(effectiveGoal) : null;
 
   // Mirar los 2 hoyos previos consecutivos
   const prevHoles = [currentHole - 1, currentHole - 2]
@@ -1612,80 +1617,150 @@ function GearSelector({
     .map((n) => ({ holeNumber: n, ...cells[n] }))
     .filter((h) => h.distanceInRegYds != null && h.strokesInsideSz != null);
 
-  let recommendation: { type: "DOWN" | "UP"; from: string; to: string } | null = null;
-  if (prevHoles.length >= 2 && effectiveGoal) {
-    const goal = findGoalByLabel(effectiveGoal);
-    if (goal) {
-      const last2Achieved = prevHoles.slice(0, 2).map((h) =>
-        holeAchievedGoal(goal, {
-          distanceInRegYds: h.distanceInRegYds ?? null,
-          strokesInsideSz: h.strokesInsideSz ?? null,
-        }),
-      );
-      const allFailed = last2Achieved.every((r) => r === false);
-      const allOk = last2Achieved.every((r) => r === true);
+  // Diagnóstico granular: qué eje falla en cada uno de los 2 últimos hoyos
+  type Reco = { kind: "RELAX_ENTRY" | "RELAX_DOWN" | "RELAX_BOTH" | "TIGHTEN"; to: string };
+  let recommendation: Reco | null = null;
+  if (prevHoles.length >= 2 && goalObj) {
+    const diags = prevHoles.slice(0, 2).map((h) =>
+      holeDiagnostic(goalObj, {
+        distanceInRegYds: h.distanceInRegYds ?? null,
+        strokesInsideSz: h.strokesInsideSz ?? null,
+      }),
+    );
+    const allOK = diags.every((d) => d === "OK");
+    const allFailedSomething = diags.every((d) => d != null && d !== "OK");
 
-      if (allFailed) {
-        const prev = previousGoal(effectiveGoal);
-        if (prev) recommendation = { type: "DOWN", from: effectiveGoal, to: prev.label };
-      } else if (allOk && roundGoal && effectiveGoal !== roundGoal) {
-        // Si está jugando bajo el roundGoal y le pegó 2 seguidas, sugerir volver
-        const next = nextGoal(effectiveGoal);
-        if (next) recommendation = { type: "UP", from: effectiveGoal, to: next.label };
+    if (allFailedSomething) {
+      // Detectar patrón: si los 2 fallaron solo entry → relax entry. Solo down → relax down. Mezcla → both.
+      const failedEntry = diags.filter((d) => d === "ENTRY_FAIL" || d === "BOTH_FAIL").length;
+      const failedDown = diags.filter((d) => d === "DOWN_FAIL" || d === "BOTH_FAIL").length;
+      const bothFail = diags.filter((d) => d === "BOTH_FAIL").length;
+
+      if (bothFail >= 1 || (failedEntry >= 1 && failedDown >= 1)) {
+        // Mezcla o ambos fallaron en algún hoyo → relax ambos (entry primero)
+        const relaxed = relaxEntry(goalObj) ?? relaxDown(goalObj);
+        if (relaxed) recommendation = { kind: "RELAX_BOTH", to: relaxed.label };
+      } else if (failedEntry === 2) {
+        const next = relaxEntry(goalObj);
+        if (next) recommendation = { kind: "RELAX_ENTRY", to: next.label };
+      } else if (failedDown === 2) {
+        const next = relaxDown(goalObj);
+        if (next) recommendation = { kind: "RELAX_DOWN", to: next.label };
       }
+    } else if (allOK && roundGoal && effectiveGoal !== roundGoal) {
+      // Está jugando bajo el roundGoal y pegó 2 seguidas → volver al original
+      recommendation = { kind: "TIGHTEN", to: roundGoal };
     }
+  }
+
+  const isOverride = currentEntry.targetGoal != null && currentEntry.targetGoal !== roundGoal;
+  const entryYds = goalObj?.enterSzYds ?? 50;
+  const downStrokes = goalObj?.downInSzStrokes ?? 3;
+
+  function setAxis(newEntry: number, newDown: number) {
+    const newLabel = `${newEntry === 0 ? "GIR" : newEntry}/${newDown}`;
+    onSetGoal(newLabel === roundGoal ? null : newLabel);
   }
 
   return (
     <div className="pt-2 border-t border-[var(--green-pale)] mt-2">
       <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1.5">
-        ⛳ Gear de este hoyo
+        🎯 Goal de este hoyo
+        {effectiveGoal && (
+          <span className="ml-2 gf-mono text-[var(--fairway)] font-bold">{effectiveGoal}</span>
+        )}
+      </div>
+
+      {/* Eje 1: Entry SZ */}
+      <div className="text-[9px] text-[var(--muted)] mt-1.5 mb-0.5 uppercase tracking-wider">
+        ① Entry
       </div>
       <div className="flex flex-wrap gap-1">
-        {GOAL_LADDER.map((g) => {
-          const active = effectiveGoal === g.label;
+        {ENTRY_OPTIONS.map((opt) => {
+          const active = entryYds === opt.value;
           return (
             <button
-              key={g.label}
+              key={opt.value}
               type="button"
-              onClick={() => onSetGoal(g.label === roundGoal ? null : g.label)}
-              className="text-[10px] px-2 py-1 rounded gf-mono"
+              onClick={() => setAxis(opt.value, downStrokes)}
+              className="text-[10px] px-2 py-1 rounded gf-mono flex-1 min-w-[40px]"
               style={{
                 background: active ? "var(--fairway)" : "var(--green-pale)",
                 color: active ? "white" : "var(--fairway)",
                 fontWeight: active ? 700 : 500,
               }}
-              title={g.description}
             >
-              {g.label}
+              {opt.label}
             </button>
           );
         })}
-        {currentEntry.targetGoal && (
-          <button
-            type="button"
-            onClick={() => onSetGoal(null)}
-            className="text-[10px] px-2 py-1 rounded text-[var(--muted)] underline"
-            title="Volver al goal de la ronda"
-          >
-            ↺ ronda
-          </button>
-        )}
       </div>
+
+      {/* Eje 2: Down in SZ */}
+      <div className="text-[9px] text-[var(--muted)] mt-2 mb-0.5 uppercase tracking-wider">
+        ② Down in
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {DOWN_OPTIONS.map((d) => {
+          const active = downStrokes === d;
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setAxis(entryYds, d)}
+              className="text-[10px] px-2 py-1 rounded gf-mono flex-1 min-w-[60px]"
+              style={{
+                background: active ? "var(--fairway)" : "var(--green-pale)",
+                color: active ? "white" : "var(--fairway)",
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {d} {d === 1 ? "golpe" : "golpes"}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Volver al goal de la ronda */}
+      {isOverride && (
+        <button
+          type="button"
+          onClick={() => onSetGoal(null)}
+          className="mt-2 text-[10px] text-[var(--muted)] underline"
+          title="Volver al goal de la ronda"
+        >
+          ↺ Volver al goal de la ronda ({roundGoal})
+        </button>
+      )}
+
+      {/* Recomendación dinámica */}
       {recommendation && (
         <div
           className="mt-2 p-2 rounded text-[11px]"
           style={{
             background:
-              recommendation.type === "DOWN"
-                ? "var(--accent)"
-                : "var(--green)",
+              recommendation.kind === "TIGHTEN" ? "var(--green)" : "var(--accent)",
             color: "white",
           }}
         >
-          💡 {recommendation.type === "DOWN" ? "Bajá" : "Volvé a subir"} a{" "}
-          <strong>{recommendation.to}</strong> — venís de 2 hoyos seguidos{" "}
-          {recommendation.type === "DOWN" ? "sin lograr" : "logrando"} {recommendation.from}.
+          💡{" "}
+          {recommendation.kind === "TIGHTEN" ? (
+            <>
+              Volvé al goal original <strong>{recommendation.to}</strong> · 2 hoyos seguidos cumplidos
+            </>
+          ) : recommendation.kind === "RELAX_ENTRY" ? (
+            <>
+              Bajá el <strong>entry</strong> a <strong>{recommendation.to}</strong> · 2 hoyos sin llegar a la SZ
+            </>
+          ) : recommendation.kind === "RELAX_DOWN" ? (
+            <>
+              Relajá el <strong>down</strong> a <strong>{recommendation.to}</strong> · 2 hoyos sin bajar en los golpes
+            </>
+          ) : (
+            <>
+              Bajá un cambio a <strong>{recommendation.to}</strong> · 2 hoyos sin cumplir
+            </>
+          )}
           <button
             type="button"
             onClick={() => onSetGoal(recommendation!.to)}
