@@ -18,6 +18,7 @@ Toda la teoría del curso (82 video lessons transcritos) está en `docs/knowledg
 - `docs/knowledge-base/10_pre_game_routine.md` — Personal Par, warm-up, calibration, stupid holes (Workshop 5/6/26)
 - `docs/knowledge-base/11_round_assessment_card.md` — Round Assessment Card oficial (11 secciones, schema completo)
 - `docs/knowledge-base/12_drill_test_taxonomy.md` — Drill vs Test, Block vs Random, 5 Areas
+- `docs/knowledge-base/13_wedge_distance_mastery.md` — wedge gapping: Wedge Matrix, Clock System, proximity-to-hole, números reales TrackMan
 
 PDFs oficiales del método en `docs/knowledge-base/resources/`.
 

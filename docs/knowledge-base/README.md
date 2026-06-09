@@ -17,6 +17,7 @@ Al arrancar una sesión sobre la golf-app, cargar:
 8. **`10_pre_game_routine.md`** — Personal Par + Warm-Up + Calibration + Stupid Holes + Compounding (Workshop 5/6/26)
 9. **`11_round_assessment_card.md`** — modelo del card oficial post-round (11 secciones, schema completo)
 10. **`12_drill_test_taxonomy.md`** — Drill vs Test, Block vs Random, 5 Areas, Train Hard Play Easy
+11. **`13_wedge_distance_mastery.md`** — curso dedicado de wedge gapping (Wedge Matrix, Clock System, proximity-to-hole, números reales TrackMan)
 
 ## Recursos PDF (`resources/`)
 - `round_assessment_card.pdf` — TSM Advanced Round Review (oficial)

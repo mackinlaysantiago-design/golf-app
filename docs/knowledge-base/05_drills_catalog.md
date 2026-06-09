@@ -656,6 +656,13 @@
             -   SW: 65 / 75 / 85 / 90 yds
             -   GW: 95 / 100 / 105 / 110 yds
             -   PW: 115 / 125 / 130 / 135 yds
+        *   **Ejemplo del curso dedicado (jugador "John", TrackMan)** — ver `13_wedge_distance_mastery.md`:
+            -   LW PITCH: ~41 | LW FULL: 91 (**alta**, descartó chunk 76* y skull 112*)
+            -   SW 3/4: 95 (avg 94.7) | SW FULL: ~105
+            -   GW 1/2: 96 (**baja**) | GW 3/4: 120 | GW FULL: 128 (descartó 129.3*)
+            -   PW FULL: ~135-140
+            -   **Nota**: 91/95/96 = casi mismo yardaje, trayectoria alta/media/baja → distinta función (back pin vs. frenar vs. correr). Sugerido agregar `ballFlight (HIGH|MID|LOW)` y `loftDegrees` a `WedgeMatrixEntry`.
+        *   **Posiciones por parte del cuerpo** (referencia de feel del curso): 3/4 = hasta el hombro; HALF = al pecho. Mantené **mismo tempo**, cambiá solo el largo del backswing.
         *   **Criterios**:
             *   **Descartar del average**: chunks (corta 15+ yds del esperado) y blades (long 30+ yds del esperado). No entran en el `avgYards`.
             *   **Goal por celda**: 8 de 9 tiros entre `avg - 2` y `avg + 2` yds (dispersion ≤ 4 yds total). Ejemplo: avg = 86 → goal es 8/9 entre 84-88.
@@ -893,6 +900,50 @@
     *   **Output**: `totalScore`, `parCount`, `bogeyCount`, `doubleOrWorseCount`.
     *   **Drill complementario**: Wedge Matrix (Drill #22) — drill first, then test.
     *   **Modelo Prisma**: similar al Chipping 9-Hole (Drill #14). Enum: `PITCHING_9_HOLE_WEDGE_COURSE`.
+
+31. **Nombre**: Chip-to-Pitch-to-Wedge Progression (Build-up)
+    *   **Módulo / fuente**: curso `wedge-distance-mastery` (`sec1033356`). Ver `13_wedge_distance_mastery.md` §4.
+    *   **Filosofía**: que el wedge swing se sienta como **una extensión del chip** — mismo tempo, distinto largo de backswing — NO un swing distinto. Produce bola baja y controlable.
+    *   **Tipo**: DRILL / BLOCK (mismo movimiento, alargándolo gradualmente).
+    *   **Área**: Pitching (Área 4), tributa a Fringe Chipping (Área 3).
+    *   **Setup físico**: pitching green. Empezás con un chip básico aterrizando **2-3 pasos dentro del green** y liberando al hoyo (54° o similar).
+    *   **Parámetros**:
+        *   **Bolas por estación**: 3.
+        *   **Progresión**: mover hacia atrás **5-7 pasos** cada vez (chip → pitch ~30-40 → 50 → 75 → ~85 yds). Ball position se atrasa levemente.
+        *   **Tempo**: idéntico en todas las estaciones; acelerar a través de la bola ("drive through").
+    *   **Criterio de éxito** (cualitativo): trayectoria visualmente igual aunque crezca la distancia, sin deceleración en el impacto.
+    *   **Output a trackear**: `stations` (distancia + sensación de aceleración 1-5), `decelFlag` por estación.
+    *   **Modelo Prisma**: Enum `CHIP_PITCH_WEDGE_PROGRESSION`. Reusar `DrillSession` con `notes` + array de estaciones.
+
+32. **Nombre**: On-Course Wedge Matrix Validation
+    *   **Módulo / fuente**: curso `wedge-distance-mastery` (`sec1033356`). Ver `13_wedge_distance_mastery.md` §8.
+    *   **Filosofía**: confirmar que los números del range transfieren a la cancha con tu bola, y **committear** al tiro sin dudar (cierra el loop range→cancha→range).
+    *   **Tipo**: TEST / RANDOM (yardajes y lies reales, un tiro real por situación).
+    *   **Área**: Pitching (Área 4).
+    *   **Setup físico**: hoyos reales con yardajes variados dentro de ~100-130 yds (uphill/downhill/viento), con tu propia bola y la carta de la matriz.
+    *   **Parámetros / proceso**: leer yardaja real → ajustar por pendiente/viento → elegir `club × posición` de la matriz → committear a un full turn con tempo.
+    *   **Criterio de éxito / medición**: **proximity-to-hole** (`proximityFeet`, pin high / inside X). Benchmark PGA 11 ft @100 yds; meta inside 8-12 → luego inside 10.
+    *   **Output a trackear**: por tiro `targetYards`, `playedYards` (ajustado), `cellUsed`, `proximityFeet`, `committed (bool)`.
+    *   **Modelo Prisma**: Enum `ON_COURSE_WEDGE_MATRIX_VALIDATION`. Alimenta el KPI rey de proximidad.
+
+33. **Nombre**: Low-Point / Compression Drills (contacto para wedge gapping)
+    *   **Fuente**: `live-call-recordings__workshop_wedge-gapping-replay`. Ver `13_wedge_distance_mastery.md` §11. Pre-requisito de la matriz: sin contacto consistente no hay yardaje consistente.
+    *   **Tipo**: DRILL / BLOCK (contacto/low-point). Área: Pitching (4) + Fringe Chipping (3).
+    *   **Variantes**:
+        -   **Divot Board**: pegar sobre la tabla buscando que el divot arranque después de la línea; low-point control. Se puede hacer indoor a diario.
+        -   **Tee delante de la bola**: clavar un tee ~1 palmo adelante y "volar el tee" → contacto bola-después-tierra, punto más profundo ~3" DESPUÉS de la bola.
+        -   **Fairway bunker rastrillado** (back of the rake): alisar la arena y pegar pitches; medio pulgar atrás = ~15 yds menos → fuerza comprimir hacia abajo.
+    *   **Criterio de éxito**: divot que empieza en/después de la bola (nunca antes), contacto seco repetible.
+    *   **Output**: `cleanStrikePct` (tiros con contacto bola-primero / total), `drillVariant`.
+    *   **Modelo Prisma**: Enum `LOW_POINT_COMPRESSION`. Reusar `DrillSession` con `drillVariant` + `cleanStrikePct`.
+
+34. **Nombre**: On-Course Lies Drill (rough/hardpan/pendiente al mismo target)
+    *   **Fuente**: `live-call-recordings__workshop_wedge-gapping-replay`. Ver `13_wedge_distance_mastery.md` §11.
+    *   **Tipo**: TEST / RANDOM. Área: Pitching (4).
+    *   **Setup**: soltar **3 bolas** desde lies distintos (lie alto/perfecto, normal en rough, hundida en rough espeso) o recorrer hoyos soltando 3 bolas a 75 yds desde thick rough / hardpan / tight lie / downhill / uphill. Pegar las 3 al mismo target.
+    *   **Filosofía**: "siempre vas a leer mal el lie — siempre lo pensás mejor de lo que es." Aprender a ajustar club/trayectoria por lie; con bola hundida, "chunk it out and get into position."
+    *   **Criterio**: proximity-to-target por lie; reconocer cuándo NO atacar.
+    *   **Modelo Prisma**: Enum `ON_COURSE_LIES_DRILL`.
 
 #### Área 5 — Bunker Play (consistent sand strike)
 

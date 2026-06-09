@@ -104,6 +104,20 @@ Estos *prompts* se utilizan para preparar la mente antes de una ronda o un golpe
         *   **Tipo de campo:** Un selector para la fase del hoyo (Enter SZ / Down in SZ) y un *checkbox* para "Obtener Check". Esto se integraría en la interfaz de registro de golpes.
         *   **Modelo de datos:** `Hole.currentPhase: Enum('enter_sz', 'down_in_sz')`, `Hole.checkAchieved: Boolean`.
 
+### Wedge Gapping (Post-sesión de wedges)
+
+Fuente: curso `wedge-distance-mastery` (ver `13_wedge_distance_mastery.md`). Prompts para capturar al construir/refinar la Wedge Matrix.
+
+1.  ¿Cuál es tu distancia **standard** (flighted, controlada) para cada wedge?
+2.  Para cada celda nueva que dialeaste hoy: ¿avg y **gap** (más largo − más corto)? ¿El gap se **achicó** vs. la última vez?
+3.  ¿Cuántos **outliers** (chunks/blades/skulls) descartaste y por qué? ¿Patrón (siempre el mismo wedge, siempre que me alargo)?
+4.  ¿Mantuviste el **mismo tempo** a través de la bola o aceleraste/frenaste para ajustar distancia?
+5.  ¿En qué tiro convertiste un pitch en wedge y **decelaraste** en el impacto?
+6.  Desde 100 yds hoy: ¿a cuántos **pies promedio** del hoyo pegaste? ¿Más cerca o más lejos de tu meta (inside 8-12 ft)?
+7.  En cancha: ¿**committeaste** al número de la matriz o volviste a adivinar/sentir?
+8.  ¿Qué 3 posiciones / 3 clubs trabajaste? ¿Cuáles te faltan para completar la matriz (meta 12+ números)?
+9.  ¿Tenés dos celdas con el mismo yardaje? ¿Sabés cuál usar para back pin (alta) vs. para frenar sobre un bunker (baja)?
+
 ### Periódico (Semanal/Mensual)
 
 Estos *prompts* invitan a una reflexión más profunda sobre el progreso a largo plazo, la identidad como golfista y las creencias subyacentes.
