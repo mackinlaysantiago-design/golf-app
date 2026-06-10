@@ -69,7 +69,23 @@ export default async function RangePage() {
       <DispersionUploader />
       <DispersionList rows={dispersions} />
 
-      {/* 3. Purposeful Practice — botón prominente al final */}
+      {/* 3. Wedge Matrix */}
+      <SectionHeader>Wedge Matrix</SectionHeader>
+      <Link href="/range/wedge-matrix" className="block">
+        <Card className="!p-4 flex items-center justify-between hover:shadow-lg transition-shadow" style={{ borderLeft: "4px solid var(--accent)" }}>
+          <div>
+            <div className="font-bold text-base text-[var(--fairway)]">
+              🎯 Wedge gapping
+            </div>
+            <div className="text-xs text-[var(--muted)] mt-0.5">
+              Distancias conocidas wedge × posición · cargá desde FlightScope
+            </div>
+          </div>
+          <span className="text-[var(--accent)] text-2xl">›</span>
+        </Card>
+      </Link>
+
+      {/* 4. Purposeful Practice — botón prominente al final */}
       <SectionHeader>Purposeful Practice</SectionHeader>
       <Link href="/range/pp" className="block">
         <Card className="!p-4 flex items-center justify-between hover:shadow-lg transition-shadow" style={{ borderLeft: "4px solid var(--green)" }}>
