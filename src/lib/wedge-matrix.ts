@@ -68,6 +68,50 @@ export function computeCell(keptCarries: number[], goal = 4): CellStats {
   };
 }
 
+// Clasifica el nombre de un "palo" del CSV.
+// Si tiene wedge + posición → celda de la matriz; si no → palo común (sesión de range).
+// Reconoce sinónimos. NO usa números de loft sueltos para evitar ambigüedad con %.
+export type ClubClass =
+  | { kind: "cell"; wedge: WedgeKey; swing: SwingKey }
+  | { kind: "club"; club: string };
+
+export function parseClubName(raw: string): ClubClass {
+  const s = raw.toLowerCase().trim();
+
+  // posición de swing
+  let swing: SwingKey | null = null;
+  if (/(^|\W)(full|100%?)(\W|$)/.test(s)) swing = "FULL";
+  else if (/(3\s*\/\s*4|¾|three[\s-]*quarter|75%?)/.test(s)) swing = "THREE_QUARTER";
+  else if (/(1\s*\/\s*2|half|50%)/.test(s)) swing = "HALF";
+  else if (/(^|\W)pitch(\W|$)/.test(s) && !/pitching/.test(s)) swing = "PITCH";
+
+  // tipo de wedge
+  let wedge: WedgeKey | null = null;
+  if (/(^|\W)(lob|lw)(\W|$)/.test(s)) wedge = "LW";
+  else if (/(^|\W)(sand|sw)(\W|$)/.test(s)) wedge = "SW";
+  else if (/(^|\W)(gap|gw)(\W|$)/.test(s)) wedge = "GW";
+  else if (/pitching|(^|\W)pw(\W|$)/.test(s)) wedge = "PW";
+
+  if (wedge && swing) return { kind: "cell", wedge, swing };
+  return { kind: "club", club: normalizeClub(raw) };
+}
+
+// Mapea nombres comunes de FlightScope al enum de club de la app.
+export function normalizeClub(raw: string): string {
+  const s = raw.toLowerCase().trim();
+  if (/driver/.test(s)) return "DRIVER";
+  if (/3\s*wood|wood\s*3/.test(s)) return "WOOD_3";
+  if (/5\s*wood|wood\s*5/.test(s)) return "WOOD_5";
+  if (/hybrid|rescue|híbrido/.test(s)) return "HYBRID";
+  const iron = s.match(/(\d)\s*iron|iron\s*(\d)/);
+  if (iron) return `IRON_${iron[1] ?? iron[2]}`;
+  if (/pitching|(^|\W)pw(\W|$)/.test(s)) return "PW";
+  if (/gap|(^|\W)gw(\W|$)/.test(s)) return "GW";
+  if (/sand|(^|\W)sw(\W|$)/.test(s)) return "SW";
+  if (/lob|(^|\W)lw(\W|$)/.test(s)) return "LW";
+  return raw.trim().toUpperCase().replace(/\s+/g, "_");
+}
+
 // Tono de la dispersión para color-coding (narrow the gap)
 export function dispersionTone(disp: number | null, goal = 4): "good" | "warn" | "bad" | "neutral" {
   if (disp == null) return "neutral";

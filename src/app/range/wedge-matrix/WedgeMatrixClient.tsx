@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, SectionHeader } from "@/components/ui/Card";
+import ImportCsv from "./ImportCsv";
 import {
   WEDGES,
   SWING_POSITIONS,
@@ -35,6 +36,7 @@ const toneColor = (t: string) =>
 export default function WedgeMatrixClient() {
   const [data, setData] = useState<MatrixData | null>(null);
   const [open, setOpen] = useState<{ wedge: string; swing: string } | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/wedge-matrix", { cache: "no-store" });
@@ -45,7 +47,7 @@ export default function WedgeMatrixClient() {
     load();
   }, [load]);
 
-  const matrix = data?.matrix ?? {};
+  const matrix = useMemo(() => data?.matrix ?? {}, [data]);
 
   // detección de números repetidos (mismo yardaje, distinta trayectoria)
   const repeated = useMemo(() => {
@@ -71,6 +73,10 @@ export default function WedgeMatrixClient() {
         <MiniKPI label="Locked in" value={locked} tone={locked > 0 ? "good" : "neutral"} />
         <MiniKPI label="Goal gap" value="4" unit="yds" />
       </div>
+
+      <button onClick={() => setImporting(true)} className="gf-btn w-full !text-sm">
+        📄 Importar CSV de FlightScope
+      </button>
 
       <SectionHeader>Matriz · tocá una celda para cargar</SectionHeader>
 
@@ -137,6 +143,16 @@ export default function WedgeMatrixClient() {
         🔒 = locked in (8+ tiros, gap ≤ goal) · <span className="text-[var(--accent)]">≈</span> número repetido
         (mismo yardaje, distinta trayectoria) · color del borde = tamaño del gap.
       </p>
+
+      {importing && (
+        <ImportCsv
+          onClose={() => setImporting(false)}
+          onDone={async () => {
+            await load();
+            setTimeout(() => setImporting(false), 1200);
+          }}
+        />
+      )}
 
       {open && (
         <CellModal
