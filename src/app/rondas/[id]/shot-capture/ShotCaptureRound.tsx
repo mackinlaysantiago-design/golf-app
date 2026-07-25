@@ -74,10 +74,48 @@ export default function ShotCaptureRound({
       />
 
       {shots.length > 0 && (
-        <div className="text-xs text-[var(--muted)] text-center">
-          {shots.length} tiro(s) cargado(s) en el hoyo {hole.number}
+        <div className="space-y-2 pt-1">
+          <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            {shots.length} tiro(s) — hoyo {hole.number}
+          </div>
+          {shots.map((s, i) => (
+            <div
+              key={i}
+              className="rounded-xl bg-white p-2.5"
+              style={{ boxShadow: "0 1px 3px rgba(20,35,26,.06)" }}
+            >
+              <div className="font-bold text-sm mb-1">
+                Tiro {i + 1}
+                {s.club && (
+                  <span className="text-[var(--muted)] font-semibold text-xs ml-1">{s.club}</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {s.decisionQuality && (
+                  <SChip k="Decisión" v={s.decisionQuality === "GOOD" ? "✓ Bien" : "✗ Mala"} bg="#eaf1fe" fg="#2563eb" />
+                )}
+                {s.executionQuality && <SChip k="Ejecución" v={s.executionQuality} bg="#fdf3e6" fg="#d97706" />}
+                {s.result && <SChip k="Resultado" v={s.result} bg="#e8f5ec" fg="#15803d" />}
+              </div>
+              {s.transcript && (
+                <div className="text-[11px] text-[var(--muted)] italic mt-1.5">🎙️ {s.transcript}</div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+function SChip({ k, v, bg, fg }: { k: string; v: string; bg: string; fg: string }) {
+  return (
+    <span
+      className="text-xs font-bold px-2 py-1 rounded-lg inline-flex items-center gap-1"
+      style={{ background: bg, color: fg }}
+    >
+      <span className="text-[9px] uppercase opacity-70">{k}</span>
+      {v}
+    </span>
   );
 }
