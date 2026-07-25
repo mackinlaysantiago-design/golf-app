@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Scoring Method analysis (local research, no commitear)
 scoring-method-analysis/
+
+# credenciales Lucila hardcodeadas — mover a env antes de trackear
+scripts/sync-lucila.ts
