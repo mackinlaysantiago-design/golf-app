@@ -26,7 +26,6 @@ export default function ShotCaptureRound({
 }) {
   const [idx, setIdx] = useState(0);
   const [shotsByHole, setShotsByHole] = useState<Record<number, ParsedShot[]>>({});
-  const [showMap, setShowMap] = useState(false);
 
   if (holes.length === 0) {
     return <p className="text-sm text-[var(--muted)] p-4">Esta ronda no tiene hoyos cargados.</p>;
@@ -88,15 +87,10 @@ export default function ShotCaptureRound({
         }
       />
 
-      <button
-        onClick={() => setShowMap((v) => !v)}
-        className="w-full text-sm font-semibold py-2 rounded-lg"
-        style={{ background: "var(--green-pale)", color: "var(--fairway)" }}
-      >
-        {showMap ? "✕ Ocultar mapa" : "🗺️ Ver / editar tiros en el mapa"}
-      </button>
-
-      {showMap && (
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1 px-1">
+          🗺️ Tiros en el mapa — arrastrá para corregir, tap para ubicar
+        </div>
         <ShotsMapPanel
           key={hole.roundHoleId}
           roundHoleId={hole.roundHoleId}
@@ -107,7 +101,7 @@ export default function ShotCaptureRound({
             centerLng: hole.green.centerLng,
           }}
         />
-      )}
+      </div>
 
       {shots.length > 0 && (
         <div className="space-y-2 pt-1">
