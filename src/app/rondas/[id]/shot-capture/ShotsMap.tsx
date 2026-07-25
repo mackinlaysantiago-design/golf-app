@@ -61,7 +61,8 @@ export default function ShotsMap({
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false });
     mapRef.current = map;
-    L.tileLayer(SAT_URL, { maxZoom: 21 }).addTo(map);
+    // maxNativeZoom: Esri World Imagery no tiene tiles arriba de ~19 → upscale en vez de "not available"
+    L.tileLayer(SAT_URL, { maxZoom: 20, maxNativeZoom: 19 }).addTo(map);
     map.setView([-34.6, -58.4], 16); // vista inicial provisoria
     map.on("click", (e: L.LeafletMouseEvent) => onPlaceRef.current(e.latlng.lat, e.latlng.lng));
     return () => {

@@ -50,11 +50,26 @@ export default function ShotsMapPanel({ roundHoleId, hole }: { roundHoleId: stri
   }, []);
 
   const onPlaceShot = useCallback(
-    (lat: number, lng: number) => {
+    async (lat: number, lng: number) => {
+      // Si hay un tiro sin ubicar, lo ubico. Si no, CREO un tiro nuevo en ese punto.
       const target = shots.find((s) => s.fromLat == null || s.fromLng == null);
-      if (target) void onMoveShot(target.id, lat, lng);
+      if (target) {
+        void onMoveShot(target.id, lat, lng);
+        return;
+      }
+      try {
+        const r = await fetch("/api/shots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roundHoleId, lat, lng }),
+        });
+        const j = (await r.json()) as { shot?: MapShot };
+        if (j.shot) setShots((prev) => [...prev, j.shot!]);
+      } catch {
+        /* silencioso */
+      }
     },
-    [shots, onMoveShot],
+    [shots, onMoveShot, roundHoleId],
   );
 
   return (
