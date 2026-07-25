@@ -36,13 +36,27 @@ export async function POST(req: NextRequest) {
     if (!roundHoleId || typeof lat !== "number" || typeof lng !== "number") {
       return NextResponse.json({ error: "faltan roundHoleId/lat/lng" }, { status: 400 });
     }
+    const rh = await prisma.roundHole.findUnique({
+      where: { id: roundHoleId },
+      select: { roundId: true, roundPlayerId: true },
+    });
+    if (!rh) {
+      return NextResponse.json({ error: "roundHoleId inexistente" }, { status: 404 });
+    }
     const last = await prisma.roundShot.aggregate({
       where: { roundHoleId },
       _max: { shotNumber: true },
     });
     const shotNumber = (last._max.shotNumber ?? 0) + 1;
     const shot = await prisma.roundShot.create({
-      data: { roundHoleId, shotNumber, fromLat: lat, fromLng: lng },
+      data: {
+        roundHoleId,
+        roundId: rh.roundId,
+        roundPlayerId: rh.roundPlayerId,
+        shotNumber,
+        fromLat: lat,
+        fromLng: lng,
+      },
       select: {
         id: true,
         shotNumber: true,

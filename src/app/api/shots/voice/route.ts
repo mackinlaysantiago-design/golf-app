@@ -17,8 +17,20 @@ export async function POST(req: NextRequest) {
     }
 
     const roundHoleId = (form.get("roundHoleId") as string) || null;
-    const roundId = (form.get("roundId") as string) || null;
-    const roundPlayerId = (form.get("roundPlayerId") as string) || null;
+    let roundId = (form.get("roundId") as string) || null;
+    let roundPlayerId = (form.get("roundPlayerId") as string) || null;
+    // El cliente suele mandar solo roundHoleId: resolver roundId/roundPlayerId acá
+    // para que el RoundShot no quede con esas FKs en null (insights T3 dependen de eso).
+    if (roundHoleId && (!roundId || !roundPlayerId)) {
+      const rh = await prisma.roundHole.findUnique({
+        where: { id: roundHoleId },
+        select: { roundId: true, roundPlayerId: true },
+      });
+      if (rh) {
+        roundId = roundId ?? rh.roundId;
+        roundPlayerId = roundPlayerId ?? rh.roundPlayerId;
+      }
+    }
     const shotNumber = Number(form.get("shotNumber") ?? 0) || 1;
     const num = (k: string) => {
       const v = form.get(k);
