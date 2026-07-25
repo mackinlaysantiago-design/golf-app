@@ -17,6 +17,8 @@ export type HoleForCapture = {
   green: HoleGreen;
 };
 
+type SavedShot = ParsedShot & { dbId?: string };
+
 export default function ShotCaptureRound({
   holes,
   carries,
@@ -25,7 +27,8 @@ export default function ShotCaptureRound({
   carries: ClubCarry[];
 }) {
   const [idx, setIdx] = useState(0);
-  const [shotsByHole, setShotsByHole] = useState<Record<number, ParsedShot[]>>({});
+  const [shotsByHole, setShotsByHole] = useState<Record<number, SavedShot[]>>({});
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   if (holes.length === 0) {
     return <p className="text-sm text-[var(--muted)] p-4">Esta ronda no tiene hoyos cargados.</p>;
@@ -34,11 +37,28 @@ export default function ShotCaptureRound({
   const hole = holes[idx];
   const shots = shotsByHole[hole.number] ?? [];
 
-  function onSaved(p: ParsedShot) {
+  function onSaved(p: ParsedShot, shotId?: string) {
     setShotsByHole((prev) => ({
       ...prev,
-      [hole.number]: [...(prev[hole.number] ?? []), p],
+      [hole.number]: [...(prev[hole.number] ?? []), { ...p, dbId: shotId }],
     }));
+  }
+
+  async function deleteShot(dbId: string) {
+    const holeNumber = hole.number;
+    const prevShots = shotsByHole[holeNumber] ?? [];
+    setShotsByHole((prev) => ({
+      ...prev,
+      [holeNumber]: (prev[holeNumber] ?? []).filter((s) => s.dbId !== dbId),
+    }));
+    setConfirmDelete(null);
+    try {
+      const r = await fetch(`/api/shots/${dbId}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
+    } catch {
+      // Falló el DELETE (sin señal): restauro la lista para que no quede borrado solo en la UI
+      setShotsByHole((prev) => ({ ...prev, [holeNumber]: prevShots }));
+    }
   }
 
   return (
@@ -114,10 +134,27 @@ export default function ShotCaptureRound({
               className="rounded-xl bg-white p-2.5"
               style={{ boxShadow: "0 1px 3px rgba(20,35,26,.06)" }}
             >
-              <div className="font-bold text-sm mb-1">
-                Tiro {i + 1}
-                {s.club && (
-                  <span className="text-[var(--muted)] font-semibold text-xs ml-1">{s.club}</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-bold text-sm">
+                  Tiro {i + 1}
+                  {s.club && (
+                    <span className="text-[var(--muted)] font-semibold text-xs ml-1">{s.club}</span>
+                  )}
+                </div>
+                {s.dbId && (
+                  <button
+                    onClick={() =>
+                      confirmDelete === s.dbId ? void deleteShot(s.dbId!) : setConfirmDelete(s.dbId!)
+                    }
+                    className="text-xs font-semibold px-2 py-0.5 rounded-lg"
+                    style={
+                      confirmDelete === s.dbId
+                        ? { background: "var(--red)", color: "white" }
+                        : { color: "var(--muted)" }
+                    }
+                  >
+                    {confirmDelete === s.dbId ? "¿Borrar?" : "🗑️"}
+                  </button>
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -149,7 +186,7 @@ function BatchRecorder({
   holeNumber: number;
   par: number;
   baseShotNumber: number;
-  onSavedMany: (ps: ParsedShot[]) => void;
+  onSavedMany: (ps: SavedShot[]) => void;
 }) {
   const [phase, setPhase] = useState<"idle" | "rec" | "sending" | "error">("idle");
   const [err, setErr] = useState<string | null>(null);
@@ -190,9 +227,13 @@ function BatchRecorder({
       fd.append("par", String(par));
       fd.append("shotNumber", String(baseShotNumber));
       const res = await fetch("/api/shots/voice", { method: "POST", body: fd });
-      const j = (await res.json()) as { parsedList?: ParsedShot[]; error?: string };
+      const j = (await res.json()) as {
+        parsedList?: ParsedShot[];
+        shots?: { id: string }[];
+        error?: string;
+      };
       if (!res.ok || !j.parsedList) throw new Error(j.error || "error del servidor");
-      onSavedMany(j.parsedList);
+      onSavedMany(j.parsedList.map((p, i) => ({ ...p, dbId: j.shots?.[i]?.id })));
       setPhase("idle");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "error");

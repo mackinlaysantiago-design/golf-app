@@ -5,12 +5,14 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { attachSatelliteLayer } from "@/app/labs/maps/[courseId]/play/mapTiles";
 
 export type MapShot = {
   id: string;
   shotNumber: number;
   fromLat: number | null;
   fromLng: number | null;
+  club?: string | null;
 };
 export type MapHole = {
   teeLat: number | null;
@@ -18,9 +20,6 @@ export type MapHole = {
   centerLat: number | null;
   centerLng: number | null;
 };
-
-const SAT_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 function numberIcon(n: number) {
   return L.divIcon({
@@ -61,11 +60,13 @@ export default function ShotsMap({
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false });
     mapRef.current = map;
-    // maxNativeZoom: Esri World Imagery no tiene tiles arriba de ~19 → upscale en vez de "not available"
-    L.tileLayer(SAT_URL, { maxZoom: 20, maxNativeZoom: 19 }).addTo(map);
+    // Google (z22 nativo) > Mapbox > Esri: en zona rural Esri no tiene tiles arriba de ~z18
+    const cancelled = { current: false };
+    void attachSatelliteLayer(map, cancelled);
     map.setView([-34.6, -58.4], 16); // vista inicial provisoria
     map.on("click", (e: L.LeafletMouseEvent) => onPlaceRef.current(e.latlng.lat, e.latlng.lng));
     return () => {
+      cancelled.current = true;
       map.remove();
       mapRef.current = null;
     };

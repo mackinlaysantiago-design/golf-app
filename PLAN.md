@@ -77,3 +77,42 @@ Menor id con deps `done` y no `done`. Ahora: **T0 (schema) en curso** → despu�
   ARRAY de tiros. Cambio en gemini-shot (prompt + schema array) + route (crear N RoundShot) + UI. compl: 6.
 - **T7** — Marcar los tiros en el mapa a medida que se cargan (markers por tiro sobre HoleMap). compl: 5.
   depende_de: [T5].
+
+## Iteración 3 — bugs en vivo en la cancha (25/07 tarde) — HECHA, pendiente prueba de Santi en cancha
+Estado probado por Santi en producción, jugando: **marcar tiros tocando el mapa YA funciona** ✓.
+
+- **T8 — Zoom: "Map data not yet available" a zoom alto** · estado: **done** (25/07) · compl: 3
+  - Fix aplicado: `ShotsMap.tsx` ahora usa `attachSatelliteLayer()` de `mapTiles.ts` (Google z22
+    nativo, fallback Mapbox→Esri). Keys `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`/`MAPBOX` verificadas en
+    Vercel Production. Falta que Santi lo vea en la cancha (no reproducible desde acá).
+  - Síntoma: al acercar el satélite aparece un tile gris que dice "Map data not yet available" y no se
+    ve la cancha en detalle. El fix previo (`maxNativeZoom:19`) NO alcanzó.
+  - Causa raíz: ese cartel **es un tile placeholder del propio Esri World Imagery**, no es código nuestro.
+    En zona rural (Villegas / La Lucila) Esri NO tiene imágenes nativas arriba de ~z17-18, así que pedir
+    z19 devuelve el gris. Bajar `maxNativeZoom` no da más detalle, solo evita el cartel (upscale borroso).
+  - Fix recomendado: en `src/app/rondas/[id]/shot-capture/ShotsMap.tsx:65` cambiar el tile de Esri por el
+    de **Google** que YA existe en `src/app/labs/maps/[courseId]/play/mapTiles.ts:50-53`
+    (`maxZoom:22, maxNativeZoom:22`) → imagen real de alta resolución en esa zona. Alternativa si se
+    prefiere no depender de Google: Mapbox Satellite (también en mapTiles.ts, líneas 18-22).
+  - Archivos: `ShotsMap.tsx` (SAT_URL línea 22 + tileLayer línea 65). Reusar el helper de `mapTiles.ts`.
+
+- **T9 — Borrar tiros** · estado: **done** (25/07) · compl: 3
+  - DELETE en `/api/shots/[id]` + botón 🗑️ con confirmación en dos taps (sin window.confirm) en:
+    (a) chips bajo el mapa (ShotsMapPanel, cubre tiros creados por tap) y (b) lista viva de tiros
+    dictados (ShotCaptureRound; ids de la DB ahora viajan en la respuesta de /api/shots/voice).
+  - Si el DELETE falla (sin señal en la cancha), la UI restaura el tiro (rollback, review de Gemini).
+  - Pedido de Santi: poder eliminar un tiro cargado (por error o duplicado).
+  - Backend: falta el método **DELETE** en `src/app/api/shots/[id]/route.ts` (hoy solo tiene PATCH).
+    Agregar `export async function DELETE(...)` que borre el RoundShot por id.
+  - UI: botón de borrar (🗑️) en la lista viva de tiros del hoyo (ShotCaptureRound) y/o long-press en el
+    marker del mapa → confirmar → DELETE → refrescar lista + markers.
+
+## NOTA operativa — bot en paralelo (para el Claude de la terminal)
+- **Ya arreglado en `~/golf-coach/bot.py`.** La causa era que el guard anti-duplicados era FANTASMA:
+  había un comentario diciendo "el flock ya se toma arriba (_BOT_LOCK_FH)" pero **el código no existía**.
+  Por eso corrían 2 bots a la vez y cada mensaje disparaba 2 Claude en paralelo pisándose.
+- Fix aplicado: `_acquire_single_instance_lock()` real (flock no-bloqueante en `/tmp/golf-coach-bot.lock`)
+  dentro del `if __name__ == "__main__"`. Compila OK. Un watcher desatendido reinicia el bot vía launchd
+  (`com.santi.golf-coach`) al terminar la sesión, para activar el candado en el proceso vivo.
+- Si en la terminal ves de nuevo respuestas duplicadas: `ps -eo pid,ppid,etime,command | grep '[b]ot.py'`
+  debería mostrar UN solo bot. Si hay más de uno, matá los sobrantes; el flock evita que rearranquen.

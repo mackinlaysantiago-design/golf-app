@@ -12,6 +12,7 @@ export default function ShotsMapPanel({ roundHoleId, hole }: { roundHoleId: stri
   const [shots, setShots] = useState<MapShot[]>([]);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +73,21 @@ export default function ShotsMapPanel({ roundHoleId, hole }: { roundHoleId: stri
     [shots, onMoveShot, roundHoleId],
   );
 
+  const onDeleteShot = useCallback(
+    async (id: string) => {
+      setShots((prev) => prev.filter((s) => s.id !== id));
+      setConfirmId(null);
+      try {
+        const r = await fetch(`/api/shots/${id}`, { method: "DELETE" });
+        if (!r.ok) throw new Error();
+      } catch {
+        // Falló el DELETE (sin señal): recargo de la DB para que el tiro reaparezca
+        void load();
+      }
+    },
+    [load],
+  );
+
   return (
     <div className="space-y-2">
       <ShotsMap
@@ -90,6 +106,28 @@ export default function ShotsMapPanel({ roundHoleId, hole }: { roundHoleId: stri
           ↻ refrescar
         </button>
       </div>
+      {shots.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {shots.map((s) => (
+            <button
+              key={s.id}
+              onClick={() =>
+                confirmId === s.id ? void onDeleteShot(s.id) : setConfirmId(s.id)
+              }
+              className="text-xs font-semibold px-2 py-1 rounded-lg"
+              style={
+                confirmId === s.id
+                  ? { background: "var(--red)", color: "white" }
+                  : { background: "white", color: "var(--muted)", boxShadow: "0 1px 3px rgba(20,35,26,.06)" }
+              }
+            >
+              {confirmId === s.id
+                ? `¿Borrar tiro ${s.shotNumber}?`
+                : `${s.shotNumber}${s.club ? ` · ${s.club}` : ""} 🗑️`}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

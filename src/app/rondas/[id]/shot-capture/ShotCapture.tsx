@@ -23,7 +23,7 @@ type Props = {
   carries: ClubCarry[];
   shotNumber: number;
   prevPos?: LatLng | null;
-  onSaved?: (parsed: ParsedShot) => void;
+  onSaved?: (parsed: ParsedShot, shotId?: string) => void;
 };
 
 type Phase = "idle" | "recording" | "sending" | "done" | "error";
@@ -110,11 +110,15 @@ export default function ShotCapture({
         fd.append("fromLng", String(pos.lng));
       }
       const res = await fetch("/api/shots/voice", { method: "POST", body: fd });
-      const json = (await res.json()) as { parsed?: ParsedShot; error?: string };
+      const json = (await res.json()) as {
+        parsed?: ParsedShot;
+        shot?: { id: string } | null;
+        error?: string;
+      };
       if (!res.ok || !json.parsed) throw new Error(json.error || "error en el servidor");
       setParsed(json.parsed);
       setPhase("done");
-      onSaved?.(json.parsed);
+      onSaved?.(json.parsed, json.shot?.id);
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : "error enviando el audio");
       setPhase("error");
