@@ -3,7 +3,7 @@
 // para que la UI muestre la confirmación de 1 tap.
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { parseShotAudio } from "@/lib/gemini-shot";
+import { parseShotAudio, parseShotsAudio } from "@/lib/gemini-shot";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // Gemini puede tardar unos segundos
@@ -33,6 +33,46 @@ export async function POST(req: NextRequest) {
     const sgCategory = (form.get("sgCategory") as string) || null;
 
     const bytes = Buffer.from(await file.arrayBuffer());
+
+    // ── Modo BATCH: un audio con varios tiros → N RoundShot ──────────────────
+    if (form.get("batch") === "1") {
+      let rhId = roundHoleId;
+      if (!rhId && roundId && roundPlayerId && holeNumber != null) {
+        const rh = await prisma.roundHole.upsert({
+          where: { roundPlayerId_holeNumber: { roundPlayerId, holeNumber } },
+          update: {},
+          create: { roundId, roundPlayerId, holeNumber },
+        });
+        rhId = rh.id;
+      }
+      const list = await parseShotsAudio(bytes, file.type || "audio/webm");
+      const created = [];
+      if (rhId) {
+        for (let i = 0; i < list.length; i++) {
+          const p = list[i];
+          created.push(
+            await prisma.roundShot.create({
+              data: {
+                roundHoleId: rhId,
+                roundId,
+                roundPlayerId,
+                shotNumber: shotNumber + i,
+                club: p.club,
+                target: p.target,
+                intendedShot: p.intendedShot,
+                decisionQuality: p.decisionQuality,
+                decisionNote: p.decisionNote,
+                executionQuality: p.executionQuality,
+                result: p.result,
+                voiceTranscript: p.transcript,
+              },
+            }),
+          );
+        }
+      }
+      return NextResponse.json({ parsedList: list, shots: created });
+    }
+
     const parsed = await parseShotAudio(bytes, file.type || "audio/webm", {
       distanceYds: distanceToTargetYds ?? undefined,
       par: par ?? undefined,

@@ -4,7 +4,7 @@
 // y monta <ShotCapture> con los datos del hoyo. Cada tiro guardado resetea el capturador
 // (via key) para dictar el siguiente.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ShotCapture from "./ShotCapture";
 import type { ClubCarry, HoleGreen } from "@/lib/shot-gps";
 import type { ParsedShot } from "@/lib/gemini-shot";
@@ -73,6 +73,19 @@ export default function ShotCaptureRound({
         onSaved={onSaved}
       />
 
+      <BatchRecorder
+        roundHoleId={hole.roundHoleId}
+        holeNumber={hole.number}
+        par={hole.par}
+        baseShotNumber={shots.length + 1}
+        onSavedMany={(ps) =>
+          setShotsByHole((prev) => ({
+            ...prev,
+            [hole.number]: [...(prev[hole.number] ?? []), ...ps],
+          }))
+        }
+      />
+
       {shots.length > 0 && (
         <div className="space-y-2 pt-1">
           <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
@@ -104,6 +117,87 @@ export default function ShotCaptureRound({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function BatchRecorder({
+  roundHoleId,
+  holeNumber,
+  par,
+  baseShotNumber,
+  onSavedMany,
+}: {
+  roundHoleId: string;
+  holeNumber: number;
+  par: number;
+  baseShotNumber: number;
+  onSavedMany: (ps: ParsedShot[]) => void;
+}) {
+  const [phase, setPhase] = useState<"idle" | "rec" | "sending" | "error">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  const mr = useRef<MediaRecorder | null>(null);
+  const chunks = useRef<Blob[]>([]);
+
+  async function start() {
+    setErr(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunks.current = [];
+      rec.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
+      rec.onstop = () => {
+        const b = new Blob(chunks.current, { type: rec.mimeType || "audio/webm" });
+        stream.getTracks().forEach((t) => t.stop());
+        void send(b);
+      };
+      mr.current = rec;
+      rec.start();
+      setPhase("rec");
+    } catch {
+      setErr("No pude acceder al micrófono");
+      setPhase("error");
+    }
+  }
+  function stop() {
+    mr.current?.stop();
+    setPhase("sending");
+  }
+  async function send(b: Blob) {
+    try {
+      const fd = new FormData();
+      fd.append("audio", b, "shots.webm");
+      fd.append("batch", "1");
+      fd.append("roundHoleId", roundHoleId);
+      fd.append("holeNumber", String(holeNumber));
+      fd.append("par", String(par));
+      fd.append("shotNumber", String(baseShotNumber));
+      const res = await fetch("/api/shots/voice", { method: "POST", body: fd });
+      const j = (await res.json()) as { parsedList?: ParsedShot[]; error?: string };
+      if (!res.ok || !j.parsedList) throw new Error(j.error || "error del servidor");
+      onSavedMany(j.parsedList);
+      setPhase("idle");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "error");
+      setPhase("error");
+    }
+  }
+
+  return (
+    <div className="rounded-xl p-2 text-center" style={{ background: "var(--green-pale)" }}>
+      <button
+        onClick={phase === "rec" ? stop : start}
+        disabled={phase === "sending"}
+        className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+        style={{ background: phase === "rec" ? "var(--red)" : "var(--fairway)", color: "white" }}
+      >
+        {phase === "sending"
+          ? "🧠 Separando tiros…"
+          : phase === "rec"
+          ? "⏹ Terminar (dictá todos los tiros)"
+          : "🎙️ Dictar varios tiros de una"}
+      </button>
+      {err && <div className="text-xs text-[var(--red)] mt-1">{err}</div>}
     </div>
   );
 }

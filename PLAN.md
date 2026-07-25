@@ -57,3 +57,23 @@ dependencia de la Mac y el sync teléfono→Mac. Free tier + key existente. Ya n
 
 ## Regla "qué sigue"
 Menor id con deps `done` y no `done`. Ahora: **T0 (schema) en curso** → después T1.
+
+## v2 — mejoras pedidas por Santi (25/07, post-deploy prod)
+- **V2.1 — Guardado incremental + "qué entendí" por tiro**: persistir cada tiro apenas se dicta y
+  mostrar la interpretación de CADA uno en una lista viva del hoyo (v1 ya muestra la card por tiro;
+  falta que quede la lista acumulada visible + confirmación/edición rápida por tiro).
+- **V2.2 — Editar la ubicación del tiro en el mapa**: arrastrar/tocar el punto del tiro en el HoleMap
+  (Leaflet ya existe en labs) para corregir dónde cayó → recalcula distancias/shotLength.
+- **V2.3 — Carga batch multi-tiro**: al terminar el hoyo, dictar varios tiros de una ("driver al
+  fairway, 7 hierro al green, dos putts") → Gemini los separa en N RoundShot; e ir marcándolos en el mapa.
+
+## Iteración 2 — pedidos de Santi (25/07, post-deploy a prod)
+- **T4** — Lista de tiros por hoyo con lo que Gemini entendió: cada tiro guardado se muestra
+  acumulado (palo/decisión/ejecución/resultado + transcript) para revisar/confirmar en el momento.
+  complejidad: 3 · estado: backlog. (El ShotCapture single-shot ya lo tiene por tiro; falta la lista viva.)
+- **T5** — Editar la ubicación del tiro en el mapa: mapa del hoyo (reusar HoleMap/Leaflet) con marker
+  arrastrable por tiro → persistir fromLat/fromLng corregidos. complejidad: 6 · estado: backlog.
+- **T6** — Batch: describir varios tiros en una sola nota de voz al cerrar el hoyo → Gemini devuelve un
+  ARRAY de tiros. Cambio en gemini-shot (prompt + schema array) + route (crear N RoundShot) + UI. compl: 6.
+- **T7** — Marcar los tiros en el mapa a medida que se cargan (markers por tiro sobre HoleMap). compl: 5.
+  depende_de: [T5].
