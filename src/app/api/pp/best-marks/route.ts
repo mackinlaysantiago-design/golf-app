@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { DRILLS, bestHistoricalScore } from "@/lib/pp-drills";
 
+// Pega a la DB → no prerenderizar en build (si no, falla el deploy).
+export const dynamic = "force-dynamic";
+
 // Devuelve la mejor marca histórica de cada drill type
 export async function GET() {
   const sessions = await prisma.practiceSession.findMany({

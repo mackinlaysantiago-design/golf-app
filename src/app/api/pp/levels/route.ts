@@ -10,6 +10,9 @@ import {
   type DrillType,
 } from "@/lib/pp-drills";
 
+// Pega a la DB → no prerenderizar en build (si no, falla el deploy).
+export const dynamic = "force-dynamic";
+
 // Devuelve para cada drill:
 //   STREAK (1-putt, 2-putt):
 //     currentDistance: max distancia donde alguna vez logró streak >= levelUpStreak
