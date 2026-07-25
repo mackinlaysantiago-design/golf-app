@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shot Logger — mockup</title>
+<style>
+  :root{
+    --bg:#0f1512; --card:#18211c; --card2:#1e2a23; --line:#2a3830;
+    --green:#3ddc84; --green2:#2bb96f; --fairway:#4a7c46;
+    --text:#eaf2ec; --muted:#93a89a; --danger:#ff6b6b; --amber:#ffcc4d; --blue:#5ab0ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:#050706;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text);padding:14px;display:flex;flex-wrap:wrap;gap:18px;justify-content:center}
+  .phone{width:390px;background:var(--bg);border-radius:32px;overflow:hidden;border:1px solid #222;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .status{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:13px;font-weight:600;color:var(--muted)}
+  .screen{padding:0 16px 22px}
+  .scrhead{text-align:center;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--green);font-weight:700;margin:2px 0 12px}
+
+  /* hole header */
+  .hole{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:12px}
+  .hole .big{font-size:26px;font-weight:800}
+  .hole .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(61,220,132,.14);color:var(--green)}
+  .pill.red{background:rgba(255,107,107,.16);color:var(--danger)}
+
+  /* gps */
+  .gps{background:linear-gradient(160deg,#1c2b22,#141d18);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+  .gps .row{display:flex;justify-content:space-between;align-items:flex-end}
+  .gps .c{text-align:center;flex:1}
+  .gps .c .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .gps .c .val{font-size:22px;font-weight:800;margin-top:3px}
+  .gps .c.center .val{font-size:40px;color:var(--green);line-height:1}
+  .gps .c.center .lbl{color:var(--green2)}
+  .gpsfoot{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:12px;font-size:11px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  /* voice */
+  .voicewrap{text-align:center;padding:6px 0 2px}
+  .mic{width:112px;height:112px;border-radius:50%;margin:6px auto 10px;background:radial-gradient(circle at 50% 40%,#3ddc84,#1f9d5c);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 10px rgba(61,220,132,.10),0 0 0 22px rgba(61,220,132,.05);position:relative}
+  .mic svg{width:46px;height:46px}
+  .mic .wave{position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(61,220,132,.4);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+  .voicehint{font-size:14px;color:var(--muted)}
+  .voicehint b{color:var(--text)}
+  .heard{background:var(--card);border:1px dashed var(--green2);border-radius:14px;padding:12px 14px;margin:14px 4px 0;font-size:14px;font-style:italic;color:#cfe6d8;text-align:left}
+  .heard .q{color:var(--green);font-style:normal;font-weight:700;font-size:11px;letter-spacing:.1em;display:block;margin-bottom:4px}
+
+  /* parsed card */
+  .parsed{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:4px 4px 10px;margin-bottom:14px}
+  .prow{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:0}
+  .prow .k{font-size:13px;color:var(--muted)}
+  .prow .v{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .edit{font-size:11px;color:var(--blue);border:1px solid #274a63;border-radius:8px;padding:3px 8px}
+  .chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:8px}
+  .chip.g{background:rgba(61,220,132,.16);color:var(--green)}
+  .chip.a{background:rgba(255,204,77,.16);color:var(--amber)}
+  .chip.r{background:rgba(255,107,107,.16);color:var(--danger)}
+  .suggest{font-size:11px;color:var(--green2);font-weight:600}
+
+  /* the key feature: decision vs execution */
+  .split{display:flex;gap:10px;margin-bottom:14px}
+  .split .box{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center}
+  .split .box .t{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px}
+  .toggle{display:flex;gap:6px;justify-content:center}
+  .tg{flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;border:1px solid var(--line);color:var(--muted)}
+  .tg.on.good{background:var(--green2);color:#062;border-color:var(--green2);color:#04170c}
+  .tg.on.bad{background:var(--danger);color:#3a0b0b;border-color:var(--danger)}
+  .exec{font-size:12px;color:var(--amber);font-weight:700;margin-top:8px}
+
+  .cta{display:block;width:100%;padding:16px;border-radius:14px;background:var(--green);color:#04170c;font-size:16px;font-weight:800;text-align:center;border:0;margin-top:4px}
+  .ghost{background:transparent;color:var(--muted);border:1px solid var(--line);margin-top:10px}
+
+  /* insight teaser */
+  .insight{background:linear-gradient(160deg,#22183a,#141021);border:1px solid #33265a;border-radius:18px;padding:16px;margin-bottom:12px}
+  .insight .h{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#b79bff;font-weight:700;margin-bottom:10px}
+  .bar{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:13px}
+  .bar .lab{width:96px;color:var(--muted)}
+  .bar .track{flex:1;height:8px;background:#241b3a;border-radius:6px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px}
+  .bar .num{width:40px;text-align:right;font-weight:700}
+  .caption{width:390px;color:#8fa89a;font-size:12.5px;text-align:center;line-height:1.5;max-width:390px}
+  .tag{display:inline-block;background:#141d18;border:1px solid var(--line);border-radius:20px;color:var(--green);font-size:11px;font-weight:700;padding:4px 12px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: capturar -->
+<div class="phone">
+  <div class="status"><span>9:41</span><span>⛳ Villegas · L4</span><span>100%</span></div>
+  <div class="screen">
+    <div class="scrhead">Ronda en vivo · Tiro a tiro</div>
+
+    <div class="hole">
+      <div><div class="big">Hoyo 7</div><div class="sub">Par 5 · HCP 13 · 500 yds</div></div>
+      <div style="text-align:right"><div class="pill">Tiro 3</div><div class="sub" style="margin-top:6px">2 cargados</div></div>
+    </div>
+
+    <div class="gps">
+      <div class="row">
+        <div class="c"><div class="lbl">Frente</div><div class="val">104</div></div>
+        <div class="c center"><div class="lbl">Centro</div><div class="val">113</div></div>
+        <div class="c"><div class="lbl">Fondo</div><div class="val">121</div></div>
+      </div>
+      <div class="gpsfoot"><span class="dot"></span> GPS activo · distancia al green automática</div>
+    </div>
+
+    <div class="voicewrap">
+      <div class="mic"><span class="wave"></span>
+        <svg viewBox="0 0 24 24" fill="#04170c"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 0 0 2 0v-3.08A7 7 0 0 0 19 11z"/></svg>
+      </div>
+      <div class="voicehint">Mantené para <b>dictar el tiro</b></div>
+      <div class="heard"><span class="q">Te escuché</span>“Pitching wedge a la bandera, le pegué justo, quedó a dos metros del hoyo”</div>
+    </div>
+
+    <button class="cta" style="margin-top:16px">Confirmar tiro →</button>
+    <button class="cta ghost">Escribir a mano</button>
+  </div>
+</div>
+
+<!-- SCREEN 2: confirmar (decisión vs ejecución) -->
+<div class="phone">
+  <div class="status"><span>9:42</span><span>⛳ Villegas · L4</span><span>100%</span></div>
+  <div class="screen">
+    <div class="scrhead">Confirmá el tiro · 1 tap para editar</div>
+
+    <div class="parsed">
+      <div class="prow"><span class="k">Distancia (GPS)</span><span class="v">113 yds <span class="edit">editar</span></span></div>
+      <div class="prow"><span class="k">Palo</span><span class="v">PW <span class="suggest">✓ sugerido (carry 112)</span></span></div>
+      <div class="prow"><span class="k">Objetivo</span><span class="v">Bandera <span class="edit">editar</span></span></div>
+      <div class="prow"><span class="k">Resultado</span><span class="v"><span class="chip g">Green · 2m</span></span></div>
+    </div>
+
+    <div class="split">
+      <div class="box">
+        <div class="t">Decisión</div>
+        <div class="toggle"><div class="tg on good">Buena</div><div class="tg bad">Mala</div></div>
+      </div>
+      <div class="box">
+        <div class="t">Ejecución</div>
+        <div class="toggle"><div class="tg on good">Buena</div><div class="tg bad">Mala</div></div>
+        <div class="exec">Contacto: FLUSH</div>
+      </div>
+    </div>
+
+    <button class="cta">Guardar y siguiente tiro</button>
+    <button class="cta ghost">Terminar hoyo</button>
+
+    <div style="height:22px"></div>
+    <div class="scrhead" style="color:#b79bff">Al terminar la ronda</div>
+    <div class="insight">
+      <div class="h">Dónde se te van los golpes</div>
+      <div class="bar"><span class="lab">Driver</span><span class="track"><span class="fill" style="width:52%;background:var(--amber)"></span></span><span class="num" style="color:var(--amber)">−2.1</span></div>
+      <div class="bar"><span class="lab">Approach</span><span class="track"><span class="fill" style="width:20%;background:var(--green)"></span></span><span class="num" style="color:var(--green)">−0.4</span></div>
+      <div class="bar"><span class="lab">Juego corto</span><span class="track"><span class="fill" style="width:15%;background:var(--green)"></span></span><span class="num" style="color:var(--green)">−0.3</span></div>
+      <div class="bar"><span class="lab">Putt 7-20ft</span><span class="track"><span class="fill" style="width:60%;background:var(--danger)"></span></span><span class="num" style="color:var(--danger)">−2.4</span></div>
+      <div style="border-top:1px solid #33265a;margin-top:12px;padding-top:11px;font-size:12.5px;color:#cbb8ff">
+        <b>Decisión vs ejecución:</b> 91% de tus tiros con <b>buena decisión</b>. Los golpes perdidos son <b>ejecución</b>, no estrategia. → practicá, no cambies el plan.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="caption">
+  <span class="tag">MOCKUP · no funcional</span><br>
+  <b>Golf Coach — carga tiro a tiro por voz.</b> En la cancha: la distancia sale sola del GPS (tus greens ya marcados), dictás el tiro y listo. Lo único que ninguna app tiene: <b>Decisión vs Ejecución</b> por separado — para saber si perdés por pensar mal o por pegar mal. La transcripción corre en tu Mac (gratis), la carga funciona sin señal.
+</div>
+
+</body>
+</html>

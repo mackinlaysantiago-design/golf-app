@@ -213,6 +213,7 @@ model Round {
 
   players        RoundPlayer[]
   holes          RoundHole[]
+  shots          RoundShot[]
   bets           RoundBet[]
   tasks          PracticeTask[]
   personalPar    RoundPersonalPar?
@@ -266,6 +267,7 @@ model RoundPlayer {
   position     Int // 1..4 orden de display
 
   holes RoundHole[]
+  shots RoundShot[]
 
   @@unique([roundId, playerId])
 }
@@ -306,7 +308,49 @@ model RoundHole {
   bunkerShots            Int? // # tiros desde bunker en este hoyo
   bunkerUpAndDown        Boolean? // true si pasó del bunker al hoyo en 2 tiros
 
+  // Shot-by-shot on-course (voz + GPS) — opcional, un hoyo puede tener 0 tiros cargados
+  shots RoundShot[]
+
   @@unique([roundPlayerId, holeNumber])
+}
+
+// Tiro individual dentro de un hoyo — captura on-course por voz + GPS.
+// El corazón del Scoring Method: separa DECISIÓN (¿elegí bien?) de EJECUCIÓN (¿pegué bien?).
+model RoundShot {
+  id          String    @id @default(cuid())
+  roundHole   RoundHole @relation(fields: [roundHoleId], references: [id], onDelete: Cascade)
+  roundHoleId String
+  shotNumber  Int // 1..N dentro del hoyo
+
+  // GPS (posición al momento del tiro; distancias calculadas con lib/geo)
+  fromLat             Float?
+  fromLng             Float?
+  distanceToTargetYds Int? // distancia al green/target al pegar (GPS)
+  shotLengthYds       Int? // largo del tiro = pos previa → esta (calculado)
+
+  // Intención / pre-shot
+  club         String? // Driver | 3W | 7i | PW | Putter | ...
+  target       String? // texto libre: "centro", "layup", "bandera"
+  intendedShot String? // opcional: FADE | DRAW | PUNCH | STOCK
+  lie          String? // TEE | FAIRWAY | ROUGH | BUNKER | GREEN | RECOVERY
+
+  // Autoevaluación (el diferencial)
+  decisionQuality  String? // GOOD | BAD
+  decisionNote     String? // por qué (opcional)
+  executionQuality String? // FLUSH | THIN | FAT | PULL | PUSH | SHORT | LONG | OK
+  result           String? // FAIRWAY | GREEN | ROUGH | BUNKER | WATER | OB | HOLED | SHORT_GREEN | ...
+  sgCategory       String? // TEE | APPROACH | SHORT | PUTT (para strokes gained)
+
+  // Origen del dato
+  voiceTranscript String? // lo que dictó Santi
+  audioPath       String? // ref al audio (se borra tras transcribir)
+  createdAt       DateTime @default(now())
+  round           Round?   @relation(fields: [roundId], references: [id])
+  roundId         String?
+  roundPlayer     RoundPlayer? @relation(fields: [roundPlayerId], references: [id])
+  roundPlayerId   String?
+
+  @@index([roundHoleId, shotNumber])
 }
 
 // ============ RANGE / FLIGHTSCOPE ============
@@ -392,22 +436,22 @@ model RangeShot {
 // Reemplaza el flow viejo de RangeSession para tracking de dispersión.
 // Usa percentiles (no σ) para ser robusto a outliers — replica el approach del /range/stats viejo.
 model ClubDispersion {
-  id              String   @id @default(cuid())
-  club            String   @unique // Driver | 3 Wood | 7 Iron | PW | etc (formato del CSV)
-  n               Int      // total de shots usados en el cálculo
+  id            String   @id @default(cuid())
+  club          String   @unique // Driver | 3 Wood | 7 Iron | PW | etc (formato del CSV)
+  n             Int // total de shots usados en el cálculo
   // Carry (distancia)
-  carryP25        Float    // safe — llegás casi siempre
-  carryP50        Float    // typical — mediana
-  carryP90        Float    // good — cuando le pegás bien
-  confidencePct   Float    // % de shots dentro de ±10 yds de la mediana
+  carryP25      Float // safe — llegás casi siempre
+  carryP50      Float // typical — mediana
+  carryP90      Float // good — cuando le pegás bien
+  confidencePct Float // % de shots dentro de ±10 yds de la mediana
   // Lateral (dispersión)
-  latP50          Float    // mediana firmada (+ derecha, − izquierda) — tu bias real
-  pctRight        Float    // % shots a la derecha del target (0-100)
-  latSpreadP90    Float    // P90 de |lat − latP50| — spread alrededor del bias
+  latP50        Float // mediana firmada (+ derecha, − izquierda) — tu bias real
+  pctRight      Float // % shots a la derecha del target (0-100)
+  latSpreadP90  Float // P90 de |lat − latP50| — spread alrededor del bias
   // Meta
-  sessionsCount   Int      @default(1)
-  lastUpdated     String   // "2026-05" (formato YYYY-MM)
-  updatedAt       DateTime @updatedAt
+  sessionsCount Int      @default(1)
+  lastUpdated   String // "2026-05" (formato YYYY-MM)
+  updatedAt     DateTime @updatedAt
 }
 
 // ============ PRE-GAME ROUTINE (Workshop 5/6/26) ============
