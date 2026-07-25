@@ -6,6 +6,7 @@
 
 import { useRef, useState } from "react";
 import ShotCapture from "./ShotCapture";
+import ShotsMapPanel from "./ShotsMapPanel";
 import type { ClubCarry, HoleGreen } from "@/lib/shot-gps";
 import type { ParsedShot } from "@/lib/gemini-shot";
 
@@ -25,6 +26,7 @@ export default function ShotCaptureRound({
 }) {
   const [idx, setIdx] = useState(0);
   const [shotsByHole, setShotsByHole] = useState<Record<number, ParsedShot[]>>({});
+  const [showMap, setShowMap] = useState(false);
 
   if (holes.length === 0) {
     return <p className="text-sm text-[var(--muted)] p-4">Esta ronda no tiene hoyos cargados.</p>;
@@ -85,6 +87,27 @@ export default function ShotCaptureRound({
           }))
         }
       />
+
+      <button
+        onClick={() => setShowMap((v) => !v)}
+        className="w-full text-sm font-semibold py-2 rounded-lg"
+        style={{ background: "var(--green-pale)", color: "var(--fairway)" }}
+      >
+        {showMap ? "✕ Ocultar mapa" : "🗺️ Ver / editar tiros en el mapa"}
+      </button>
+
+      {showMap && (
+        <ShotsMapPanel
+          key={hole.roundHoleId}
+          roundHoleId={hole.roundHoleId}
+          hole={{
+            teeLat: null,
+            teeLng: null,
+            centerLat: hole.green.centerLat,
+            centerLng: hole.green.centerLng,
+          }}
+        />
+      )}
 
       {shots.length > 0 && (
         <div className="space-y-2 pt-1">

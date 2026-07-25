@@ -28,11 +28,13 @@ export default function HoleMap({
   userLat,
   userLng,
   gpsActive,
+  shots = [],
 }: {
   point: HolePoint;
   userLat: number | null;
   userLng: number | null;
   gpsActive: boolean;
+  shots?: { lat: number | null; lng: number | null; n: number }[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -175,6 +177,29 @@ export default function HoleMap({
       .bindTooltip("Tu posición", { permanent: false })
       .addTo(map);
   }, [userLat, userLng]);
+
+  // Markers de tiros cargados (numerados).
+  const shotMarkersRef = useRef<L.Layer[]>([]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const m of shotMarkersRef.current) map.removeLayer(m);
+    shotMarkersRef.current = [];
+    for (const s of shots) {
+      if (s.lat == null || s.lng == null) continue;
+      const m = L.marker([s.lat, s.lng], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div style="background:#15803d;color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.4)">${s.n}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
+      })
+        .bindTooltip(`Tiro ${s.n}`, { permanent: false })
+        .addTo(map);
+      shotMarkersRef.current.push(m);
+    }
+  }, [shots]);
 
   // Layup + labels (clamped al viewport)
   useEffect(() => {
