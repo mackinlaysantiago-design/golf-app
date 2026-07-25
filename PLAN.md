@@ -84,7 +84,8 @@ Estado probado por Santi en producción, jugando: **marcar tiros tocando el mapa
 - **T8 — Zoom: "Map data not yet available" a zoom alto** · estado: **done** (25/07) · compl: 3
   - Fix aplicado: `ShotsMap.tsx` ahora usa `attachSatelliteLayer()` de `mapTiles.ts` (Google z22
     nativo, fallback Mapbox→Esri). Keys `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`/`MAPBOX` verificadas en
-    Vercel Production. Falta que Santi lo vea en la cancha (no reproducible desde acá).
+    Vercel Production. VERIFICADO en prod con Playwright (screenshot: imagen Google nítida a zoom
+    de green, sin cartel gris). Confirmación final de Santi en la cancha.
   - Síntoma: al acercar el satélite aparece un tile gris que dice "Map data not yet available" y no se
     ve la cancha en detalle. El fix previo (`maxNativeZoom:19`) NO alcanzó.
   - Causa raíz: ese cartel **es un tile placeholder del propio Esri World Imagery**, no es código nuestro.
@@ -101,6 +102,19 @@ Estado probado por Santi en producción, jugando: **marcar tiros tocando el mapa
     (a) chips bajo el mapa (ShotsMapPanel, cubre tiros creados por tap) y (b) lista viva de tiros
     dictados (ShotCaptureRound; ids de la DB ahora viajan en la respuesta de /api/shots/voice).
   - Si el DELETE falla (sin señal en la cancha), la UI restaura el tiro (rollback, review de Gemini).
+  - VERIFICADO en prod con Playwright (flow `golf-app --flow shot-capture-smoke`): crear tiro por
+    tap → chip 11 → confirmar borrado → refrescar → no reaparece; tiros reales 1-10 intactos.
+
+## Hallazgos QA 25/07 (post-Iteración 3)
+- **FIXEADO+DEPLOYADO**: los RoundShot quedaban con `roundId`/`roundPlayerId` en NULL (el cliente
+  solo manda roundHoleId). Ahora las routes los resuelven server-side desde el RoundHole.
+  **PENDIENTE OK de Santi**: correr `node scripts/backfill-roundshot-roundid.js` para completar
+  los 10 tiros viejos (UPDATE solo de NULLs; el classifier de permisos bloqueó tocar prod DB).
+- **ABIERTO — shotNumbers duplicados en el hoyo 1** de la ronda de hoy: hay dos tiros "1" y dos "2"
+  (mezcla de dictado por voz —numera desde el estado local de la UI— y tap en el mapa —numera con
+  max+1 de la DB—). A decidir: renumerar al vuelo o unificar la numeración por DB en ambos caminos.
+- Tester Playwright: golf-app quedó configurado (`python3 ~/mind/playwright-tester/tester.py
+  golf-app --flow shot-capture-smoke`). Los clicks headless sobre Leaflet son flaky (harness, no bug).
   - Pedido de Santi: poder eliminar un tiro cargado (por error o duplicado).
   - Backend: falta el método **DELETE** en `src/app/api/shots/[id]/route.ts` (hoy solo tiene PATCH).
     Agregar `export async function DELETE(...)` que borre el RoundShot por id.
