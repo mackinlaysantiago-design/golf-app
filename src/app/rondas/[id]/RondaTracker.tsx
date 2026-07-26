@@ -1408,39 +1408,8 @@ export default function RondaTracker({
         </>
       )}
 
-      {/* FAB: cargar tiros por voz (GPS + Gemini) */}
-      <Link
-        href={`/rondas/${round.id}/shot-capture`}
-        className="fixed bottom-24 right-5 z-50 flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
-        style={{
-          width: 64,
-          height: 64,
-          background: "var(--accent)",
-          color: "white",
-          fontSize: 28,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-        }}
-        aria-label="Cargar tiros por voz"
-      >
-        🎙️
-      </Link>
-
-      {/* FAB: captura de tiros por voz (on-course) */}
-      <Link
-        href={`/rondas/${round.id}/shot-capture`}
-        className="fixed bottom-[92px] right-5 z-50 flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
-        style={{
-          width: 64,
-          height: 64,
-          background: "var(--accent)",
-          color: "white",
-          fontSize: 28,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-        }}
-        aria-label="Cargar tiros por voz"
-      >
-        🎙️
-      </Link>
+      {/* Shot-capture por voz ARCHIVADO 26/07 (pedido de Santi: cero teléfono en cancha).
+          La ruta /rondas/[id]/shot-capture y toda la infra quedan vivas para retomar. */}
 
       {/* FAB: ir al GPS / mapa del hoyo actual */}
       <Link

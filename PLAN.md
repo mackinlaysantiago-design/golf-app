@@ -1,5 +1,11 @@
 # PLAN — Shot Tracking on-course (voz + GPS + decisión/ejecución)
 
+> **ARCHIVADO 26/07/2026** — Santi lo probó en cancha y no va: "estoy todo el tiempo con el
+> teléfono en vez de disfrutando el momento". Se sacaron los FAB de entrada en RondaTracker;
+> la ruta /shot-capture, el schema RoundShot, el parser Gemini y el mapa quedan vivos para
+> retomar (probable pivote: dictado único post-ronda). NO seguir construyendo UX on-course.
+> Reemplazado por el replanteo de flujo de datos (ver PLAN-flujo-datos.md cuando exista).
+
 > Feature grande. El markdown ES el estado. Rama: `dev`. Decisión registrada en ~/mind/DECISIONS.md.
 
 ## Objetivo (criterio de éxito)
