@@ -376,17 +376,11 @@ export default async function ResumenPage({
     const winnerNames = result.winnerIds.map(
       (id) => playerScoresForBets.find((p) => p.playerId === id)?.name ?? "?",
     );
-    // Payouts: cada ganador cobra (losers*amount / winners). Cada loser paga amount.
+    // Puntos: cada tramo/modalidad ganado vale 1 punto por ganador (en parejas suman los dos).
+    // Empate: nadie suma. (Sin plata desde 26/07.)
     const payouts: Record<string, number> = {};
     if (result.winnerIds.length >= 1 && !result.tie) {
-      const winners = result.winnerIds;
-      const losers = playerScoresForBets
-        .filter((p) => !winners.includes(p.playerId))
-        .map((p) => p.playerId);
-      const pot = losers.length * b.amount;
-      const perWinner = pot / winners.length;
-      for (const w of winners) payouts[w] = perWinner;
-      for (const l of losers) payouts[l] = -b.amount;
+      for (const w of result.winnerIds) payouts[w] = 1;
     }
     return {
       modality: b.modality,
@@ -703,32 +697,21 @@ export default async function ResumenPage({
       {/* Apuestas */}
       {betResults.length > 0 && (
         <>
-          <SectionHeader>Apuestas</SectionHeader>
+          <SectionHeader>Partidos</SectionHeader>
           <div className="space-y-2">
             {betResults.map((br) => (
               <Card key={br.modality} className="!p-3">
                 <div className="flex justify-between items-baseline">
                   <span className="font-semibold text-sm">{br.label}</span>
-                  <span className="gf-mono text-xs text-[var(--muted)]">
-                    ${br.amount.toLocaleString("es-AR")} c/u
-                  </span>
+                  <span className="gf-mono text-xs text-[var(--muted)]">1 punto</span>
                 </div>
                 <div className="mt-1 text-xs">
                   {br.tie ? (
                     <Pill variant="accent">Empate · sin ganador</Pill>
                   ) : br.winnerNames.length >= 1 ? (
-                    (() => {
-                      // Total cobrado por el "lado" ganador (suma de payouts positivos)
-                      const totalCobra = Object.values(br.payouts)
-                        .filter((v) => v > 0)
-                        .reduce((s, v) => s + v, 0);
-                      return (
-                        <span>
-                          Ganó <strong>{br.winnerNames.join(" + ")}</strong> · cobra ${" "}
-                          {totalCobra.toLocaleString("es-AR")}
-                        </span>
-                      );
-                    })()
+                    <span>
+                      Ganó <strong>{br.winnerNames.join(" + ")}</strong>
+                    </span>
                   ) : (
                     <span className="text-[var(--muted)]">— sin definir</span>
                   )}
@@ -748,7 +731,7 @@ export default async function ResumenPage({
             ))}
             <Card className="!p-3">
               <div className="text-xs uppercase tracking-wider text-[var(--muted)] mb-2">
-                Saldo final por jugador
+                Puntos por jugador
               </div>
               {round.players.map((rp) => {
                 const total = totalsByPlayer[rp.id] ?? 0;
@@ -763,16 +746,9 @@ export default async function ResumenPage({
                     </span>
                     <span
                       className="gf-mono font-bold"
-                      style={{
-                        color:
-                          total > 0
-                            ? "var(--green)"
-                            : total < 0
-                            ? "var(--red)"
-                            : "var(--muted)",
-                      }}
+                      style={{ color: total > 0 ? "var(--green)" : "var(--muted)" }}
                     >
-                      {total > 0 ? "+" : ""}${total.toLocaleString("es-AR")}
+                      {total} {total === 1 ? "punto" : "puntos"}
                     </span>
                   </div>
                 );

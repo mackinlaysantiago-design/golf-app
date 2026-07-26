@@ -99,16 +99,17 @@ export default function NuevaRondaClient({
       })
       .catch(() => {});
   }, [me]);
-  // Apuestas: por familia (MATCH/MEDAL/STABLEFORD) tenemos enabled + monto Total + monto chico (ida=vuelta)
+  // Partidos: por familia (MATCH/MEDAL/STABLEFORD) marcás qué tramos se juegan.
+  // Sin plata: cada tramo ganado vale 1 punto (se muestra en el resumen).
   type BetFamily = {
     enabled: boolean;
-    totalAmount: string;  // valor para MATCH/MEDAL/STABLEFORD (Total)
-    legAmount: string;    // valor para Ida y Vuelta (mismo valor para los dos)
+    total: boolean; // se juega el Total (grande)
+    legs: boolean;  // se juegan Ida y Vuelta (chicos)
   };
   const [betFamilies, setBetFamilies] = useState<Record<"MATCH" | "MEDAL" | "STABLEFORD", BetFamily>>({
-    MATCH: { enabled: false, totalAmount: "", legAmount: "" },
-    MEDAL: { enabled: false, totalAmount: "", legAmount: "" },
-    STABLEFORD: { enabled: false, totalAmount: "", legAmount: "" },
+    MATCH: { enabled: false, total: true, legs: true },
+    MEDAL: { enabled: false, total: true, legs: true },
+    STABLEFORD: { enabled: false, total: true, legs: true },
   });
   const [busy, setBusy] = useState(false);
 
@@ -136,32 +137,28 @@ export default function NuevaRondaClient({
       return next;
     });
   }
-  function setFamilyAmount(fam: "MATCH" | "MEDAL" | "STABLEFORD", field: "totalAmount" | "legAmount", value: string) {
+  function setFamilyTramo(fam: "MATCH" | "MEDAL" | "STABLEFORD", field: "total" | "legs", value: boolean) {
     setBetFamilies((prev) => ({ ...prev, [fam]: { ...prev[fam], [field]: value } }));
   }
 
-  // Expand betFamilies → array de RoundBet entries.
-  // En 9 hoyos solo creamos la modalidad de la sección jugada (Total y la otra
-  // mitad no aplican). El monto es total + leg (UI sigue mostrando ambos por simplicidad).
+  // Expand betFamilies → array de RoundBet entries. Sin plata: amount=1 (1 punto por tramo).
+  // En 9 hoyos solo creamos la modalidad de la sección jugada (Total y la otra mitad no aplican).
   function expandBets(): { modality: string; amount: number; currency: string }[] {
     const out: { modality: string; amount: number; currency: string }[] = [];
     const is9 = holesPlayed === 9;
     for (const fam of ["MATCH", "MEDAL", "STABLEFORD"] as const) {
       const f = betFamilies[fam];
       if (!f.enabled) continue;
-      const total = f.totalAmount ? parseFloat(f.totalAmount) : 0;
-      const leg = f.legAmount ? parseFloat(f.legAmount) : 0;
       if (is9) {
-        const amount = total + leg;
-        if (amount > 0) {
-          out.push({ modality: `${fam}_${nineWhich}`, amount, currency: "ARS" });
+        if (f.total || f.legs) {
+          out.push({ modality: `${fam}_${nineWhich}`, amount: 1, currency: "PTS" });
         }
         continue;
       }
-      if (total > 0) out.push({ modality: fam, amount: total, currency: "ARS" });
-      if (leg > 0) {
-        out.push({ modality: `${fam}_IDA`, amount: leg, currency: "ARS" });
-        out.push({ modality: `${fam}_VUELTA`, amount: leg, currency: "ARS" });
+      if (f.total) out.push({ modality: fam, amount: 1, currency: "PTS" });
+      if (f.legs) {
+        out.push({ modality: `${fam}_IDA`, amount: 1, currency: "PTS" });
+        out.push({ modality: `${fam}_VUELTA`, amount: 1, currency: "PTS" });
       }
     }
     return out;
@@ -557,11 +554,11 @@ export default function NuevaRondaClient({
 
       {step === 4 && (
         <>
-          <SectionHeader>Apuestas (opcional)</SectionHeader>
+          <SectionHeader>Partidos (opcional)</SectionHeader>
           <Card>
             <p className="text-xs text-[var(--muted)]">
-              Marcá las modalidades que jugás. Total (grande) e Ida/Vuelta (chicos, mismo valor cada uno).
-              El ganador se lleva el monto × cantidad de jugadores.
+              Marcá las modalidades y tramos que juegan. Cada tramo ganado vale{" "}
+              <strong>1 punto</strong> — los puntos se ven en el resumen.
             </p>
           </Card>
 
@@ -583,34 +580,24 @@ export default function NuevaRondaClient({
                   />
                   <span className="font-semibold">{label}</span>
                 </label>
-                {f.enabled && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                        Total (grande)
-                      </label>
+                {f.enabled && holesPlayed === 18 && (
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-sm">
                       <input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="$"
-                        className="gf-input mt-0.5 text-right"
-                        value={f.totalAmount}
-                        onChange={(e) => setFamilyAmount(fam, "totalAmount", e.target.value)}
+                        type="checkbox"
+                        checked={f.total}
+                        onChange={(e) => setFamilyTramo(fam, "total", e.target.checked)}
                       />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                        Ida y Vuelta (c/u)
-                      </label>
+                      Total (grande)
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-sm">
                       <input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="$"
-                        className="gf-input mt-0.5 text-right"
-                        value={f.legAmount}
-                        onChange={(e) => setFamilyAmount(fam, "legAmount", e.target.value)}
+                        type="checkbox"
+                        checked={f.legs}
+                        onChange={(e) => setFamilyTramo(fam, "legs", e.target.checked)}
                       />
-                    </div>
+                      Ida y Vuelta (chicos)
+                    </label>
                   </div>
                 )}
               </Card>

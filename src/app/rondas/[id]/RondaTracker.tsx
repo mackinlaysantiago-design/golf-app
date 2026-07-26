@@ -308,8 +308,17 @@ export default function RondaTracker({
       ? round.nineWhich === "VUELTA"
         ? "VUELTA"
         : "IDA"
-      : "TOTAL",
+      : currentHole >= 10
+        ? "VUELTA"
+        : "IDA",
   );
+  // El leaderboard sigue la vuelta que estás jugando: al pasar al hoyo 10 salta
+  // solo a "Vuelta" (y si retrocedés, a "Ida"). Los tabs siguen permitiendo override.
+  const inVuelta = currentHole >= 10;
+  useEffect(() => {
+    if (round.holesPlayed === 9) return;
+    setLbSection(inVuelta ? "VUELTA" : "IDA");
+  }, [inVuelta, round.holesPlayed]);
 
   function holesForSection(sec: LBSection) {
     if (sec === "IDA") return courseHoles.filter((h) => h.number <= 9);
@@ -1148,48 +1157,117 @@ export default function RondaTracker({
               Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
             </SectionHeader>
           </div>
-          {/* Quién tiene golpe en este hoyo (usa HCP Stableford = Match Play stroke allocation) */}
+          {/* 1 · ESTRATEGIA del hoyo (DECADE + gear) — se define ANTES de anotar nada */}
           {(() => {
-            const strokesAt = round.players.map((rp) => {
-              const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
-              const hcp = mh?.STABLEFORD ?? rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
-              const s = strokesPerHole(hcp, courseHcpMap)[currentHole] ?? 0;
-              return { name: rp.player.name, isMe: rp.player.isMe, strokes: s };
-            });
-            const withStrokes = strokesAt.filter((x) => x.strokes !== 0);
-            if (withStrokes.length === 0) {
-              return (
-                <Card className="!p-2 text-center">
-                  <span className="text-[11px] text-[var(--muted)]">
-                    Nadie tiene golpe en este hoyo
-                  </span>
-                </Card>
-              );
-            }
+            const cells = data[meRP.id]?.[currentHole] ?? {};
             return (
-              <Card className="!p-2">
-                <div className="flex flex-wrap gap-1.5 items-center justify-center">
-                  <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                    Golpes:
-                  </span>
-                  {withStrokes.map((x) => (
-                    <span
-                      key={x.name}
-                      className="gf-pill gf-mono"
-                      style={{
-                        background: x.strokes > 0 ? "var(--accent-light)" : "#fde0dc",
-                        color: x.strokes > 0 ? "var(--accent)" : "var(--red)",
-                      }}
-                    >
-                      {x.name.split(" ")[0]} {x.strokes > 0 ? "+" : ""}{x.strokes}
-                    </span>
-                  ))}
+              <Card className="space-y-2">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                  1 · Estrategia del hoyo
                 </div>
+                <DecadeInput
+                  pinColor={cells.pinColor ?? null}
+                  dangerSide={cells.dangerSide ?? null}
+                  aimedAtCenter={cells.aimedAtCenter ?? null}
+                  recoveryMode={cells.recoveryMode ?? null}
+                  onSet={(field, value) =>
+                    setDecade(meRP.id, currentHole, field, value)
+                  }
+                />
+                <GearSelector
+                  currentHole={currentHole}
+                  roundGoal={
+                    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
+                    null
+                  }
+                  cells={data[meRP.id] ?? {}}
+                  onSetGoal={(goal) => setTargetGoal(meRP.id, currentHole, goal)}
+                />
               </Card>
             );
           })()}
 
-          {/* === BLOQUE PRINCIPAL: YO === */}
+          {/* 2 · GOLPES por jugador — grilla compacta: un renglón por equipo, con quién tiene golpe */}
+          {(() => {
+            const gridTeams: (typeof round.players)[] = (() => {
+              if (round.mode === "FOUR_P" && round.pairs) {
+                try {
+                  const pairsJSON: string[][] = JSON.parse(round.pairs);
+                  const rpByPlayerId = new Map(
+                    round.players.map((rp) => [rp.player.id, rp]),
+                  );
+                  const teams = pairsJSON.map((pair) =>
+                    pair
+                      .map((pid) => rpByPlayerId.get(pid))
+                      .filter((x): x is NonNullable<typeof x> => Boolean(x)),
+                  );
+                  if (teams.length === 2 && teams.every((t) => t.length === 2))
+                    return teams;
+                } catch {}
+              }
+              return [round.players];
+            })();
+            const strokesFor = (rp: (typeof round.players)[number]) => {
+              const mh = (rp.modalityHcps as Record<string, number> | null) ?? null;
+              const hcp = mh?.STABLEFORD ?? rp.courseHcp ?? Math.round(rp.hcpIndex ?? 0);
+              return strokesPerHole(hcp, courseHcpMap)[currentHole] ?? 0;
+            };
+            return (
+              <Card className="space-y-1.5">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                  2 · Golpes {gridTeams.length === 2 ? "(un renglón por equipo)" : ""}
+                </div>
+                {gridTeams.map((team, ti) => (
+                  <div key={ti} className="flex gap-1.5">
+                    {team.map((rp) => {
+                      const cells = data[rp.id]?.[currentHole] ?? {};
+                      const strokes = strokesFor(rp);
+                      return (
+                        <div
+                          key={rp.id}
+                          className="flex-1 rounded-lg p-1.5 text-center"
+                          style={{
+                            background: rp.player.isMe
+                              ? "var(--accent-light)"
+                              : "var(--green-pale)",
+                          }}
+                        >
+                          <div className="text-[11px] font-semibold truncate">
+                            {rp.player.name.split(" ")[0]}
+                            {strokes !== 0 && (
+                              <span
+                                className="gf-mono text-[10px] ml-1"
+                                title="Golpes que recibe en este hoyo"
+                                style={{
+                                  color: strokes > 0 ? "var(--accent)" : "var(--red)",
+                                }}
+                              >
+                                {strokes > 0 ? "+" : ""}
+                                {strokes}
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            className="gf-input mt-1 text-center gf-mono !px-1 w-full"
+                            style={{ fontSize: 18, fontWeight: 700 }}
+                            value={cells.score ?? ""}
+                            // setCell recibe el string crudo y parsea adentro (parseInt / null)
+                            onChange={(e) =>
+                              setCell(rp.id, currentHole, "score", e.target.value)
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </Card>
+            );
+          })()}
+
+          {/* === 3 · MIS STATS (Scoring Method) — para completar caminando === */}
           {(() => {
             const rp = meRP;
             const cells = data[rp.id]?.[currentHole] ?? {};
@@ -1199,56 +1277,15 @@ export default function RondaTracker({
             return (
               <Card key={rp.id} className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold">
-                    {rp.player.name}
-                    {rp.player.isMe && (
-                      <span className="ml-2"><Pill variant="accent">YO</Pill></span>
-                    )}
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                    3 · Mis stats (Scoring Method)
                   </span>
-                  {cells.score != null && (
-                    <span className="gf-display text-2xl text-[var(--fairway)]">
-                      {cells.score}
-                    </span>
-                  )}
-                </div>
-
-                {/* 1. Decisiones PRE-shot: Gear + DECADE (van antes del swing) */}
-                <GearSelector
-                  currentHole={currentHole}
-                  roundGoal={
-                    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
-                    null
-                  }
-                  cells={data[rp.id] ?? {}}
-                  onSetGoal={(goal) => setTargetGoal(rp.id, currentHole, goal)}
-                />
-
-                <DecadeInput
-                  pinColor={cells.pinColor ?? null}
-                  dangerSide={cells.dangerSide ?? null}
-                  aimedAtCenter={cells.aimedAtCenter ?? null}
-                  recoveryMode={cells.recoveryMode ?? null}
-                  onSet={(field, value) =>
-                    setDecade(rp.id, currentHole, field, value)
-                  }
-                />
-
-                {/* 2. Score total (post-swing) + indicador vsPar */}
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <NumField
-                      label="Score total"
-                      value={cells.score ?? null}
-                      onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                      big
-                    />
-                  </div>
                   {cells.score != null && cells.score > 0 && currentHoleInfo && (
                     <VsParPill score={cells.score} par={currentHoleInfo.par} />
                   )}
                 </div>
 
-                {/* 3. Stats SM a completar (collapsable) */}
+                {/* Stats SM a completar (collapsable) */}
                 {showSm ? (
                   <>
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
@@ -1340,44 +1377,6 @@ export default function RondaTracker({
               </Card>
             );
           })()}
-
-          {/* === SCORES DEL RESTO DE LOS JUGADORES === */}
-          {round.players
-            .filter((rp) => rp.id !== meRP.id)
-            .map((rp) => {
-              const cells = data[rp.id]?.[currentHole] ?? {};
-              const hasSmData = hasSmDataInHole(rp.id, currentHole);
-              const showSm = (smExpanded[rp.id] ?? false) || hasSmData;
-
-              return (
-                <Card key={rp.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">{rp.player.name}</span>
-                    {cells.score != null && (
-                      <span className="gf-display text-2xl text-[var(--fairway)]">
-                        {cells.score}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <NumField
-                        label="Score total"
-                        value={cells.score ?? null}
-                        onChange={(v) => setCell(rp.id, currentHole, "score", v)}
-                        big
-                        isLast={!showSm}
-                      />
-                    </div>
-                    {cells.score != null && cells.score > 0 && currentHoleInfo && (
-                      <VsParPill score={cells.score} par={currentHoleInfo.par} />
-                    )}
-                  </div>
-
-                </Card>
-              );
-            })}
 
           <div className="grid grid-cols-2 gap-2">
             <button onClick={saveAll} disabled={busy} className="gf-btn">

@@ -1,8 +1,20 @@
 # PLAN — Replanteo del flujo de datos (menos carga, mejor lectura)
 
-> Estado: **PROPUESTA — esperando OK de Santi por sección** (26/07/2026).
+> Estado: **EN EJECUCIÓN** (26/07/2026). Santi bajó línea concreta para DURANTE la ronda
+> (ver "Decisiones de Santi 26/07" abajo); P1/P3/P4 siguen esperando OK.
 > Disparador: "me cansa meter tanto dato... hay cosas que nunca hago por esa razón".
 > Regla madre (ver DECISIONS.md 26/07): el teléfono en cancha es para MIRAR, no para CARGAR.
+
+## Decisiones de Santi (26/07)
+- **GPS/distancias NO** en la app: las mira en el reloj. (Muere T1 del plan original.)
+- **Match y Medal en vivo SÍ importan** — y la tabla tiene que seguir la vuelta actual
+  (en hoyo 10+ mostrar Vuelta, no quedarse en Ida). → HECHO
+- **Orden por hoyo**: 1) Estrategia (DECADE — lo quiere MANTENER) → 2) golpes de todos los
+  jugadores → 3) sus stats del método, que completa caminando. → HECHO
+- **Golpes compactos**: un renglón por equipo, inputs chicos (no full-width), con la
+  indicación de quién tiene golpe al lado del nombre. → HECHO
+- **Partidos sin plata**: fuera el monto; cada modalidad/tramo vale 1 punto y el resumen
+  muestra los puntos. → HECHO (wizard, editar setup y resumen)
 
 ## Audit de uso real (DB prod, 26/07 — 15 rondas, 193 hoyos propios)
 
@@ -47,13 +59,12 @@ resumen + Assessment Card) — y en cancha ni siquiera muestra las distancias GP
 - Matar del flujo: notes de visualización, edición manual de termostato (queda en /jugadores).
 - El briefing muestra: goal del día, termostato auto, dispersión por palo, recordatorio corto.
 
-### P2 — DURANTE: tracker de un pulgar, lectura primero
-- Por hoyo, UNA card: **distancias GPS al green (frente/centro/fondo) arriba de todo** (hoy
-  están escondidas atrás del FAB 📍 en labs/maps) + quién da/recibe golpe + score con botones
-  grandes + los 4 números del método. NADA más visible.
-- DECADE (dangerSide/pinColor/aimedAt), gear selector, keys, recovery → detrás de un "más"
-  colapsado, o directamente fuera (decidir con Santi: hoy los llena 50-65% / 12-18%).
-- Leaderboard/apuestas quedan como están (es lectura y ya funciona).
+### P2 — DURANTE: tracker de un pulgar, lectura primero — HECHO 26/07 (versión Santi)
+- Leaderboard sigue la vuelta actual (hoyo ≥10 → tab Vuelta automático; tabs siguen overrideables).
+- Por hoyo: card "1 · Estrategia" (DECADE: peligro/bandera/centro/recovery + gear del goal) →
+  card "2 · Golpes" (grilla compacta, un renglón por equipo, +N de golpe junto al nombre) →
+  card "3 · Mis stats" (los 4 números SM + keys, colapsable, se completa caminando).
+- GPS NO (Santi mira el reloj). Las cards gigantes por jugador se eliminaron.
 
 ### P3 — POST-RONDA: UNA pantalla, 1 minuto, con opción de dictado
 - Unificar ReflexionEditor + Assessment Card en una sola pantalla post-ronda:
@@ -67,16 +78,18 @@ resumen + Assessment Card) — y en cancha ni siquiera muestra las distancias GP
 - Esconder entradas a features nunca usadas (identidad mental completa, wedge matrix sin datos).
 - Campos muertos del schema: se quedan (dead code documentado acá, no se borra).
 
-## Tareas (a crear cuando Santi apruebe secciones)
-- T1 (P2) — GPS glanceable en RondaTracker por hoyo · compl 5 · **la de más valor en cancha**
-- T2 (P2) — Podar inputs por hoyo (core visible, resto colapsado/fuera) · compl 3
-- T3 (P1) — Briefing lectura + termostato auto + visualización 1 tap · compl 3
-- T4 (P3) — Post-ronda unificada + dictado opcional · compl 6
-- T5 (P4) — Limpieza navegación · compl 2
+## Tareas
+- ~~T1 — GPS glanceable~~ MUERTA (Santi mira el reloj)
+- T2 (P2) — Tracker reordenado + grilla golpes + leaderboard sigue vuelta · **done 26/07**
+- T2b (P2) — Partidos sin plata → puntos por modalidad (wizard/setup/resumen) · **done 26/07**
+- T3 (P1) — Briefing lectura + termostato auto + visualización 1 tap · compl 3 · ESPERA OK
+- T4 (P3) — Post-ronda unificada + dictado opcional · compl 6 · ESPERA OK
+- T5 (P4) — Limpieza navegación · compl 2 · ESPERA OK
 
 ## Preguntas abiertas para Santi
-1. Durante la ronda, ¿qué querés MIRAR? (distancias GPS / apuestas y match / golpes que das-recibís
-   / todo junto en una card)
-2. DECADE por hoyo (lado peligro, color bandera, apuntar al centro): ¿lo dejamos colapsado o lo
-   matamos? Lo venís llenando la mitad de las veces.
-3. Post-ronda con nota de voz única (en casa, sin apuro): ¿va, o preferís solo chips y listo?
+1. Post-ronda con nota de voz única (en casa, sin apuro): ¿va, o preferís solo chips y listo?
+2. Del método, ¿sumamos algo a "Estrategia" como LECTURA (sin campos nuevos)? Candidatos del KB:
+   Personal Par del hoyo (auto de tu historial), stupid holes (hoyos donde siempre la regalás,
+   auto-detectables), go-to club off the tee. Todo calculado, cero input.
+- Dead code que queda avisado: prop `money` de Field en EditarSetupModal ya no se usa;
+  `RoundBet.amount/currency` quedan en el schema (amount=1 fijo, currency "PTS").

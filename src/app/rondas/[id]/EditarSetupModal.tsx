@@ -40,7 +40,7 @@ type HcpsState = {
 };
 
 type FamilyKey = "MATCH" | "MEDAL" | "STABLEFORD";
-type BetsState = Record<FamilyKey, { enabled: boolean; total: string; leg: string }>;
+type BetsState = Record<FamilyKey, { enabled: boolean; total: boolean; leg: boolean }>;
 
 function loadInitialHcps(round: Round): HcpsState {
   const out: HcpsState = {};
@@ -60,16 +60,11 @@ function loadInitialHcps(round: Round): HcpsState {
 }
 
 function loadInitialBets(bets: Bet[]): BetsState {
-  const get = (mod: string) => bets.find((b) => b.modality === mod)?.amount;
-  const family = (totalKey: string, idaKey: string): { enabled: boolean; total: string; leg: string } => {
-    const total = get(totalKey);
-    const ida = get(idaKey);
-    const enabled = total != null || ida != null;
-    return {
-      enabled,
-      total: total != null ? String(total) : "",
-      leg: ida != null ? String(ida) : "",
-    };
+  const has = (mod: string) => bets.some((b) => b.modality === mod);
+  const family = (totalKey: string, idaKey: string): { enabled: boolean; total: boolean; leg: boolean } => {
+    const total = has(totalKey);
+    const leg = has(idaKey);
+    return { enabled: total || leg, total, leg };
   };
   return {
     MATCH: family("MATCH", "MATCH_IDA"),
@@ -159,11 +154,17 @@ export default function EditarSetupModal({
     }, 400);
   }
 
-  function setBetField(fam: FamilyKey, field: "enabled" | "total" | "leg", value: string | boolean) {
-    setBets((prev) => ({
-      ...prev,
-      [fam]: { ...prev[fam], [field]: value },
-    }));
+  function setBetField(fam: FamilyKey, field: "enabled" | "total" | "leg", value: boolean) {
+    setBets((prev) => {
+      const cur = { ...prev[fam], [field]: value };
+      // Al habilitar una modalidad sin tramos marcados, prender ambos por default
+      // (si no, guardar la ignoraría silenciosamente).
+      if (field === "enabled" && value && !cur.total && !cur.leg) {
+        cur.total = true;
+        cur.leg = true;
+      }
+      return { ...prev, [fam]: cur };
+    });
   }
 
   async function save() {
@@ -185,15 +186,14 @@ export default function EditarSetupModal({
       };
     });
 
+    // Sin plata: amount=1 (1 punto por tramo ganado)
     const betsPayload: Bet[] = [];
     for (const [fam, f] of Object.entries(bets) as [FamilyKey, BetsState[FamilyKey]][]) {
       if (!f.enabled) continue;
-      const total = f.total ? parseFloat(f.total) : 0;
-      const leg = f.leg ? parseFloat(f.leg) : 0;
-      if (total > 0) betsPayload.push({ modality: fam, amount: total, currency: "ARS" });
-      if (leg > 0) {
-        betsPayload.push({ modality: `${fam}_IDA`, amount: leg, currency: "ARS" });
-        betsPayload.push({ modality: `${fam}_VUELTA`, amount: leg, currency: "ARS" });
+      if (f.total) betsPayload.push({ modality: fam, amount: 1, currency: "PTS" });
+      if (f.leg) {
+        betsPayload.push({ modality: `${fam}_IDA`, amount: 1, currency: "PTS" });
+        betsPayload.push({ modality: `${fam}_VUELTA`, amount: 1, currency: "PTS" });
       }
     }
 
@@ -346,7 +346,7 @@ export default function EditarSetupModal({
         {tab === "BETS" && (
           <div className="space-y-3">
             <p className="text-[10px] text-[var(--muted)]">
-              Total (grande) e Ida/Vuelta (chicos, mismo valor cada uno).
+              Marcá qué tramos se juegan. Cada tramo ganado vale 1 punto (se ve en el resumen).
             </p>
             {(["MATCH", "MEDAL", "STABLEFORD"] as FamilyKey[]).map((fam) => {
               const f = bets[fam];
@@ -363,19 +363,23 @@ export default function EditarSetupModal({
                     </span>
                   </label>
                   {f.enabled && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field
-                        label="Total"
-                        value={f.total}
-                        onChange={(v) => setBetField(fam, "total", v)}
-                        money
-                      />
-                      <Field
-                        label="Ida y Vuelta c/u"
-                        value={f.leg}
-                        onChange={(v) => setBetField(fam, "leg", v)}
-                        money
-                      />
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={f.total}
+                          onChange={(e) => setBetField(fam, "total", e.target.checked)}
+                        />
+                        Total
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={f.leg}
+                          onChange={(e) => setBetField(fam, "leg", e.target.checked)}
+                        />
+                        Ida y Vuelta
+                      </label>
                     </div>
                   )}
                 </div>
