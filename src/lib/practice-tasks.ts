@@ -1,110 +1,73 @@
 import { prisma } from "@/lib/db";
 import type { PPPlan } from "@/lib/scoring-method";
 
-type RoundConfig = {
-  enterSzYds: number;
-  downInSzStrokes: number;
-  onePuttCircleFt: number;
-  twoPuttCircleYds: number;
-};
-
-// Difficulty score: higher = más exigente (tarea más dura).
-// Sirve para comparar dos tasks del mismo `code` y quedarse con la peor.
-//   A: SZ más chica (menos yds) = más dura
-//   B: bajar en menos golpes = más dura
-//   1: 1-putt circle más chico = más dura
-//   2: no varía con config, solo importa el count
-function difficultyScore(code: string, c: RoundConfig | null): number {
-  if (!c) return 0;
-  switch (code) {
-    case "A":
-      return -c.enterSzYds;
-    case "B":
-      return -c.downInSzStrokes;
-    case "1":
-      return -c.onePuttCircleFt;
-    default:
-      return 0;
-  }
-}
-
-// Para cada code (A,B,1,2) deja una sola task PENDING:
-// la más dura, y a igualdad de dificultad, la de más timesToAchieve restantes.
-// Borra el resto. Idempotente.
-export async function dedupPendingRoundTasksByCode() {
-  const tasks = await prisma.practiceTask.findMany({
-    where: {
-      status: "PENDING",
-      sourceType: "ROUND",
-      code: { in: ["A", "B", "1", "2"] },
-    },
-    include: {
-      round: {
-        select: {
-          enterSzYds: true,
-          downInSzStrokes: true,
-          onePuttCircleFt: true,
-          twoPuttCircleYds: true,
-        },
-      },
-    },
-  });
-
-  const byCode: Record<string, typeof tasks> = {};
-  for (const t of tasks) {
-    (byCode[t.code] ??= []).push(t);
-  }
-
-  const toDelete: string[] = [];
-  for (const [code, group] of Object.entries(byCode)) {
-    if (group.length <= 1) continue;
-    // Ordenar: dificultad desc, timesRestantes desc, fecha desc
-    group.sort((a, b) => {
-      const da = difficultyScore(code, a.round);
-      const db = difficultyScore(code, b.round);
-      if (db !== da) return db - da;
-      const ra = a.timesToAchieve - a.timesCompleted;
-      const rb = b.timesToAchieve - b.timesCompleted;
-      if (rb !== ra) return rb - ra;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
-    // Mantener el primero, borrar el resto
-    for (let i = 1; i < group.length; i++) toDelete.push(group[i].id);
-  }
-
-  if (toDelete.length > 0) {
-    await prisma.practiceTask.deleteMany({ where: { id: { in: toDelete } } });
-  }
-  return toDelete.length;
-}
-
-// Genera tasks PENDING para los items del PP plan con count > 0.
-// Idempotente por (round, code) y dedupea contra tasks PENDING de rondas anteriores
-// quedándose con la más dura / más veces a hacer.
+// El homework NO acumula (regla Santi 26/07): las tasks PENDING de ronda reflejan
+// SIEMPRE y SOLO la última ronda jugada.
+// - Al ver el resumen de la ÚLTIMA ronda: borra las PENDING de rondas anteriores y
+//   sincroniza las de esta ronda con el plan actual (crea faltantes, actualiza targets,
+//   borra las que ya no aplican) preservando el progreso ya hecho.
+// - Ver el resumen de una ronda VIEJA no toca nada.
+// Las DONE quedan como historial.
 export async function ensureRoundTasks(roundId: string, ppPlan: PPPlan) {
-  const existingForRound = await prisma.practiceTask.findMany({
-    where: { roundId },
-    select: { code: true },
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    select: { date: true },
   });
-  const existingCodesForRound = new Set(existingForRound.map((t) => t.code));
+  if (!round) return;
+  const newer = await prisma.round.findFirst({
+    where: { id: { not: roundId }, date: { gt: round.date } },
+    select: { id: true },
+  });
+  if (newer) return;
 
-  const toCreate = ppPlan
-    .filter((p) => p.count > 0 && !existingCodesForRound.has(p.code))
-    .map((p) => ({
-      sourceType: "ROUND",
+  // Chau homework acumulado: fuera las PENDING de cualquier otra ronda
+  await prisma.practiceTask.deleteMany({
+    where: { sourceType: "ROUND", status: "PENDING", roundId: { not: roundId } },
+  });
+
+  const active = ppPlan.filter((p) => p.count > 0);
+  const activeCodes = active.map((p) => p.code);
+
+  // Fuera las de esta ronda cuyo problema ya no está en el plan (ej. tras editar stats)
+  await prisma.practiceTask.deleteMany({
+    where: {
       roundId,
-      code: p.code,
-      label: p.label,
-      description: p.reason,
-      timesToAchieve: p.count,
-    }));
+      status: "PENDING",
+      code: { notIn: activeCodes.length > 0 ? activeCodes : ["__none__"] },
+    },
+  });
 
-  if (toCreate.length > 0) {
-    await prisma.practiceTask.createMany({ data: toCreate });
+  const existing = await prisma.practiceTask.findMany({
+    where: { roundId },
+    select: { id: true, code: true, timesToAchieve: true, status: true },
+  });
+  // Si conviven DONE y PENDING del mismo code, mandar la PENDING (es la que se sincroniza)
+  const byCode = new Map<string, (typeof existing)[number]>();
+  for (const t of existing) {
+    const cur = byCode.get(t.code);
+    if (!cur || (cur.status !== "PENDING" && t.status === "PENDING")) byCode.set(t.code, t);
   }
 
-  // Dedup global por code: deja una sola task PENDING por code, la más dura
-  await dedupPendingRoundTasksByCode();
+  for (const p of active) {
+    const t = byCode.get(p.code);
+    if (!t) {
+      await prisma.practiceTask.create({
+        data: {
+          sourceType: "ROUND",
+          roundId,
+          code: p.code,
+          label: p.label,
+          description: p.reason,
+          timesToAchieve: p.count,
+        },
+      });
+    } else if (t.status === "PENDING" && t.timesToAchieve !== p.count) {
+      await prisma.practiceTask.update({
+        where: { id: t.id },
+        data: { timesToAchieve: p.count, label: p.label, description: p.reason },
+      });
+    }
+  }
 }
 
 // Crea (si no existe) una task de "Revisar análisis" para una RangeSession con AI analysis.

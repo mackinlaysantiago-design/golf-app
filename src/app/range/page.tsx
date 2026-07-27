@@ -4,14 +4,11 @@ import Link from "next/link";
 import PendingTasks from "./PendingTasks";
 import DispersionUploader from "./DispersionUploader";
 import DispersionList from "./DispersionList";
-import { dedupPendingRoundTasksByCode } from "@/lib/practice-tasks";
-
 export const dynamic = "force-dynamic";
 
 export default async function RangePage() {
-  // Limpia tasks duplicadas/menos exigentes antes de listar
-  await dedupPendingRoundTasksByCode();
-
+  // El homework ya no acumula: ensureRoundTasks (resumen) lo deja siempre
+  // sincronizado con la última ronda; acá solo se lista.
   const [dispersions, pendingTasks] = await Promise.all([
     prisma.clubDispersion.findMany({
       orderBy: { carryP50: "desc" },
