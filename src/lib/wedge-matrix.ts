@@ -111,6 +111,9 @@ export function normalizeClub(raw: string): string {
   if (/gap|(^|\W)(gw|52)(\W|$)/.test(s)) return "GW";
   if (/sand|(^|\W)(sw|56)(\W|$)/.test(s)) return "SW";
   if (/lob|(^|\W)(lw|60)(\W|$)/.test(s)) return "LW";
+  // "W" / "wedge" a secas = el pitching de la bolsa de Santi (va al final para no
+  // pisar "gap/sand/lob wedge")
+  if (/(^|\W)(w|wedge)(\W|$)/.test(s)) return "PW";
   return raw.trim().toUpperCase().replace(/\s+/g, "_");
 }
 
