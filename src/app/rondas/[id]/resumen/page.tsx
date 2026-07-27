@@ -12,7 +12,6 @@ import StandingsTabs from "./StandingsTabs";
 import LevelUpCard, { type PerfectRun } from "./LevelUpCard";
 import { nextLevel, type SmField } from "@/lib/sm-levels";
 import { tallyKeys, topKeys, SM_KEYS, KEY_BY_ID } from "@/lib/sm-keys";
-import ReflexionEditor from "./ReflexionEditor";
 import { ensureRoundTasks } from "@/lib/practice-tasks";
 import { findGoalByConfig, findGoalByLabel, holeAchievedGoal } from "@/lib/sm-goals";
 
@@ -655,27 +654,8 @@ export default async function ResumenPage({
         </>
       )}
 
-      {/* Reflexión post-ronda */}
-      {me.player.isMe && (
-        <>
-          <SectionHeader>Reflexión</SectionHeader>
-          <ReflexionEditor
-            roundId={round.id}
-            playerId={me.player.id}
-            initialBestParts={(() => {
-              try {
-                return round.bestParts ? (JSON.parse(round.bestParts) as string[]) : [];
-              } catch {
-                return [];
-              }
-            })()}
-            initialBestShot={round.bestShot ?? ""}
-            initialCommitment={round.commitmentScore}
-            initialEmotion={round.emotionPlayed}
-            initialProblemArea={round.problemArea}
-          />
-        </>
-      )}
+      {/* Reflexión post-ronda ELIMINADA 26/07 (Santi nunca la completó — 4/15 rondas).
+          ReflexionEditor.tsx queda como dead code por si se retoma otra idea post-ronda. */}
 
       {/* PP Plan */}
       <SectionHeader>PP Plan · Practicar próxima</SectionHeader>
