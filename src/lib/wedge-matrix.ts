@@ -2,11 +2,12 @@
 // La matriz son distancias conocidas = wedge × posición de swing.
 // El carry (no el total) es lo que se mapea. KPI rey de una celda = dispersión (max-min).
 
+// Labels = la bolsa real de Santi (W / 52 / 56 / 60); las keys quedan genéricas en DB.
 export const WEDGES = [
-  { key: "PW", label: "PW" },
-  { key: "GW", label: "GW" },
-  { key: "SW", label: "SW" },
-  { key: "LW", label: "LW" },
+  { key: "PW", label: "W" },
+  { key: "GW", label: "52" },
+  { key: "SW", label: "56" },
+  { key: "LW", label: "60" },
 ] as const;
 
 export const SWING_POSITIONS = [
@@ -83,14 +84,15 @@ export function parseClubName(raw: string): ClubClass {
   if (/(^|\W)(full|100%?)(\W|$)/.test(s)) swing = "FULL";
   else if (/(3\s*\/\s*4|¾|three[\s-]*quarter|75%?)/.test(s)) swing = "THREE_QUARTER";
   else if (/(1\s*\/\s*2|half|50%)/.test(s)) swing = "HALF";
+  else if (/(1\s*\/\s*4|25%)/.test(s)) swing = "PITCH"; // Santi nombra el pitch como "1/4"
   else if (/(^|\W)pitch(\W|$)/.test(s) && !/pitching/.test(s)) swing = "PITCH";
 
-  // tipo de wedge
+  // tipo de wedge — incluye la bolsa real de Santi: W / 52 / 56 / 60
   let wedge: WedgeKey | null = null;
-  if (/(^|\W)(lob|lw)(\W|$)/.test(s)) wedge = "LW";
-  else if (/(^|\W)(sand|sw)(\W|$)/.test(s)) wedge = "SW";
-  else if (/(^|\W)(gap|gw)(\W|$)/.test(s)) wedge = "GW";
-  else if (/pitching|(^|\W)pw(\W|$)/.test(s)) wedge = "PW";
+  if (/(^|\W)(lob|lw|60)(\W|$)/.test(s)) wedge = "LW";
+  else if (/(^|\W)(sand|sw|56)(\W|$)/.test(s)) wedge = "SW";
+  else if (/(^|\W)(gap|gw|52)(\W|$)/.test(s)) wedge = "GW";
+  else if (/pitching|(^|\W)(pw|w|wedge)(\W|$)/.test(s)) wedge = "PW";
 
   if (wedge && swing) return { kind: "cell", wedge, swing };
   return { kind: "club", club: normalizeClub(raw) };
@@ -106,9 +108,9 @@ export function normalizeClub(raw: string): string {
   const iron = s.match(/(\d)\s*iron|iron\s*(\d)/);
   if (iron) return `IRON_${iron[1] ?? iron[2]}`;
   if (/pitching|(^|\W)pw(\W|$)/.test(s)) return "PW";
-  if (/gap|(^|\W)gw(\W|$)/.test(s)) return "GW";
-  if (/sand|(^|\W)sw(\W|$)/.test(s)) return "SW";
-  if (/lob|(^|\W)lw(\W|$)/.test(s)) return "LW";
+  if (/gap|(^|\W)(gw|52)(\W|$)/.test(s)) return "GW";
+  if (/sand|(^|\W)(sw|56)(\W|$)/.test(s)) return "SW";
+  if (/lob|(^|\W)(lw|60)(\W|$)/.test(s)) return "LW";
   return raw.trim().toUpperCase().replace(/\s+/g, "_");
 }
 
