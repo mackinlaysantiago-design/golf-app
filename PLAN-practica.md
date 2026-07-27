@@ -1,6 +1,23 @@
 # PLAN — Revisión del sistema de práctica
 
-> Estado: **DIAGNÓSTICO + PROPUESTA — esperando OK de Santi** (26/07/2026).
+> Estado: **EN EJECUCIÓN** (26/07/2026). Santi bajó línea: la carga por intentos NO molesta;
+> lo que estaba mal era el GENERADOR del plan → ahora sigue TSM (áreas con errores → drill →
+> test) y TODAS las distancias de práctica se miden en PASOS (1 paso = 3 ft = 1 yd).
+
+## Hecho 26/07 (deploy e3fafc2)
+- `src/lib/tsm-plan.ts` — `computeTsmPlan()`: señales por área desde los stats de la ronda:
+  putt errado en 1PC → Short Putting · 3+ putts → Long Putting · no bajó en N desde ≤25 pasos →
+  Fringe Chipping · desde >25 pasos → Pitching (drill = Wedge Matrix) · no entró a SZ → Long Game.
+  Orden por errores (atacar el área más débil primero). Drill del área PRIMERO, test DESPUÉS.
+- Resumen y /range/pp muestran ese plan y el botón "Practicar este plan" lleva `?drills=` →
+  la sesión pre-tilda exactamente lo del plan (fix "el plan no viaja"). /api/pp/plan lo sirve.
+- Drills en pasos nativos (defaults convertidos: 1-Putt arranca 1 paso, 2-Putt 10, lag 5/7/10...).
+  Buckets de putts del resumen en pasos (0-1/1-2/2-3/3+).
+- ppPlan legacy (A/B/1/2) quedó SOLO alimentando PracticeTask (homework sin decidir aún).
+- **PEND OK Santi**: correr `node scripts/migrate-pp-distances-a-pasos.js` (convierte las
+  distancias ft de las 4 sesiones de mayo a pasos para que los récords históricos alineen).
+- Verificado en prod: ronda 11/07 → plan "Long Game 7 → test Go-To Club", resto 0; link viaja.
+- Supuesto documentado: corte chip/pitch en 25 pasos (`CHIP_MAX_PASOS`); ajustable.
 > Regla madre (DECISIONS.md 26/07): el teléfono es para MIRAR, no para CARGAR.
 > Hermano de PLAN-flujo-datos.md (rondas). Reflexión post-ronda eliminada 26/07.
 
