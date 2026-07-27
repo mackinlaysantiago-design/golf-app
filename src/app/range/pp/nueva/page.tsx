@@ -20,7 +20,8 @@ import { DRILL_TO_AREA, AREA_ORDER } from "@/lib/pp-areas";
 import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Key del IndexedDB draft (única por tipo de form, app-wide)
-const DRAFT_KEY = "pp-session-draft-v1";
+// v2: invalida drafts guardados en ft (pre-pasos, 27/07) — ej. el "35 pasos" fantasma
+const DRAFT_KEY = "pp-session-draft-v2";
 
 /** Sortea drills por área TSM, después DRILL primero, TEST después. */
 function sortDrillsTsm(drills: DrillDef[]): DrillDef[] {
@@ -150,8 +151,10 @@ export default function NuevaPPPage() {
   // Patrón de agroflow-platform: idb async + debounce 2s + cleanup automático.
   const draft = useFormDraft({ key: DRAFT_KEY, formType: "pp-session", debounceMs: 1500 });
 
-  // Restaurar draft al montar (una sola vez)
+  // Restaurar draft al montar (una sola vez — el guard con draftMountedRef es
+  // OBLIGATORIO: si este efecto re-corre, pisa lo que el usuario está tipeando)
   useEffect(() => {
+    if (draftMountedRef.current) return;
     let cancelled = false;
     (async () => {
       const saved = (await draft.load()) as

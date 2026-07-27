@@ -12,7 +12,7 @@
  * Cleanup del timer al unmount evita writes huérfanos.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { saveDraft, getDraft, deleteDraft } from "@/lib/offline/db";
 
 interface UseFormDraftOptions {
@@ -74,5 +74,11 @@ export function useFormDraft({ key, formType, debounceMs = 2000 }: UseFormDraftO
     }
   }, [key]);
 
-  return { save, saveImmediate, load, clear };
+  // Objeto ESTABLE entre renders: los efectos que dependen de `draft` no deben
+  // re-dispararse por identidad (bug 27/07: el restore re-corría en cada render
+  // y pisaba cada tecla del usuario con el draft guardado).
+  return useMemo(
+    () => ({ save, saveImmediate, load, clear }),
+    [save, saveImmediate, load, clear],
+  );
 }
