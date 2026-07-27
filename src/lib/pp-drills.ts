@@ -141,7 +141,7 @@ export const DRILLS: DrillDef[] = [
     levelUpStreak: 10,
     ppCode: "2",
     ppLabel: "Hoyos con 3+ putts",
-    distanceStep: 5,
+    distanceStep: 6, // múltiplo de 3 ft = 2 pasos justos
   },
   {
     type: "CHIPPING",
@@ -305,7 +305,7 @@ export const DRILLS: DrillDef[] = [
     hasLevelUp: false,
     ppCode: "2",
     ppLabel: "Putting Challenge",
-    distanceStep: 5,
+    distanceStep: 6, // múltiplo de 3 ft = 2 pasos justos
   },
   {
     type: "GREEN_READING",
@@ -352,9 +352,9 @@ export function uiUnit(def: DrillDef): string {
   return def.distanceUnit === "°" ? "°" : "pasos";
 }
 
-/** nativo → pasos (para mostrar). ft/3 con 1 decimal; yds 1:1; ° identidad. */
+/** nativo → pasos (para mostrar). ft/3 redondeado a ENTERO (no existen los pasos con coma); yds 1:1; ° identidad. */
 export function distToUi(def: DrillDef, v: number): number {
-  if (def.distanceUnit === "ft") return Math.round((v / 3) * 10) / 10;
+  if (def.distanceUnit === "ft") return Math.max(1, Math.round(v / 3));
   return v;
 }
 

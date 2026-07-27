@@ -200,14 +200,21 @@ export default function NuevaPPPage() {
           if (!lvl) continue;
           if (lvl.currentDistance != null) lvl.currentDistance = distToUi(drill, lvl.currentDistance);
           if (lvl.bestStreakByDist) {
-            lvl.bestStreakByDist = Object.fromEntries(
-              Object.entries(lvl.bestStreakByDist).map(([k, v]) => [distToUi(drill, Number(k)), v]),
-            );
+            const merged: Record<number, number> = {};
+            for (const [k, v] of Object.entries(lvl.bestStreakByDist)) {
+              const key = distToUi(drill, Number(k));
+              merged[key] = Math.max(merged[key] ?? 0, v as number);
+            }
+            lvl.bestStreakByDist = merged;
           }
           if (lvl.bestRatioByDist) {
-            lvl.bestRatioByDist = Object.fromEntries(
-              Object.entries(lvl.bestRatioByDist).map(([k, v]) => [distToUi(drill, Number(k)), v]),
-            );
+            const merged: Record<number, { strokes: number; balls: number; ratio: number }> = {};
+            for (const [k, v] of Object.entries(lvl.bestRatioByDist)) {
+              const key = distToUi(drill, Number(k));
+              const vv = v as { strokes: number; balls: number; ratio: number };
+              if (!merged[key] || vv.ratio < merged[key].ratio) merged[key] = vv;
+            }
+            lvl.bestRatioByDist = merged;
           }
         }
         setLevels(levelsData);

@@ -312,16 +312,16 @@ export default async function PPListPage() {
         })}
       </div>
 
-      {/* Wizard /setup MUERTO 26/07 (pedido Santi: armar sesión era larguísimo).
-          "+ Nueva sesión" va directo a la carga, que ya se pre-arma con el plan TSM. */}
-      <div className="grid grid-cols-2 gap-2">
-        <Link href="/range/pp/nueva" className="gf-btn">
-          + Nueva sesión
+      {/* Un solo botón de practicar: si hay plan ya está "Practicar este plan" arriba;
+          este aparece solo cuando NO hay plan. Challenges queda aparte, explicado. */}
+      {tsmPending.length === 0 && (
+        <Link href="/range/pp/nueva" className="gf-btn w-full">
+          🎯 Practicar (armá tu sesión)
         </Link>
-        <Link href="/range/pp/challenges" className="gf-btn gf-btn-secondary">
-          🎯 Challenges
-        </Link>
-      </div>
+      )}
+      <Link href="/range/pp/challenges" className="gf-btn gf-btn-secondary w-full">
+        📅 Challenges · mini-programas guiados de 7 días
+      </Link>
 
       <SectionHeader>Sesiones</SectionHeader>
       {sessions.length === 0 && (
