@@ -105,7 +105,7 @@ export default function NuevaPPPage() {
     challengeId: string | null;
     day: number | null;
   }>({ challengeId: null, day: null });
-  // Drills preseleccionados desde el wizard de /range/pp/setup (?drills=t1,t2,...)
+  // Drills preseleccionados vía ?drills= (vienen del plan TSM del resumen/hub o de una task de homework)
   const [preselectedDrills, setPreselectedDrills] = useState<Set<DrillType> | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -241,7 +241,8 @@ export default function NuevaPPPage() {
             if (lvl?.currentClub) {
               next[drill.type] = { ...next[drill.type], club: lvl.currentClub };
             }
-            if (planTarget) {
+            // En modo challenge la sesión es SOLO del challenge: no mezclar el plan de ronda
+            if (planTarget && !challengeDayInfo) {
               next[drill.type] = {
                 ...next[drill.type],
                 enabled: true,
@@ -407,13 +408,24 @@ export default function NuevaPPPage() {
         </p>
       </header>
 
+      {challenge && challengeDayInfo && (
+        <Card style={{ borderLeft: "4px solid var(--fairway)" }}>
+          <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+            📅 Challenge · {challenge.title}
+          </div>
+          <div className="font-bold text-sm mt-0.5">
+            Día {challengeDayInfo.day}: {challengeDayInfo.title}
+          </div>
+        </Card>
+      )}
+
       {draftRestored && (
         <div className="rounded-md border-l-4 bg-[var(--accent-light)] p-2 text-[11px]" style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>
           <strong>Borrador restaurado.</strong> Si querés empezar de cero, desmarcá todos los drills y recargá.
         </div>
       )}
 
-      {Object.keys(plan.drillTargets).length > 0 && (
+      {!challengeDayInfo && Object.keys(plan.drillTargets).length > 0 && (
         <Card style={{ borderLeft: "4px solid var(--accent)" }}>
           <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
             Plan de tu última ronda
@@ -466,7 +478,7 @@ export default function NuevaPPPage() {
           DRILLS.filter(
             (d) =>
               drills[d.type]?.enabled ||
-              !!plan.drillTargets[d.type] ||
+              (!challengeDayInfo && !!plan.drillTargets[d.type]) ||
               (preselectedDrills?.has(d.type) ?? false) ||
               (challengeDayInfo?.drills.includes(d.type) ?? false),
           ).map((d) => d.type),
@@ -474,7 +486,7 @@ export default function NuevaPPPage() {
         const planDrills = sortDrillsTsm(DRILLS.filter((d) => inPlanSet.has(d.type)));
         return (
           <>
-            <SectionHeader>Tu plan de hoy ({planDrills.length})</SectionHeader>
+            <SectionHeader>{challengeDayInfo ? `Drills del challenge (${planDrills.length})` : `Tu plan de hoy (${planDrills.length})`}</SectionHeader>
             {planDrills.length === 0 ? (
               <div className="text-sm text-[var(--muted)] italic px-1">
                 Sin plan de la última ronda — agregá un drill abajo.

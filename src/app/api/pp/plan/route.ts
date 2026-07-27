@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeRoundKPIs, computePPPlan, type HoleData } from "@/lib/scoring-method";
-import { type DrillType } from "@/lib/pp-drills";
+import { PP_CODE_TO_DRILLS } from "@/lib/pp-drills";
 
 export const dynamic = "force-dynamic";
-
-// Mapeo PP code → drills sugeridos para atacarlo
-const PP_TO_DRILLS: Record<string, DrillType[]> = {
-  A: ["GO_TO_CLUB"],
-  B: ["CHIPPING", "WEDGES_50", "WEDGES_70", "WEDGES_100"],
-  "1": ["ONE_PUTT_CIRCLE"],
-  "2": ["TWO_PUTT_CIRCLE"],
-};
 
 // GET /api/pp/plan
 // Devuelve para cada drill la cantidad de veces a lograr el target,
@@ -63,7 +55,7 @@ export async function GET() {
   // Simple: cada drill atacante recibe el count completo (el usuario elige cuál hacer)
   const drillTargets: Record<string, { timesToAchieve: number; ppCode: string }> = {};
   for (const item of ppPlan) {
-    const drills = PP_TO_DRILLS[item.code] ?? [];
+    const drills = PP_CODE_TO_DRILLS[item.code] ?? [];
     for (const d of drills) {
       // si ya existe, mantener el max
       const existing = drillTargets[d];

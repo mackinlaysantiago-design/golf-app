@@ -251,11 +251,24 @@ export default async function PPListPage() {
         </>
       )}
 
+      {/* Solo drills con historia — los nunca practicados no suman nada acá
+          (el catálogo completo vive en la sesión, colapsado en "Agregar otro drill") */}
       <SectionHeader>Tu nivel actual por drill</SectionHeader>
       <div className="space-y-2">
+        {DRILLS.filter(
+          (d) =>
+            (levels[d.type]?.sessionsAtCurrent ?? 0) > 0 ||
+            (levels[d.type]?.achievementsCount ?? 0) > 0,
+        ).length === 0 && (
+          <p className="text-sm text-[var(--muted)] italic px-1">
+            Todavía no hay sesiones registradas — arrancá con tu plan de arriba.
+          </p>
+        )}
         {DRILLS.map((d) => {
           const lvl = levels[d.type];
           if (!lvl) return null;
+          if ((lvl.sessionsAtCurrent ?? 0) === 0 && (lvl.achievementsCount ?? 0) === 0)
+            return null;
           return (
             <Card key={d.type} className="!p-3">
               <div className="flex justify-between items-start gap-2">

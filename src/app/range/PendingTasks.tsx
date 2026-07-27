@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { PP_CODE_TO_DRILLS } from "@/lib/pp-drills";
 
 type Task = {
   id: string;
@@ -78,9 +79,13 @@ export default function PendingTasks({ tasks }: { tasks: Task[] }) {
           : t.round
           ? `Ronda · ${t.round.course.name} · ${new Date(t.round.date).toLocaleDateString("es-AR")}`
           : "—";
+        // El CTA de una task de ronda pre-tilda SUS drills en la sesión
+        const taskDrills = PP_CODE_TO_DRILLS[t.code] ?? [];
         const ctaHref = isFlightScope
           ? `/range/${t.rangeSession?.id}`
-          : "/range/pp/nueva";
+          : taskDrills.length > 0
+            ? `/range/pp/nueva?drills=${taskDrills.join(",")}`
+            : "/range/pp/nueva";
         const ctaLabel = isFlightScope ? "Ver análisis" : "Practicar";
 
         return (

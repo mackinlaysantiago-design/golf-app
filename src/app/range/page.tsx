@@ -91,10 +91,25 @@ export default async function RangePage() {
               🎯 Empezar Purposeful Practice
             </div>
             <div className="text-xs text-[var(--muted)] mt-0.5">
-              Wizard de drills · Auto-PP o Custom · Historial de sesiones
+              Tu plan de la última ronda · challenges · historial
             </div>
           </div>
           <span className="text-[var(--green)] text-2xl">›</span>
+        </Card>
+      </Link>
+
+      {/* Entrada al upload de sesión FlightScope (screenshots → RangeSession) */}
+      <Link href="/range/nueva" className="block">
+        <Card className="!p-3 flex items-center justify-between hover:shadow-lg transition-shadow">
+          <div>
+            <div className="font-semibold text-sm text-[var(--fairway)]">
+              📷 Cargar sesión FlightScope
+            </div>
+            <div className="text-[11px] text-[var(--muted)] mt-0.5">
+              Screenshots del Mevo → shots con análisis
+            </div>
+          </div>
+          <span className="text-[var(--muted)] text-xl">›</span>
         </Card>
       </Link>
     </div>

@@ -364,6 +364,15 @@ export function uiToDist(def: DrillDef, v: number): number {
   return v;
 }
 
+// Código de la Purposeful Practice Card (A/B/1/2) → drills que lo atacan.
+// Única fuente para /api/pp/plan y los CTA de homework.
+export const PP_CODE_TO_DRILLS: Record<string, DrillType[]> = {
+  A: ["GO_TO_CLUB"],
+  B: ["CHIPPING", "WEDGES_50", "WEDGES_70", "WEDGES_100"],
+  "1": ["ONE_PUTT_CIRCLE"],
+  "2": ["TWO_PUTT_CIRCLE"],
+};
+
 export const DRILL_BY_TYPE: Record<DrillType, DrillDef> = Object.fromEntries(
   DRILLS.map((d) => [d.type, d]),
 ) as Record<DrillType, DrillDef>;
