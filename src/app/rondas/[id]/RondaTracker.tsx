@@ -243,10 +243,13 @@ export default function RondaTracker({
       const cur = prev[rpId]?.[hole] ?? {};
       const updated = { ...cur, [field]: num };
 
-      // Auto-cálculo del score para el jugador main: strokesToEnterSz + strokesInsideSz
+      // Autocompletar score = EnterSZ + InsideSZ SOLO si el score está vacío.
+      // Si ya hay un score cargado NO se pisa: la validación lo marca en rojo
+      // cuando no coincide con la suma (pedido Santi 26/07).
       const isMainPlayer = rpId === meRP.id;
       if (
         isMainPlayer &&
+        cur.score == null &&
         (field === "strokesToEnterSz" || field === "strokesInsideSz")
       ) {
         const a = field === "strokesToEnterSz" ? num : updated.strokesToEnterSz;
