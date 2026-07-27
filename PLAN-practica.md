@@ -54,25 +54,14 @@
 5. Mucho setup (wizard, áreas, drills, filas) para responder una pregunta simple: **"¿qué
    practico hoy y cómo me fue?"**
 
-## Propuesta (misma filosofía que el tracker: leer mucho, cargar casi nada)
-- **P1 — "Practicá esto hoy" (1 pantalla, cero setup)**: /range arranca mostrando 2-3 drills
-  YA elegidos de tus debilidades de las últimas rondas, con los parámetros exactos del
-  catálogo KB (distancias, goal, cuántas pelotas). Muere el wizard /setup (un solo camino).
-- **P2 — Captura mínima por drill**: al TERMINAR el drill cargás UN resultado (ej. "mejor
-  racha: 6" o "8/10 dentro") — una cifra por drill, no filas por intento. Niveles y récords
-  se calculan igual.
-- **P3 — Un solo plan, que viaje**: computePPPlan vive en UN lugar (/api/pp/plan) y el
-  resumen linkea con los drills explícitos (?drills=) — lo que ves es lo que se pre-carga.
-- **P4 — Limpieza**: bunker fuera del wizard hasta tener drill; tasks FLIGHTSCOPE fuera del
-  loop PP; tests sin UI quedan como schema muerto (avisar, no borrar). Wedge Matrix queda
-  como está (opt-in, ya construida) hasta que Santi la quiera usar.
-- **P5 (opcional, después)** — UN test del método por mes como "challenge" (el del área más
-  débil, ej. 50 Point Game), como medición real. Solo si P1/P2 reviven el hábito.
+## Respuestas de Santi a la propuesta original (26/07)
+- P1/P2 (captura mínima): NO — la carga por intentos está bien; el problema era el generador.
+- P3 (plan único que viaja): SÍ → hecho (computeTsmPlan + ?drills=).
+- Homework: se queda (A/B/1/2 es la Purposeful Practice Card oficial del método).
 
-## Preguntas para Santi
-1. ¿Va la dirección P1+P2 (plan servido + un resultado por drill)? ¿O preferís cargar
-   intentos como hasta ahora y solo simplificamos la entrada (P3/P4)?
-2. Cuando practicás en el range, ¿qué mirás/anotás HOY en papel o memoria? (para calibrar
-   qué único número vale la pena pedirte por drill)
-3. ¿El homework (PracticeTask) te sirve como concepto, o lo matamos y queda solo el
-   "practicá esto hoy" derivado de las últimas rondas?
+## Backlog pendiente (sin apuro, decidir después)
+- P4 limpieza: bunker fuera del wizard hasta tener drill (hoy es callejón "próximamente");
+  tasks FLIGHTSCOPE fuera del loop PP; unificar los 3 uploaders FlightScope.
+- P5: implementar los tests canónicos del método que hoy son schema sin UI (50 Point Game,
+  10-Hole U&D, 9-Hole Wedge Course, 10 Bunker Shots) — quizás uno por mes como challenge.
+- "Goal de hoy" al abrir sesión (results-vs-time, KB §12.3) y block→random como sugerencia.
