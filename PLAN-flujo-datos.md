@@ -81,6 +81,9 @@ resumen + Assessment Card) — y en cancha ni siquiera muestra las distancias GP
 ## Tareas
 - ~~T1 — GPS glanceable~~ MUERTA (Santi mira el reloj)
 - T2 (P2) — Tracker reordenado + grilla golpes + leaderboard sigue vuelta · **done 26/07**
+- T2c (P2) — Orden de pantalla final de Santi (header chico → selector sticky → estrategia →
+  leaderboard → scorecard colapsada → golpes → stats → finalizar; HCP por modalidad solo en
+  ⚙️ Editar setup) · **done 26/07**, verificado con Playwright
 - T2b (P2) — Partidos sin plata → puntos por modalidad (wizard/setup/resumen) · **done 26/07**
 - T3 (P1) — Briefing lectura + termostato auto + visualización 1 tap · compl 3 · ESPERA OK
 - T4 (P3) — Post-ronda unificada + dictado opcional · compl 6 · ESPERA OK
