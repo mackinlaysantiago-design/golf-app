@@ -230,15 +230,22 @@ export default function NuevaPPPage() {
           for (const drill of DRILLS) {
             const lvl = levelsData[drill.type];
             const planTarget = targets[drill.type];
-            // Pre-llenar distancia inicial con nivel actual
+            // Pre-llenar distancia inicial con nivel actual — SOLO si las filas están
+            // vírgenes (no pisar lo tipeado ni lo restaurado del draft)
             if (lvl?.currentDistance != null) {
               const dStr = String(lvl.currentDistance);
               next[drill.type] = { ...next[drill.type], distance: dStr };
               if (drill.format === "STREAK_BY_DIST") {
-                next[drill.type].streakRows = [{ distance: dStr, streak: "" }];
+                const rows = next[drill.type].streakRows;
+                if (!rows || rows.every((r) => r.streak === "")) {
+                  next[drill.type].streakRows = [{ distance: dStr, streak: "" }];
+                }
               }
               if (drill.format === "RATIO_LOWER_BY_DIST") {
-                next[drill.type].ratioLowerRows = [{ distance: dStr, strokes: "", balls: "" }];
+                const rows = next[drill.type].ratioLowerRows;
+                if (!rows || rows.every((r) => r.strokes === "" && r.balls === "")) {
+                  next[drill.type].ratioLowerRows = [{ distance: dStr, strokes: "", balls: "" }];
+                }
               }
             }
             if (lvl?.currentClub) {
