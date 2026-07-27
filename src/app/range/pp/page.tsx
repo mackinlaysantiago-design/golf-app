@@ -10,6 +10,8 @@ import {
   ratioLowerByDistance,
   ratioHigherTotal,
   type DrillType,
+  distToUi,
+  uiUnit,
 } from "@/lib/pp-drills";
 import Link from "next/link";
 
@@ -267,7 +269,7 @@ export default async function PPListPage() {
                       Récords: {Object.entries(lvl.bestStreakByDist)
                         .map(([k, v]) => [Number(k), v] as const)
                         .sort((a, b) => a[0] - b[0])
-                        .map(([k, v]) => `${k}${d.distanceUnit}: ${v}`)
+                        .map(([k, v]) => `${distToUi(d, k)} ${uiUnit(d)}: ${v}`)
                         .join(" · ")}
                     </div>
                   )}
@@ -276,7 +278,7 @@ export default async function PPListPage() {
                       Mejor por dist: {Object.entries(lvl.bestRatioByDist)
                         .map(([k, v]) => [Number(k), v] as const)
                         .sort((a, b) => a[0] - b[0])
-                        .map(([k, v]) => `${k}${d.distanceUnit}: ${v.ratio.toFixed(2)}`)
+                        .map(([k, v]) => `${distToUi(d, k)} ${uiUnit(d)}: ${v.ratio.toFixed(2)}`)
                         .join(" · ")}
                     </div>
                   )}
@@ -288,8 +290,8 @@ export default async function PPListPage() {
                     </span>
                   ) : d.format === "STREAK_BY_DIST" ? (
                     <span className="gf-display text-xl text-[var(--fairway)]">
-                      {lvl.currentDistance ?? "—"}
-                      <span className="text-xs ml-0.5">{d.distanceUnit}</span>
+                      {lvl.currentDistance != null ? distToUi(d, lvl.currentDistance) : "—"}
+                      <span className="text-xs ml-0.5">{uiUnit(d)}</span>
                     </span>
                   ) : d.format === "RATIO_HIGHER" && lvl.bestRatio ? (
                     <div>

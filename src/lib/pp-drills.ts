@@ -62,7 +62,7 @@ export type DrillDef = {
   description: string;
   area: DrillArea;
   defaultDistance: number;
-  distanceUnit: "pasos" | "°"; // pasos = 1 yd = 3 ft (regla Santi 26/07)
+  distanceUnit: "ft" | "yds" | "°"; // unidad NATIVA (benchmarks TSM); la UI muestra pasos (1 paso = 3 ft = 1 yd)
   scoreOf: number;
   scoreLabel: string;
   scoring: ScoringMode;
@@ -113,8 +113,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "1-Putt",
     description: "Cada intento: cuántos putts embocás seguidos antes de errar. Si en algún intento metés 10 seguidos a la distancia actual, subís de nivel.",
     area: "PUTTING",
-    defaultDistance: 1,
-    distanceUnit: "pasos",
+    defaultDistance: 3,
+    distanceUnit: "ft",
     scoreOf: 10,
     scoreLabel: "racha de putts seguidos",
     scoring: "PCT_HITS_PERFECT",
@@ -123,7 +123,7 @@ export const DRILLS: DrillDef[] = [
     levelUpStreak: 10,
     ppCode: "1",
     ppLabel: "Putts errados dentro 1-putt circle",
-    distanceStep: 1,
+    distanceStep: 3,
   },
   {
     type: "TWO_PUTT_CIRCLE",
@@ -131,8 +131,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "2-Putt",
     description: "Cada intento: cuántos lag putts dejás dentro del 1-putt circle seguidos antes de quedar afuera. 10 seguidos a la distancia actual = subís de nivel.",
     area: "PUTTING",
-    defaultDistance: 10,
-    distanceUnit: "pasos",
+    defaultDistance: 30,
+    distanceUnit: "ft",
     scoreOf: 10,
     scoreLabel: "racha de putts seguidos",
     scoring: "PCT_HITS_PERFECT",
@@ -141,7 +141,7 @@ export const DRILLS: DrillDef[] = [
     levelUpStreak: 10,
     ppCode: "2",
     ppLabel: "Hoyos con 3+ putts",
-    distanceStep: 2,
+    distanceStep: 5,
   },
   {
     type: "CHIPPING",
@@ -150,7 +150,7 @@ export const DRILLS: DrillDef[] = [
     description: "Cada intento: golpes totales para meter N pelotas a una distancia X. El ratio (golpes/pelota, más bajo es mejor) se compara contra el mejor previo a la misma distancia.",
     area: "CHIPPING",
     defaultDistance: 20,
-    distanceUnit: "pasos",
+    distanceUnit: "yds",
     scoreOf: 0,
     scoreLabel: "ratio golpes/pelota",
     scoring: "BEAT_BEST_LOWER_BY_1",
@@ -166,7 +166,7 @@ export const DRILLS: DrillDef[] = [
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
     area: "WEDGES",
     defaultDistance: 50,
-    distanceUnit: "pasos",
+    distanceUnit: "yds",
     scoreOf: 0,
     scoreLabel: "% dentro del 2-putt circle",
     scoring: "BEAT_BEST_HIGHER",
@@ -182,7 +182,7 @@ export const DRILLS: DrillDef[] = [
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
     area: "WEDGES",
     defaultDistance: 70,
-    distanceUnit: "pasos",
+    distanceUnit: "yds",
     scoreOf: 0,
     scoreLabel: "% dentro del 2-putt circle",
     scoring: "BEAT_BEST_HIGHER",
@@ -198,7 +198,7 @@ export const DRILLS: DrillDef[] = [
     description: "Cada intento: cuántas pelotas dejás dentro del 2-putt circle de N pelotas tiradas. Ratio (% dentro) se compara contra el mejor previo.",
     area: "WEDGES",
     defaultDistance: 100,
-    distanceUnit: "pasos",
+    distanceUnit: "yds",
     scoreOf: 0,
     scoreLabel: "% dentro del 2-putt circle",
     scoring: "BEAT_BEST_HIGHER",
@@ -214,7 +214,7 @@ export const DRILLS: DrillDef[] = [
     description: "9 tiros con un palo (driver/madera/hierro). Score = cuántos en fairway. Empezás con Hierro 7. Para subir al siguiente palo: meter 9/9 en fairway. Tu Go-To Club = el palo más alto donde lograste 9/9.",
     area: "LONG_GAME",
     defaultDistance: 0,
-    distanceUnit: "pasos",
+    distanceUnit: "yds",
     scoreOf: 9,
     scoreLabel: "en FW de 9",
     scoring: "PCT_HITS_PERFECT",
@@ -231,8 +231,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Chip 1H",
     description: "3 bolas, solo con la mano derecha, 10-13 pasos. Cada intento es tu sensación 1-5 sobre mantener el ángulo de muñeca durante el stroke ('tocar el clavo').",
     area: "CHIPPING",
-    defaultDistance: 12,
-    distanceUnit: "pasos",
+    defaultDistance: 35,
+    distanceUnit: "ft",
     scoreOf: 5,
     scoreLabel: "rating 1-5",
     scoring: "BEAT_BEST_HIGHER",
@@ -247,8 +247,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Chip CF",
     description: "3 bolas con un palo en el suelo 8-12 pulgadas delante de la bola, solo mano derecha. Fuerza un ángulo de ataque pronunciado. Rating 1-5 por intento.",
     area: "CHIPPING",
-    defaultDistance: 10,
-    distanceUnit: "pasos",
+    defaultDistance: 30,
+    distanceUnit: "ft",
     scoreOf: 5,
     scoreLabel: "rating 1-5",
     scoring: "BEAT_BEST_HIGHER",
@@ -264,8 +264,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Start Line",
     description: "Línea de tiza en el green, bola con línea marcada. Objetivo: rodar la bola 'end over end' sobre la línea. Rating 1-5 sobre cuántos rodaron rectos.",
     area: "PUTTING",
-    defaultDistance: 2,
-    distanceUnit: "pasos",
+    defaultDistance: 5,
+    distanceUnit: "ft",
     scoreOf: 5,
     scoreLabel: "rating 1-5",
     scoring: "BEAT_BEST_HIGHER",
@@ -280,8 +280,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Sword",
     description: "Bola sobre regla metálica. Objetivo: rodarla sin que se caiga. Rating 1-5 por intentos.",
     area: "PUTTING",
-    defaultDistance: 1,
-    distanceUnit: "pasos",
+    defaultDistance: 3,
+    distanceUnit: "ft",
     scoreOf: 5,
     scoreLabel: "rating 1-5",
     scoring: "BEAT_BEST_HIGHER",
@@ -296,8 +296,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Lag Stakes",
     description: "Estacas a 5/7/10 pasos (cuesta arriba/abajo). 3 bolas por distancia. Objetivo: pasar el tee pero no la estaca. Score = cuántos quedaron en la zona.",
     area: "PUTTING",
-    defaultDistance: 5,
-    distanceUnit: "pasos",
+    defaultDistance: 15,
+    distanceUnit: "ft",
     scoreOf: 3,
     scoreLabel: "bolas en zona de 3",
     scoring: "PCT_HITS_PERFECT",
@@ -305,7 +305,7 @@ export const DRILLS: DrillDef[] = [
     hasLevelUp: false,
     ppCode: "2",
     ppLabel: "Putting Challenge",
-    distanceStep: 2,
+    distanceStep: 5,
   },
   {
     type: "GREEN_READING",
@@ -329,8 +329,8 @@ export const DRILLS: DrillDef[] = [
     shortLabel: "Streak 10",
     description: "5 tees a 1-2 pasos en pendiente de 2°. Objetivo: 10 putts consecutivos sin fallar. Cada intento es tu mejor racha en la sesión.",
     area: "PUTTING",
-    defaultDistance: 1,
-    distanceUnit: "pasos",
+    defaultDistance: 4,
+    distanceUnit: "ft",
     scoreOf: 10,
     scoreLabel: "racha de putts seguidos",
     scoring: "PCT_HITS_PERFECT",
@@ -341,6 +341,28 @@ export const DRILLS: DrillDef[] = [
     ppLabel: "Short putting streak",
   },
 ];
+
+
+// ============ Unidades: nativo (benchmarks TSM) vs UI (pasos) ============
+// Récords y attemptsJson se guardan SIEMPRE en la unidad nativa del drill (ft/yds)
+// para poder comparar contra los benchmarks del método. La UI muestra pasos
+// (1 paso = 3 ft = 1 yd). GREEN_READING usa grados: sin conversión.
+
+export function uiUnit(def: DrillDef): string {
+  return def.distanceUnit === "°" ? "°" : "pasos";
+}
+
+/** nativo → pasos (para mostrar). ft/3 con 1 decimal; yds 1:1; ° identidad. */
+export function distToUi(def: DrillDef, v: number): number {
+  if (def.distanceUnit === "ft") return Math.round((v / 3) * 10) / 10;
+  return v;
+}
+
+/** pasos → nativo (para guardar). pasos*3 en ft; yds 1:1; ° identidad. */
+export function uiToDist(def: DrillDef, v: number): number {
+  if (def.distanceUnit === "ft") return Math.round(v * 3);
+  return v;
+}
 
 export const DRILL_BY_TYPE: Record<DrillType, DrillDef> = Object.fromEntries(
   DRILLS.map((d) => [d.type, d]),

@@ -8,6 +8,8 @@ import {
   ratioLowerByDistance,
   ratioHigherTotal,
   type DrillType,
+  distToUi,
+  uiUnit,
 } from "@/lib/pp-drills";
 import Link from "next/link";
 
@@ -74,7 +76,7 @@ export default async function PPSessionPage({
                   <div className="flex flex-wrap gap-1">
                     {data.attempts.map((a, i) => (
                       <span key={i} className="gf-pill gf-mono">
-                        #{i + 1}: {a.distance}{def.distanceUnit} → {a.streak}
+                        #{i + 1}: {distToUi(def, a.distance)} {uiUnit(def)} → {a.streak}
                       </span>
                     ))}
                   </div>
@@ -93,7 +95,7 @@ export default async function PPSessionPage({
                   <div className="flex flex-wrap gap-1">
                     {data.attempts.map((a, i) => (
                       <span key={i} className="gf-pill gf-mono">
-                        #{i + 1}: {a.distance}{def.distanceUnit} → {a.strokes}/{a.balls} ({(a.strokes / a.balls).toFixed(2)})
+                        #{i + 1}: {distToUi(def, a.distance)} {uiUnit(def)} → {a.strokes}/{a.balls} ({(a.strokes / a.balls).toFixed(2)})
                       </span>
                     ))}
                   </div>
@@ -104,7 +106,7 @@ export default async function PPSessionPage({
                   if (dists.length === 0) return null;
                   return (
                     <div className="text-xs gf-mono text-[var(--fairway)] font-bold mt-2">
-                      Sesión: {dists.map((dd) => `${dd}${def.distanceUnit}: ${byDist[dd].ratio.toFixed(2)}`).join(" · ")}
+                      Sesión: {dists.map((dd) => `${distToUi(def, dd)} ${uiUnit(def)}: ${byDist[dd].ratio.toFixed(2)}`).join(" · ")}
                     </div>
                   );
                 })()}

@@ -12,6 +12,9 @@ import {
   type DrillType,
   type DrillDef,
   type DrillArea,
+  distToUi,
+  uiToDist,
+  uiUnit,
 } from "@/lib/pp-drills";
 import { DRILL_TO_AREA, AREA_ORDER } from "@/lib/pp-areas";
 import { useFormDraft } from "@/hooks/useFormDraft";
@@ -73,18 +76,21 @@ type PlanInfo = {
 };
 
 function emptyEntry(d: DrillDef): DrillEntry {
+  // Todo el estado de la página vive en unidades de UI (pasos); se convierte a la
+  // unidad nativa del drill (ft/yds, benchmarks TSM) recién al guardar.
+  const dd = String(distToUi(d, d.defaultDistance));
   const base = {
     enabled: false,
-    distance: String(d.defaultDistance),
+    distance: dd,
     club: d.type === "GO_TO_CLUB" ? GO_TO_CLUB_LADDER[0] : "",
     timesToAchieve: "1",
     notes: "",
   };
   if (d.format === "STREAK_BY_DIST") {
-    return { ...base, streakRows: [{ distance: String(d.defaultDistance), streak: "" }] };
+    return { ...base, streakRows: [{ distance: dd, streak: "" }] };
   }
   if (d.format === "RATIO_LOWER_BY_DIST") {
-    return { ...base, ratioLowerRows: [{ distance: String(d.defaultDistance), strokes: "", balls: "" }] };
+    return { ...base, ratioLowerRows: [{ distance: dd, strokes: "", balls: "" }] };
   }
   if (d.format === "RATIO_HIGHER") {
     return { ...base, ratioHigherRows: [{ inTarget: "", balls: "" }] };
@@ -187,6 +193,23 @@ export default function NuevaPPPage() {
       fetch("/api/pp/plan").then((r) => r.json()),
     ])
       .then(([levelsData, planData]) => {
+        // Los niveles/récords llegan en unidades nativas (ft/yds): convertir a
+        // pasos ANTES de setear, así toda la página opera en una sola unidad.
+        for (const drill of DRILLS) {
+          const lvl = levelsData[drill.type];
+          if (!lvl) continue;
+          if (lvl.currentDistance != null) lvl.currentDistance = distToUi(drill, lvl.currentDistance);
+          if (lvl.bestStreakByDist) {
+            lvl.bestStreakByDist = Object.fromEntries(
+              Object.entries(lvl.bestStreakByDist).map(([k, v]) => [distToUi(drill, Number(k)), v]),
+            );
+          }
+          if (lvl.bestRatioByDist) {
+            lvl.bestRatioByDist = Object.fromEntries(
+              Object.entries(lvl.bestRatioByDist).map(([k, v]) => [distToUi(drill, Number(k)), v]),
+            );
+          }
+        }
         setLevels(levelsData);
         setPlan(planData);
         const targets: Record<string, { timesToAchieve: number; ppCode: string }> =
@@ -310,13 +333,14 @@ export default function NuevaPPPage() {
       let attempts: object | number[] = [];
 
       if (d.format === "STREAK_BY_DIST") {
+        // La UI trabaja en pasos → guardar en la unidad nativa del drill (benchmarks TSM)
         const rows = (e.streakRows ?? [])
-          .map((r) => ({ distance: parseFloat(r.distance), streak: parseInt(r.streak) }))
+          .map((r) => ({ distance: uiToDist(d, parseFloat(r.distance)), streak: parseInt(r.streak) }))
           .filter((r) => !isNaN(r.distance) && !isNaN(r.streak));
         attempts = { type: "STREAK_BY_DIST", attempts: rows };
       } else if (d.format === "RATIO_LOWER_BY_DIST") {
         const rows = (e.ratioLowerRows ?? [])
-          .map((r) => ({ distance: parseFloat(r.distance), strokes: parseInt(r.strokes), balls: parseInt(r.balls) }))
+          .map((r) => ({ distance: uiToDist(d, parseFloat(r.distance)), strokes: parseInt(r.strokes), balls: parseInt(r.balls) }))
           .filter((r) => !isNaN(r.distance) && !isNaN(r.strokes) && !isNaN(r.balls) && r.balls > 0);
         attempts = { type: "RATIO_LOWER_BY_DIST", attempts: rows };
       } else if (d.format === "RATIO_HIGHER") {
@@ -332,7 +356,7 @@ export default function NuevaPPPage() {
 
       return {
         drillType: d.type,
-        distance: e.distance ? parseInt(e.distance) : null,
+        distance: e.distance ? uiToDist(d, parseFloat(e.distance)) : null,
         club: d.type === "GO_TO_CLUB" ? e.club : null,
         ppCode: d.ppCode,
         timesToAchieve: e.timesToAchieve ? parseInt(e.timesToAchieve) : null,
@@ -542,7 +566,7 @@ export default function NuevaPPPage() {
 
     if (d.format === "STREAK_BY_DIST") {
       const N = d.levelUpStreak ?? d.scoreOf;
-      goalText = `Lograr racha ≥${N} a ${e.distance || d.defaultDistance}${d.distanceUnit}`;
+      goalText = `Lograr racha ≥${N} a ${e.distance || distToUi(d, d.defaultDistance)} ${uiUnit(d)}`;
       const dist = parseFloat(e.distance);
       const rows = e.streakRows ?? [];
       achieved = rows.filter((r) => {
@@ -561,8 +585,8 @@ export default function NuevaPPPage() {
       const dist = parseFloat(e.distance);
       const best = !isNaN(dist) ? records[dist]?.ratio ?? Infinity : Infinity;
       goalText = isFinite(best)
-        ? `Mejorar ratio anterior (${best.toFixed(2)}) a ${e.distance || d.defaultDistance}${d.distanceUnit}`
-        : `Primer marca a ${e.distance || d.defaultDistance}${d.distanceUnit}`;
+        ? `Mejorar ratio anterior (${best.toFixed(2)}) a ${e.distance || distToUi(d, d.defaultDistance)} ${uiUnit(d)}`
+        : `Primer marca a ${e.distance || distToUi(d, d.defaultDistance)} ${uiUnit(d)}`;
       const rows = e.ratioLowerRows ?? [];
       achieved = rows.filter((r) => {
         const strokes = parseInt(r.strokes);
@@ -635,10 +659,10 @@ export default function NuevaPPPage() {
       const dists = Object.keys(records).map(Number).sort((a, b) => a - b);
       return (
         <div className="text-[10px] mt-1 gf-mono">
-          Nivel actual: <strong>{lvl.currentDistance}{d.distanceUnit}</strong>
+          Nivel actual: <strong>{lvl.currentDistance} {uiUnit(d)}</strong>
           {dists.length > 0 && (
             <div className="text-[var(--muted)]">
-              Récords: {dists.map((dd) => `${dd}${d.distanceUnit}: ${records[dd]}`).join(" · ")}
+              Récords: {dists.map((dd) => `${dd} ${uiUnit(d)}: ${records[dd]}`).join(" · ")}
             </div>
           )}
         </div>
@@ -655,7 +679,7 @@ export default function NuevaPPPage() {
             <div className="text-[var(--muted)]">
               Mejor por dist:{" "}
               {dists
-                .map((dd) => `${dd}${d.distanceUnit}: ${records[dd].ratio.toFixed(2)} (${records[dd].strokes}/${records[dd].balls})`)
+                .map((dd) => `${dd} ${uiUnit(d)}: ${records[dd].ratio.toFixed(2)} (${records[dd].strokes}/${records[dd].balls})`)
                 .join(" · ")}
             </div>
           )}
@@ -698,7 +722,7 @@ export default function NuevaPPPage() {
           </label>
           {dists.length > 0 && (
             <span className="text-[10px] gf-mono">
-              Sesión: {dists.map((dd) => `${dd}${d.distanceUnit}: ${maxByDist[dd]}`).join(" · ")}
+              Sesión: {dists.map((dd) => `${dd} ${uiUnit(d)}: ${maxByDist[dd]}`).join(" · ")}
             </span>
           )}
         </div>
@@ -710,11 +734,11 @@ export default function NuevaPPPage() {
               inputMode="numeric"
               pattern="[0-9]*"
               className="gf-input !p-2 text-center w-20"
-              placeholder={d.distanceUnit}
+              placeholder={uiUnit(d)}
               value={r.distance}
               onChange={(ev) => setStreakRow(d.type, i, "distance", ev.target.value)}
             />
-            <span className="text-[10px] text-[var(--muted)]">{d.distanceUnit}</span>
+            <span className="text-[10px] text-[var(--muted)]">{uiUnit(d)}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -773,7 +797,7 @@ export default function NuevaPPPage() {
               {dists
                 .map((dd) => {
                   const r = byDist[dd];
-                  return `${dd}${d.distanceUnit}: ${(r.strokes / r.balls).toFixed(2)} (${r.strokes}/${r.balls})`;
+                  return `${dd} ${uiUnit(d)}: ${(r.strokes / r.balls).toFixed(2)} (${r.strokes}/${r.balls})`;
                 })
                 .join(" · ")}
             </span>
@@ -791,7 +815,7 @@ export default function NuevaPPPage() {
               value={r.distance}
               onChange={(ev) => setRatioLowerRow(d.type, i, "distance", ev.target.value)}
             />
-            <span className="text-[10px] text-[var(--muted)]">{d.distanceUnit}</span>
+            <span className="text-[10px] text-[var(--muted)]">{uiUnit(d)}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -847,7 +871,7 @@ export default function NuevaPPPage() {
       <>
         <div className="flex justify-between items-center">
           <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-            Intentos · dentro / pelotas (desde {d.defaultDistance}{d.distanceUnit})
+            Intentos · dentro / pelotas (desde {distToUi(d, d.defaultDistance)} {uiUnit(d)})
           </label>
           {totBalls > 0 && (
             <span className="text-[10px] gf-mono">
