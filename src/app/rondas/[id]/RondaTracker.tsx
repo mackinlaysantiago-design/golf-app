@@ -263,6 +263,21 @@ export default function RondaTracker({
     });
   }
 
+  // Putts en PASOS en la UI (1 paso = 3 ft = 1 yd); la DB sigue en ft para no
+  // romper las stats históricas ni los thresholds (1PC, buckets, SG).
+  const ftToPasos = (ft: number | null | undefined) => (ft == null ? null : Math.round(ft / 3));
+  const pasosToFt = (v: string) => (v === "" ? "" : String((parseInt(v) || 0) * 3));
+
+  // El score debería ser Enter SZ + Inside SZ — si no coincide, alertar en rojo.
+  function scoreMismatch(cells: CellValues): boolean {
+    return (
+      cells.score != null &&
+      cells.strokesToEnterSz != null &&
+      cells.strokesInsideSz != null &&
+      cells.strokesToEnterSz + cells.strokesInsideSz !== cells.score
+    );
+  }
+
   async function saveAll() {
     setBusy(true);
     const entries = round.players.flatMap((rp) =>
@@ -1204,7 +1219,14 @@ export default function RondaTracker({
                             type="number"
                             inputMode="numeric"
                             className="gf-input mt-1 text-center gf-mono !px-1 w-full"
-                            style={{ fontSize: 18, fontWeight: 700 }}
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 700,
+                              // Rojo si mi score no coincide con Enter SZ + Inside SZ
+                              ...(rp.player.isMe && scoreMismatch(cells)
+                                ? { border: "2px solid var(--red)", color: "var(--red)" }
+                                : {}),
+                            }}
                             value={cells.score ?? ""}
                             // setCell recibe el string crudo y parsea adentro (parseInt / null)
                             onChange={(e) =>
@@ -1264,21 +1286,21 @@ export default function RondaTracker({
                         onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
                       />
                       <NumField
-                        label="1st putt (ft)"
-                        value={cells.firstPuttDistanceFt ?? null}
+                        label="1st putt (pasos)"
+                        value={ftToPasos(cells.firstPuttDistanceFt)}
                         onChange={(v) =>
-                          setCell(rp.id, currentHole, "firstPuttDistanceFt", v)
+                          setCell(rp.id, currentHole, "firstPuttDistanceFt", pasosToFt(v))
                         }
                       />
                       <NumField
-                        label="Putt embocado (ft)"
-                        value={cells.puttMadeDistanceFt ?? null}
+                        label="Putt embocado (pasos)"
+                        value={ftToPasos(cells.puttMadeDistanceFt)}
                         onChange={(v) =>
-                          setCell(rp.id, currentHole, "puttMadeDistanceFt", v)
+                          setCell(rp.id, currentHole, "puttMadeDistanceFt", pasosToFt(v))
                         }
                       />
                       <NumField
-                        label={`Putts dentro 1PC (${round.onePuttCircleFt}ft)`}
+                        label={`Putts dentro 1PC (${Math.max(1, Math.round(round.onePuttCircleFt / 3))} paso${Math.round(round.onePuttCircleFt / 3) > 1 ? "s" : ""})`}
                         value={cells.puttsInside1PuttCircle ?? null}
                         onChange={(v) =>
                           setCell(rp.id, currentHole, "puttsInside1PuttCircle", v)
@@ -1291,6 +1313,16 @@ export default function RondaTracker({
                         isLast
                       />
                     </div>
+                    {scoreMismatch(cells) && (
+                      <div
+                        className="text-[11px] font-bold rounded p-1.5 text-center"
+                        style={{ background: "#fde0dc", color: "var(--red)" }}
+                      >
+                        ⚠ Enter SZ ({cells.strokesToEnterSz}) + Inside SZ (
+                        {cells.strokesInsideSz}) = {cells.strokesToEnterSz! + cells.strokesInsideSz!}{" "}
+                        ≠ score ({cells.score})
+                      </div>
+                    )}
                     <FlagRow
                       cells={cells}
                       config={{
