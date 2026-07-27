@@ -80,6 +80,19 @@
   planilla (1-Putt 10 seguidos a 3ft el 03/05, Wedges 5/9, Chipping 24/9). Si quiere
   arrancar de cero hay que borrarlos de la DB (pedir OK explícito).
 
+## Hecho 26/07 (4) — pulido de coherencia de TODOS los flujos (deploys 4a2ba1a/484f799)
+Audit con agente (8 hallazgos) + fixes:
+- BORRADOS: wizard /range/pp/setup (ahora 404) y /range/stats (duplicado del home).
+- /range/nueva (sesión FlightScope por screenshots) había quedado SIN entrada → card nueva
+  en /range home ("📷 Cargar sesión FlightScope"). Subtítulo de PP actualizado (decía "Wizard").
+- Challenges aislados: entrar por challenge muestra header propio (título + día), sección
+  "Drills del challenge" y NO mezcla ni muestra el plan de la última ronda.
+- CTA "Practicar" de cada task de homework pre-tilda SU drill (?drills= por código, mapa
+  PP_CODE_TO_DRILLS centralizado en pp-drills, única fuente con /api/pp/plan).
+- Hub /range/pp: "Tu nivel actual" muestra SOLO drills con sesiones/level-ups (antes 14 cards).
+- fix(auth): el login preserva la query del destino (challenge/day y drills sobreviven).
+Todo verificado en prod (home, 404 del wizard, challenge con sesión, query post-login).
+
 ## Backlog pendiente (sin apuro, decidir después)
 - P4 limpieza: bunker fuera del wizard hasta tener drill (hoy es callejón "próximamente");
   tasks FLIGHTSCOPE fuera del loop PP; unificar los 3 uploaders FlightScope.
