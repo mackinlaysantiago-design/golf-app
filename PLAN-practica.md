@@ -68,6 +68,18 @@
 - Verificado en prod con screenshot: 5 drills del plan visibles, "Obligatorios" viejo
   desaparecido, catálogo colapsado.
 
+## Hecho 26/07 (3) — homework sin acumular + hub simple + pasos enteros (deploys eaa3dba/c883412)
+- Homework: las PENDING reflejan SOLO la última ronda; al ver su resumen se borran las de
+  rondas viejas y se sincronizan con el plan (preservando progreso). Murió el dedup "quedate
+  con la más dura". Ver resumen de ronda vieja no toca nada.
+- Hub PP: UN solo botón de practicar ("Practicar este plan"; si no hay plan, "Practicar");
+  Challenges explicado ("mini-programas guiados de 7 días").
+- Pasos SIEMPRE enteros (distToUi redondea; escalones de nivel de 2-Putt/Lag pasan de 5 a
+  6 ft = 2 pasos justos). Récords con claves que colisionan al redondear se mergean.
+- ACLARADO: los "PR" que Santi no reconocía SON reales — sesiones de mayo importadas de la
+  planilla (1-Putt 10 seguidos a 3ft el 03/05, Wedges 5/9, Chipping 24/9). Si quiere
+  arrancar de cero hay que borrarlos de la DB (pedir OK explícito).
+
 ## Backlog pendiente (sin apuro, decidir después)
 - P4 limpieza: bunker fuera del wizard hasta tener drill (hoy es callejón "próximamente");
   tasks FLIGHTSCOPE fuera del loop PP; unificar los 3 uploaders FlightScope.
