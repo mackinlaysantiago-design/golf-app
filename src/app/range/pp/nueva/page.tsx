@@ -451,52 +451,49 @@ export default function NuevaPPPage() {
       </Card>
 
       {(() => {
-        // Áreas en orden: Putting → Chipping → Wedges → Long Game
+        // UNA sola vista (26/07, pedido Santi): arriba "Tu plan de hoy" con los drills que
+        // vienen del plan TSM / preselección / los que tildaste; TODO el resto del catálogo
+        // queda colapsado detrás de "Agregar otro drill".
         const AREA_ORDER: DrillArea[] = ["PUTTING", "CHIPPING", "WEDGES", "LONG_GAME"];
-        const cameFromWizard = preselectedDrills != null;
-
-        // Modo wizard: UNA sola sección con todos los drills elegidos,
-        // ordenados por área TSM y dentro de cada área DRILL primero, TEST después.
-        if (cameFromWizard) {
-          const wizardDrills = sortDrillsTsm(
-            DRILLS.filter((d) => preselectedDrills!.has(d.type)),
-          );
-          return (
-            <>
-              <SectionHeader>Drills elegidos ({wizardDrills.length})</SectionHeader>
-              {wizardDrills.length === 0 ? (
-                <div className="text-sm text-[var(--muted)] italic px-1">
-                  No elegiste ningún drill en el wizard.
-                </div>
-              ) : (
-                wizardDrills.map((d) => <div key={d.type}>{renderDrill(d)}</div>)
-              )}
-            </>
-          );
-        }
-
-        // Modo libre: obligatorios del plan + el resto agrupado por área.
-        const obligatorios = DRILLS.filter((d) => !!plan.drillTargets[d.type]);
+        const inPlanSet = new Set(
+          DRILLS.filter(
+            (d) =>
+              drills[d.type]?.enabled ||
+              !!plan.drillTargets[d.type] ||
+              (preselectedDrills?.has(d.type) ?? false) ||
+              (challengeDayInfo?.drills.includes(d.type) ?? false),
+          ).map((d) => d.type),
+        );
+        const planDrills = sortDrillsTsm(DRILLS.filter((d) => inPlanSet.has(d.type)));
         return (
           <>
-            {obligatorios.length > 0 && (
-              <>
-                <SectionHeader>Obligatorios (del plan)</SectionHeader>
-                {obligatorios.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
-              </>
+            <SectionHeader>Tu plan de hoy ({planDrills.length})</SectionHeader>
+            {planDrills.length === 0 ? (
+              <div className="text-sm text-[var(--muted)] italic px-1">
+                Sin plan de la última ronda — agregá un drill abajo.
+              </div>
+            ) : (
+              planDrills.map((d) => <div key={d.type}>{renderDrill(d)}</div>)
             )}
-            {AREA_ORDER.map((area) => {
-              const drillsInArea = DRILLS.filter(
-                (d) => d.area === area && !plan.drillTargets[d.type],
-              );
-              if (drillsInArea.length === 0) return null;
-              return (
-                <div key={area}>
-                  <SectionHeader>{DRILL_AREA_LABEL[area]}</SectionHeader>
-                  {drillsInArea.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
-                </div>
-              );
-            })}
+            <details className="rounded-xl overflow-hidden" style={{ background: "var(--white)" }}>
+              <summary className="cursor-pointer p-3 text-sm font-semibold text-[var(--fairway)]">
+                ➕ Agregar otro drill
+              </summary>
+              <div className="space-y-2 px-2 pb-2">
+                {AREA_ORDER.map((area) => {
+                  const drillsInArea = DRILLS.filter(
+                    (d) => d.area === area && !inPlanSet.has(d.type),
+                  );
+                  if (drillsInArea.length === 0) return null;
+                  return (
+                    <div key={area}>
+                      <SectionHeader>{DRILL_AREA_LABEL[area]}</SectionHeader>
+                      {drillsInArea.map((d) => <div key={d.type}>{renderDrill(d)}</div>)}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
           </>
         );
       })()}

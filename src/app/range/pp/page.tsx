@@ -312,8 +312,10 @@ export default async function PPListPage() {
         })}
       </div>
 
+      {/* Wizard /setup MUERTO 26/07 (pedido Santi: armar sesión era larguísimo).
+          "+ Nueva sesión" va directo a la carga, que ya se pre-arma con el plan TSM. */}
       <div className="grid grid-cols-2 gap-2">
-        <Link href="/range/pp/setup" className="gf-btn">
+        <Link href="/range/pp/nueva" className="gf-btn">
           + Nueva sesión
         </Link>
         <Link href="/range/pp/challenges" className="gf-btn gf-btn-secondary">
