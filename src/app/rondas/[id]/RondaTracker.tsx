@@ -661,6 +661,7 @@ export default function RondaTracker({
                   Estrategia del hoyo · HCP {currentHoleInfo.hcpHoyo}
                 </div>
                 <DecadeInput
+                  mode="pre"
                   pinColor={cells.pinColor ?? null}
                   dangerSide={cells.dangerSide ?? null}
                   aimedAtCenter={cells.aimedAtCenter ?? null}
@@ -1357,7 +1358,19 @@ export default function RondaTracker({
                   </button>
                 )}
 
-                {/* 4. Keys rotas (post-swing) */}
+                {/* DECADE de cierre: pin / apunté al centro / recovery — se saben al final del hoyo */}
+                <DecadeInput
+                  mode="post"
+                  pinColor={cells.pinColor ?? null}
+                  dangerSide={cells.dangerSide ?? null}
+                  aimedAtCenter={cells.aimedAtCenter ?? null}
+                  recoveryMode={cells.recoveryMode ?? null}
+                  onSet={(field, value) =>
+                    setDecade(rp.id, currentHole, field, value)
+                  }
+                />
+
+                {/* Keys rotas (post-swing) */}
                 <KeysBrokenInput
                   keysBroken={cells.keysBroken ?? []}
                   onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
@@ -1765,12 +1778,15 @@ function GearSelector({
 }
 
 // DECADE — Pre-shot decisions por hoyo (semáforo pin, hazard side, aim, recovery)
+// mode "pre": solo Danger Zone (lo único que se sabe en el tee).
+// mode "post": Pin + Apunté al centro + Recovery (se saben recién al jugar el hoyo).
 function DecadeInput({
   pinColor,
   dangerSide,
   aimedAtCenter,
   recoveryMode,
   onSet,
+  mode,
 }: {
   pinColor: "GREEN" | "YELLOW" | "RED" | null;
   dangerSide: "L" | "R" | "NONE" | null;
@@ -1780,6 +1796,7 @@ function DecadeInput({
     field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode",
     value: string | boolean | null,
   ) => void;
+  mode: "pre" | "post";
 }) {
   const pinOpts: { v: "GREEN" | "YELLOW" | "RED"; emoji: string; label: string }[] = [
     { v: "GREEN", emoji: "🟢", label: "Centro" },
@@ -1792,42 +1809,50 @@ function DecadeInput({
     { v: "NONE", label: "Sin" },
   ];
 
+  if (mode === "pre") {
+    return (
+      <div className="pt-2 border-t border-[var(--green-pale)] mt-2 space-y-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+          🧠 DECADE · desde el tee
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10px] text-[var(--muted)] gf-mono w-20"
+            title="Lado peligroso del hoyo desde el tee"
+          >
+            Danger Zone
+          </span>
+          {sideOpts.map((o) => {
+            const active = dangerSide === o.v;
+            return (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => onSet("dangerSide", active ? null : o.v)}
+                className="text-[10px] px-2 py-1 rounded gf-mono"
+                style={{
+                  background: active ? "var(--accent)" : "var(--green-pale)",
+                  color: active ? "white" : "var(--fairway)",
+                  fontWeight: active ? 700 : 500,
+                }}
+                title={`Lado peligroso del hoyo: ${o.label}`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-2 border-t border-[var(--green-pale)] mt-2 space-y-1.5">
       <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-        🧠 DECADE · decisiones de este hoyo
+        🧠 DECADE · cierre del hoyo
       </div>
 
-      {/* 1. Danger Zone (desde el tee — pre-drive) */}
-      <div className="flex items-center gap-2">
-        <span
-          className="text-[10px] text-[var(--muted)] gf-mono w-20"
-          title="Lado peligroso del hoyo desde el tee"
-        >
-          Danger Zone
-        </span>
-        {sideOpts.map((o) => {
-          const active = dangerSide === o.v;
-          return (
-            <button
-              key={o.v}
-              type="button"
-              onClick={() => onSet("dangerSide", active ? null : o.v)}
-              className="text-[10px] px-2 py-1 rounded gf-mono"
-              style={{
-                background: active ? "var(--accent)" : "var(--green-pale)",
-                color: active ? "white" : "var(--fairway)",
-                fontWeight: active ? 700 : 500,
-              }}
-              title={`Lado peligroso del hoyo: ${o.label}`}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 2. Pin (al llegar al green — pre-approach) */}
+      {/* Pin (se sabe al llegar al green) */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-[var(--muted)] gf-mono w-20">Pin</span>
         {pinOpts.map((o) => {
