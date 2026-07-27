@@ -41,7 +41,7 @@ export type AttemptFormat =
   | "LEGACY_NUMBER_ARRAY";
 
 export type StreakAttempt = { distance: number; streak: number };
-export type GoToDirAttempt = { fw: number; left: number; right: number };
+export type GoToDirAttempt = { club?: string; fw: number; left: number; right: number };
 export type RatioLowerAttempt = { distance: number; strokes: number; balls: number };
 export type RatioHigherAttempt = { inTarget: number; balls: number };
 
@@ -214,7 +214,7 @@ export const DRILLS: DrillDef[] = [
     type: "GO_TO_CLUB",
     label: "Go-To Club",
     shortLabel: "Go-To Club",
-    description: "9 tiros con un palo (driver/madera/hierro). Score = cuántos en fairway. Empezás con Hierro 7. Para subir al siguiente palo: meter 9/9 en fairway. Tu Go-To Club = el palo más alto donde lograste 9/9.",
+    description: "Tandas de 9 tiros: por cada tanda elegí el palo y anotá cuántos al fairway, a la izquierda y a la derecha. Tu Go-To Club = el palo con mejor % de fairways acumulado.",
     area: "LONG_GAME",
     defaultDistance: 0,
     distanceUnit: "yds",

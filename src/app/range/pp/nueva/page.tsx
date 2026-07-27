@@ -41,7 +41,7 @@ type StreakRow = { distance: string; streak: string };
 type RatioLowerRow = { distance: string; strokes: string; balls: string };
 type RatioHigherRow = { inTarget: string; balls: string };
 type LegacyRow = { value: string };
-type GoToRow = { fw: string; left: string; right: string };
+type GoToRow = { club: string; fw: string; left: string; right: string };
 
 type DrillEntry = {
   enabled: boolean;
@@ -100,7 +100,7 @@ function emptyEntry(d: DrillDef): DrillEntry {
     return { ...base, ratioHigherRows: [{ inTarget: "", balls: "" }] };
   }
   if (d.format === "GO_TO_DIR") {
-    return { ...base, goToRows: [{ fw: "", left: "", right: "" }] };
+    return { ...base, goToRows: [{ club: GO_TO_CLUB_LADDER[0], fw: "", left: "", right: "" }] };
   }
   return { ...base, legacyRows: [{ value: "" }] };
 }
@@ -343,11 +343,13 @@ export default function NuevaPPPage() {
     update(type, "goToRows", next);
   }
   function addGoToRow(type: DrillType) {
-    update(type, "goToRows", [...(drills[type].goToRows ?? []), { fw: "", left: "", right: "" }]);
+    const prev = drills[type].goToRows ?? [];
+    const lastClub = prev.length > 0 ? prev[prev.length - 1].club : GO_TO_CLUB_LADDER[0];
+    update(type, "goToRows", [...prev, { club: lastClub, fw: "", left: "", right: "" }]);
   }
   function removeGoToRow(type: DrillType, idx: number) {
     const next = (drills[type].goToRows ?? []).filter((_, i) => i !== idx);
-    update(type, "goToRows", next.length > 0 ? next : [{ fw: "", left: "", right: "" }]);
+    update(type, "goToRows", next.length > 0 ? next : [{ club: GO_TO_CLUB_LADDER[0], fw: "", left: "", right: "" }]);
   }
 
   function addLegacyRow(type: DrillType) {
@@ -387,7 +389,7 @@ export default function NuevaPPPage() {
         attempts = { type: "RATIO_HIGHER", attempts: rows };
       } else if (d.format === "GO_TO_DIR") {
         const rows = (e.goToRows ?? [])
-          .map((r) => ({ fw: parseInt(r.fw), left: parseInt(r.left) || 0, right: parseInt(r.right) || 0 }))
+          .map((r) => ({ club: r.club, fw: parseInt(r.fw), left: parseInt(r.left) || 0, right: parseInt(r.right) || 0 }))
           .filter((r) => !isNaN(r.fw));
         attempts = { type: "GO_TO_DIR", attempts: rows };
       } else {
@@ -570,7 +572,7 @@ export default function NuevaPPPage() {
     if (d.format === "RATIO_HIGHER")
       return "Cada fila es una tanda: cuántas dejaste DENTRO del 2-putt circle y cuántas PELOTAS tiraste. Ej: 5 y 9.";
     if (d.type === "GO_TO_CLUB")
-      return "Elegí el palo. Por cada tanda de 9 tiros anotá cuántos al FAIRWAY, cuántos se fueron a la IZQUIERDA y cuántos a la DERECHA (FW+izq+der = 9). 9/9 en FW = subís al palo siguiente.";
+      return "Cada fila es una tanda de 9 tiros con UN palo: elegí el PALO y anotá cuántos al FAIRWAY, IZQUIERDA y DERECHA (fw+izq+der = 9). Tu Go-To = el palo con mejor % de FW acumulado.";
     return "Cada fila es una tanda: anotá tu sensación de 1 a 5 (5 = lo sentiste perfecto).";
   }
 
@@ -613,7 +615,7 @@ export default function NuevaPPPage() {
             {d.format === "STREAK_BY_DIST" && renderStreakInputs(d, e)}
             {d.format === "RATIO_LOWER_BY_DIST" && renderRatioLowerInputs(d, e)}
             {d.format === "RATIO_HIGHER" && renderRatioHigherInputs(d, e)}
-            {d.format === "GO_TO_DIR" && renderGoToInputs(d, e, lvl)}
+            {d.format === "GO_TO_DIR" && renderGoToInputs(d, e)}
             {d.format === "LEGACY_NUMBER_ARRAY" && renderLegacyInputs(d, e, lvl)}
           </div>
         )}
@@ -715,14 +717,11 @@ export default function NuevaPPPage() {
   function renderLevelInfo(d: DrillDef, lvl?: LevelInfo) {
     if (!lvl) return null;
     if (d.type === "GO_TO_CLUB") {
+      if (!lvl.currentClub) return null;
       return (
         <div className="text-[10px] mt-1 gf-mono">
-          Practicar con: <strong>{CLUB_LABEL[drills[d.type].club] ?? drills[d.type].club}</strong>
-          {lvl.currentClub && (
-            <span className="text-[var(--muted)] ml-1">
-              (nivel actual: {CLUB_LABEL[lvl.currentClub]})
-            </span>
-          )}
+          Tu Go-To actual: <strong>{CLUB_LABEL[lvl.currentClub] ?? lvl.currentClub}</strong>
+          <span className="text-[var(--muted)] ml-1">(mejor % de FW acumulado)</span>
         </div>
       );
     }
@@ -996,7 +995,7 @@ export default function NuevaPPPage() {
     );
   }
 
-  function renderGoToInputs(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
+  function renderGoToInputs(d: DrillDef, e: DrillEntry) {
     const rows = e.goToRows ?? [];
     const tot = rows.reduce(
       (acc, r) => {
@@ -1011,24 +1010,9 @@ export default function NuevaPPPage() {
     return (
       <>
         <div>
-          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">Palo</label>
-          <select
-            className="gf-input mt-0.5"
-            value={e.club}
-            onChange={(ev) => update(d.type, "club", ev.target.value)}
-          >
-            {GO_TO_CLUB_LADDER.map((c) => (
-              <option key={c} value={c}>
-                {CLUB_LABEL[c] ?? c}
-                {lvl?.currentClub === c ? " · nivel actual" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
           <div className="flex justify-between items-center">
             <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-              Intentos · FW / izquierda / derecha
+              Tandas · palo + FW / izquierda / derecha
             </label>
             {totShots > 0 && (
               <span className="text-[10px] gf-mono">
@@ -1039,6 +1023,7 @@ export default function NuevaPPPage() {
           <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
           <div className="flex gap-2 mb-0.5 items-center">
             <span className="w-6" />
+            <span className="flex-[1.6] text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Palo</span>
             <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">FW</span>
             <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Izq</span>
             <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Der</span>
@@ -1047,6 +1032,15 @@ export default function NuevaPPPage() {
           {rows.map((r, i) => (
             <div key={i} className="flex gap-2 mb-1 items-center">
               <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+              <select
+                className="gf-input !p-2 !text-xs flex-[1.6]"
+                value={r.club}
+                onChange={(ev) => setGoToRow(d.type, i, "club", ev.target.value)}
+              >
+                {GO_TO_CLUB_LADDER.map((c) => (
+                  <option key={c} value={c}>{CLUB_LABEL[c] ?? c}</option>
+                ))}
+              </select>
               <input
                 type="number" inputMode="numeric" pattern="[0-9]*"
                 className="gf-input !p-2 text-center flex-1"

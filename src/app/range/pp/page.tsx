@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 type LvlInfo = {
   currentDistance?: number;
   currentClub?: string;
+  goToByClub?: Record<string, { fw: number; left: number; right: number; shots: number }>;
   bestStreakByDist?: Record<number, number>;
   bestRatioByDist?: Record<number, { strokes: number; balls: number; ratio: number }>;
   bestRatio?: { inTarget: number; balls: number; ratio: number } | null;
@@ -48,27 +49,43 @@ async function getLevels(): Promise<Record<string, LvlInfo>> {
     const achievementsCount = drillSessions.filter((s) => s.leveledUp).length;
 
     if (drill.type === "GO_TO_CLUB") {
-      let bestRank = -1;
+      // Registro por palo: FW/izq/der acumulados. Go-To = mejor % de FW (mín. 9 tiros).
+      const byClub: Record<string, { fw: number; left: number; right: number; shots: number }> = {};
       for (const s of drillSessions) {
-        if (!s.club) continue;
         const data = parseAttempts(s.attemptsJson, "GO_TO_DIR");
-        // Máximo de FW por tanda: shape nuevo {fw,left,right} o legacy number[]
-        let max = 0;
-        if (data.type === "GO_TO_DIR" && data.attempts.length > 0) {
-          max = Math.max(...data.attempts.map((a) => a.fw));
-        } else if (data.type === "LEGACY_NUMBER_ARRAY" && data.attempts.length > 0) {
-          max = Math.max(...data.attempts);
-        }
-        if (max >= drill.scoreOf) {
-          const rank = GO_TO_CLUB_LADDER.indexOf(s.club);
-          if (rank > bestRank) bestRank = rank;
+        if (data.type === "GO_TO_DIR") {
+          for (const a of data.attempts) {
+            const club = a.club ?? s.club ?? GO_TO_CLUB_LADDER[0];
+            const acc = (byClub[club] ??= { fw: 0, left: 0, right: 0, shots: 0 });
+            acc.fw += a.fw;
+            acc.left += a.left;
+            acc.right += a.right;
+            acc.shots += a.fw + a.left + a.right;
+          }
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && s.club) {
+          // legacy: cada intento era "fw de 9" (izq/der desconocidos)
+          const acc = (byClub[s.club] ??= { fw: 0, left: 0, right: 0, shots: 0 });
+          for (const a of data.attempts) {
+            acc.fw += a;
+            acc.shots += 9;
+          }
         }
       }
-      const currentClub = bestRank === -1 ? GO_TO_CLUB_LADDER[0] : GO_TO_CLUB_LADDER[bestRank];
+      let goTo: string | undefined;
+      let goToPct = -1;
+      for (const [club, v] of Object.entries(byClub)) {
+        if (v.shots < 9) continue;
+        const pct = v.fw / v.shots;
+        if (pct > goToPct) {
+          goToPct = pct;
+          goTo = club;
+        }
+      }
       result[drill.type] = {
-        currentClub,
+        currentClub: goTo,
+        goToByClub: byClub,
         achievementsCount,
-        sessionsAtCurrent: drillSessions.filter((s) => s.club === currentClub).length,
+        sessionsAtCurrent: drillSessions.length,
       };
       continue;
     }
@@ -298,6 +315,19 @@ export default async function PPListPage() {
                         .sort((a, b) => a[0] - b[0])
                         .map(([k, v]) => `${distToUi(d, k)} ${uiUnit(d)}: ${v.ratio.toFixed(2)}`)
                         .join(" · ")}
+                    </div>
+                  )}
+                  {d.type === "GO_TO_CLUB" && lvl.goToByClub && Object.keys(lvl.goToByClub).length > 0 && (
+                    <div className="text-[10px] text-[var(--muted)] gf-mono mt-1 space-y-0.5">
+                      {Object.entries(lvl.goToByClub)
+                        .map(([club, v]) => ({ club, ...v, pct: v.shots > 0 ? (v.fw / v.shots) * 100 : 0 }))
+                        .sort((a, b) => b.pct - a.pct)
+                        .map((v) => (
+                          <div key={v.club}>
+                            {CLUB_LABEL[v.club] ?? v.club}: <strong>{v.pct.toFixed(0)}% FW</strong>{" "}
+                            ({v.fw}/{v.shots}){v.left + v.right > 0 && ` · ${v.left} izq · ${v.right} der`}
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
