@@ -43,10 +43,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // No auth: redirigir a login (preservar destino para volver después)
+  // No auth: redirigir a login (preservar destino COMPLETO, query incluida —
+  // ej. /range/pp/nueva?challenge=X&day=1 tiene que sobrevivir al login)
   const url = req.nextUrl.clone();
+  const dest = pathname + req.nextUrl.search;
   url.pathname = "/login";
-  url.searchParams.set("from", pathname);
+  url.search = "";
+  url.searchParams.set("from", dest);
   return NextResponse.redirect(url);
 }
 
