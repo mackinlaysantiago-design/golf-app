@@ -59,6 +59,15 @@
 - P3 (plan único que viaja): SÍ → hecho (computeTsmPlan + ?drills=).
 - Homework: se queda (A/B/1/2 es la Purposeful Practice Card oficial del método).
 
+## Hecho 26/07 (2) — armar sesión en 1 tap (deploy fcd4fee)
+- Pedido Santi: "es larguísimo todo el proceso de armar una sesión". Fix: MUERE el wizard
+  /range/pp/setup (ruta queda como dead code, sin links); todos los "Practicar"/"+ Nueva
+  sesión" van directo a /pp/nueva, que arranca con "Tu plan de hoy" (drills del plan TSM
+  pre-tildados, listos para cargar) y TODO el catálogo colapsado en "➕ Agregar otro drill".
+- Flujo final: abrir app → Practicar → cargar intentos → Guardar. Una pantalla.
+- Verificado en prod con screenshot: 5 drills del plan visibles, "Obligatorios" viejo
+  desaparecido, catálogo colapsado.
+
 ## Backlog pendiente (sin apuro, decidir después)
 - P4 limpieza: bunker fuera del wizard hasta tener drill (hoy es callejón "próximamente");
   tasks FLIGHTSCOPE fuera del loop PP; unificar los 3 uploaders FlightScope.
