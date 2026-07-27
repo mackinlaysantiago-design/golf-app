@@ -84,6 +84,11 @@ resumen + Assessment Card) — y en cancha ni siquiera muestra las distancias GP
 - T2c (P2) — Orden de pantalla final de Santi (header chico → selector sticky → estrategia →
   leaderboard → scorecard colapsada → golpes → stats → finalizar; HCP por modalidad solo en
   ⚙️ Editar setup) · **done 26/07**, verificado con Playwright
+- T2d (P2) — Validación score ≠ EnterSZ+InsideSZ en ROJO (input de la grilla + cartel en Mis
+  stats) + putts en PASOS (UI convierte, **DB sigue en ft, 1 paso = 3 ft = 1 yd**; si el paso
+  de Santi no es ~1yd, ajustar el factor en ftToPasos/pasosToFt de RondaTracker) · **done 26/07**,
+  verificado en prod con script Playwright determinístico (el tester Gemini no pudo tipear en
+  el input; gotcha: correr scripts propios con python3 del sistema, NO el venv del tester)
 - T2b (P2) — Partidos sin plata → puntos por modalidad (wizard/setup/resumen) · **done 26/07**
 - T3 (P1) — Briefing lectura + termostato auto + visualización 1 tap · compl 3 · ESPERA OK
 - T4 (P3) — Post-ronda unificada + dictado opcional · compl 6 · ESPERA OK
