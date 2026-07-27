@@ -533,6 +533,23 @@ export default function NuevaPPPage() {
     </div>
   );
 
+
+  // Instrucción concreta de qué escribir en cada campo, por formato de drill
+  function inputHelp(d: DrillDef): string {
+    if (d.format === "STREAK_BY_DIST") {
+      if (d.type === "GREEN_READING")
+        return "Cada fila es una tanda: PENDIENTE en grados (1, 2 o 3) y RACHA (putts seguidos embocados antes de errar).";
+      return `Cada fila es una tanda: DISTANCIA en ${uiUnit(d)} y RACHA (cuántos seguidos lograste antes de errar). Ej: 2 y 6.`;
+    }
+    if (d.format === "RATIO_LOWER_BY_DIST")
+      return "Cada fila es una tanda: DISTANCIA en pasos, GOLPES totales que necesitaste para embocar todas y cuántas PELOTAS jugaste. Ej: 20, 24 y 9.";
+    if (d.format === "RATIO_HIGHER")
+      return "Cada fila es una tanda: cuántas dejaste DENTRO del 2-putt circle y cuántas PELOTAS tiraste. Ej: 5 y 9.";
+    if (d.type === "GO_TO_CLUB")
+      return "Elegí el palo y por cada tanda de 9 tiros anotá cuántos terminaron en el FAIRWAY (0-9). 9/9 = subís al palo siguiente.";
+    return "Cada fila es una tanda: anotá tu sensación de 1 a 5 (5 = lo sentiste perfecto).";
+  }
+
   function renderDrill(d: DrillDef) {
     const e = drills[d.type];
     const lvl = levels[d.type];
@@ -752,6 +769,7 @@ export default function NuevaPPPage() {
             </span>
           )}
         </div>
+        <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
         {rows.map((r, i) => (
           <div key={i} className="flex gap-2 mb-1 items-center">
             <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
@@ -829,6 +847,7 @@ export default function NuevaPPPage() {
             </span>
           )}
         </div>
+        <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
         {rows.map((r, i) => (
           <div key={i} className="flex gap-2 mb-1 items-center">
             <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
@@ -905,6 +924,7 @@ export default function NuevaPPPage() {
             </span>
           )}
         </div>
+        <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
         {rows.map((r, i) => (
           <div key={i} className="flex gap-2 mb-1 items-center">
             <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
@@ -972,6 +992,7 @@ export default function NuevaPPPage() {
           <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
             Intentos · {d.scoreLabel}
           </label>
+          <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
           {rows.map((r, i) => (
             <div key={i} className="flex gap-2 mb-1 items-center">
               <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
