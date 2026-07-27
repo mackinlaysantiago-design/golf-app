@@ -24,10 +24,17 @@ const RatioHigherAttemptSchema = z.object({
   inTarget: z.number().int().min(0),
   balls: z.number().int().min(1),
 });
+const GoToDirAttemptSchema = z.object({
+  club: z.string().optional(),
+  fw: z.number().int().min(0),
+  left: z.number().int().min(0),
+  right: z.number().int().min(0),
+});
 const AttemptsDataSchema = z.union([
   z.object({ type: z.literal("STREAK_BY_DIST"), attempts: z.array(StreakAttemptSchema) }),
   z.object({ type: z.literal("RATIO_LOWER_BY_DIST"), attempts: z.array(RatioLowerAttemptSchema) }),
   z.object({ type: z.literal("RATIO_HIGHER"), attempts: z.array(RatioHigherAttemptSchema) }),
+  z.object({ type: z.literal("GO_TO_DIR"), attempts: z.array(GoToDirAttemptSchema) }),
   z.object({ type: z.literal("LEGACY_NUMBER_ARRAY"), attempts: z.array(z.number()) }),
   z.array(z.number()),
 ]);
@@ -65,8 +72,11 @@ function countTargetsAchieved(
     const target = drill.levelUpStreak ?? 10;
     return data.attempts.filter((a) => a.streak >= target).length;
   }
+  if (data.type === "GO_TO_DIR") {
+    return data.attempts.filter((a) => a.fw >= drill.scoreOf).length;
+  }
   if (data.type === "LEGACY_NUMBER_ARRAY") {
-    return data.attempts.filter((a) => a === drill.scoreOf).length;
+    return data.attempts.filter((a) => a >= drill.scoreOf).length;
   }
   // Chipping/wedges: el drill "cumple" si superó el mejor previo (1 logro por sesión)
   return 0;
