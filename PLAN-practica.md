@@ -14,8 +14,13 @@
 - Drills en pasos nativos (defaults convertidos: 1-Putt arranca 1 paso, 2-Putt 10, lag 5/7/10...).
   Buckets de putts del resumen en pasos (0-1/1-2/2-3/3+).
 - ppPlan legacy (A/B/1/2) quedó SOLO alimentando PracticeTask (homework sin decidir aún).
-- **PEND OK Santi**: correr `node scripts/migrate-pp-distances-a-pasos.js` (convierte las
-  distancias ft de las 4 sesiones de mayo a pasos para que los récords históricos alineen).
+- **Unidades (corrección Santi 26/07 noche)**: los récords/datos se guardan en las unidades
+  NATIVAS del método (ft/yds — benchmarks comparables: 4ft test, 6ft circle, etc.) y SOLO la
+  UI muestra/ingresa pasos (helpers distToUi/uiToDist en pp-drills). Los datos de mayo quedaron
+  válidos tal cual; el script de migración se eliminó (hubiera sido dañino).
+- **Homework (PracticeTask)**: SE QUEDA como está — A/B/1/2 es nomenclatura del propio método
+  (Purposeful Practice Card del Level 1), no legacy. El plan TSM por áreas es el desglose fino
+  de esos mismos códigos (A→Long Game, B→Chipping+Pitching, 1→Short Putting, 2→Long Putting).
 - Verificado en prod: ronda 11/07 → plan "Long Game 7 → test Go-To Club", resto 0; link viaja.
 - Supuesto documentado: corte chip/pitch en 25 pasos (`CHIP_MAX_PASOS`); ajustable.
 > Regla madre (DECISIONS.md 26/07): el teléfono es para MIRAR, no para CARGAR.
