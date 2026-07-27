@@ -328,11 +328,12 @@ export type PuttBucket = {
   pct: number;         // made/attempts (0-100)
 };
 
+// Rangos internos en ft; labels en PASOS (1 paso = 3 ft, regla Santi 26/07)
 export const PUTT_BUCKETS_DEF: { label: string; range: [number, number] }[] = [
-  { label: "0-3'", range: [0, 3] },
-  { label: "3-6'", range: [3, 6] },
-  { label: "6-10'", range: [6, 10] },
-  { label: "10+'", range: [10, 9999] },
+  { label: "0-1 paso", range: [0, 3] },
+  { label: "1-2 pasos", range: [3, 6] },
+  { label: "2-3 pasos", range: [6, 10] },
+  { label: "3+ pasos", range: [10, 9999] },
 ];
 
 export function computePuttBuckets(holes: HoleData[]): PuttBucket[] {
@@ -343,8 +344,8 @@ export function computePuttBuckets(holes: HoleData[]): PuttBucket[] {
     for (const h of holes) {
       if (h.firstPuttDistanceFt == null) continue;
       const d = h.firstPuttDistanceFt;
-      // Range exclusivo en min, inclusivo en max (excepto 0-3 que incluye 0)
-      const inRange = label === "0-3'" ? d >= min && d <= max : d > min && d <= max;
+      // Range exclusivo en min, inclusivo en max (excepto el primer bucket que incluye 0)
+      const inRange = min === 0 ? d >= min && d <= max : d > min && d <= max;
       if (!inRange) continue;
       attempts++;
       if (h.putts === 1) made++;

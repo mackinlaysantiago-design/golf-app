@@ -73,8 +73,13 @@ export async function GET() {
     }
   }
 
+  // Plan TSM (áreas con errores → drill → test) — misma fuente que resumen y /range/pp
+  const { computeTsmPlan } = await import("@/lib/tsm-plan");
+  const tsmPlan = computeTsmPlan(holes, config, kpis);
+
   return NextResponse.json({
     ppPlan,
+    tsmPlan,
     drillTargets,
     lastRoundDate: lastRound.date.toISOString(),
     lastRoundCourse: lastRound.course.name,

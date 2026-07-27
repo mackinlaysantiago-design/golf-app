@@ -161,9 +161,10 @@ export default async function PPListPage() {
     getLevels(),
   ]);
 
-  // PP sugerido de la última ronda
+  // Plan TSM sugerido de la última ronda (misma lógica que el resumen: computeTsmPlan)
   const me = await prisma.player.findFirst({ where: { isMe: true } });
-  let pendingPP: { code: string; label: string; count: number; reason: string }[] = [];
+  let tsmPending: import("@/lib/tsm-plan").TsmPlanArea[] = [];
+  let tsmDrillsParam = "";
   if (me) {
     const lastRound = await prisma.round.findFirst({
       where: { players: { some: { playerId: me.id } } },
@@ -174,7 +175,8 @@ export default async function PPListPage() {
       },
     });
     if (lastRound && lastRound.players[0]) {
-      const { computeRoundKPIs, computePPPlan } = await import("@/lib/scoring-method");
+      const { computeRoundKPIs } = await import("@/lib/scoring-method");
+      const { computeTsmPlan, tsmPlanDrillTypes } = await import("@/lib/tsm-plan");
       const meRP = lastRound.players[0];
       const parByNumber = new Map(lastRound.course.holes.map((h) => [h.number, h.par]));
       const holesData = meRP.holes.map((h) => ({
@@ -196,7 +198,9 @@ export default async function PPListPage() {
         twoPuttCircleYds: lastRound.twoPuttCircleYds,
       };
       const kpis = computeRoundKPIs(holesData, config);
-      pendingPP = computePPPlan(holesData, config, kpis).filter((p) => p.count > 0);
+      const full = computeTsmPlan(holesData, config, kpis);
+      tsmPending = full.filter((p) => p.errors > 0);
+      tsmDrillsParam = tsmPlanDrillTypes(full).join(",");
     }
   }
 
@@ -211,19 +215,36 @@ export default async function PPListPage() {
         </h1>
       </header>
 
-      {pendingPP.length > 0 && (
+      {tsmPending.length > 0 && (
         <>
-          <SectionHeader>Sugerido (de tu última ronda)</SectionHeader>
+          <SectionHeader>Sugerido (de tu última ronda) · área → drill → test</SectionHeader>
           <div className="space-y-2">
-            {pendingPP.map((p) => (
-              <Card key={p.code} className="!p-3" style={{ borderLeft: "4px solid var(--accent)" }}>
+            {tsmPending.map((p) => (
+              <Card key={p.area} className="!p-3" style={{ borderLeft: "4px solid var(--accent)" }}>
                 <div className="flex justify-between items-baseline">
                   <span className="font-semibold text-sm">{p.label}</span>
-                  <span className="gf-display text-2xl text-[var(--accent)]">{p.count}</span>
+                  <span className="gf-display text-2xl text-[var(--accent)]">{p.errors}</span>
                 </div>
-                <div className="text-xs text-[var(--muted)] mt-1">{p.reason}</div>
+                <div className="text-xs text-[var(--muted)] mt-0.5">{p.evidence}</div>
+                <div className="text-xs mt-1 gf-mono">
+                  Drill:{" "}
+                  <strong>
+                    {p.wedgeMatrixDrill
+                      ? "Wedge Matrix"
+                      : p.drill
+                        ? DRILL_BY_TYPE[p.drill].shortLabel
+                        : "al range"}
+                  </strong>
+                  {p.test && <> → Test: <strong>{DRILL_BY_TYPE[p.test].shortLabel}</strong></>}
+                </div>
               </Card>
             ))}
+            <Link
+              href={`/range/pp/nueva${tsmDrillsParam ? `?drills=${tsmDrillsParam}` : ""}`}
+              className="gf-btn w-full !py-2"
+            >
+              🎯 Practicar este plan
+            </Link>
           </div>
         </>
       )}

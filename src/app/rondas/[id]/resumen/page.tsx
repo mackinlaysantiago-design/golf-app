@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { computeRoundKPIs, computePPPlan, computePuttBuckets, puttsMadeOver4ft, type HoleData } from "@/lib/scoring-method";
+import { computeTsmPlan, tsmPlanDrillTypes } from "@/lib/tsm-plan";
+import { DRILL_BY_TYPE } from "@/lib/pp-drills";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import { computeBetWinner, MODALITY_LABEL, type BetModality } from "@/lib/bets";
 import { Card, KPI, SectionHeader, Pill } from "@/components/ui/Card";
@@ -90,7 +92,10 @@ export default async function ResumenPage({
     twoPuttCircleYds: round.twoPuttCircleYds,
   };
   const kpis = computeRoundKPIs(holes, config);
+  // ppPlan legacy (A/B/1/2) solo alimenta las PracticeTask; el plan visible es el TSM.
   const ppPlan = computePPPlan(holes, config, kpis);
+  const tsmPlan = computeTsmPlan(holes, config, kpis);
+  const tsmDrills = tsmPlanDrillTypes(tsmPlan);
   const puttBuckets = computePuttBuckets(holes);
   const puttsOver4ft = puttsMadeOver4ft(holes);
 
@@ -568,11 +573,11 @@ export default async function ResumenPage({
           <div className="flex justify-between items-center">
             <div>
               <div className="font-semibold text-sm">
-                🎯 Putts embocados &gt; 4ft
+                🎯 Putts embocados largos (&gt; 1 paso)
               </div>
               <div className="text-[11px] text-[var(--muted)] mt-0.5">
                 {puttsOver4ft.details
-                  .map((d) => `H${d.holeNumber}: ${d.distance}ft`)
+                  .map((d) => `H${d.holeNumber}: ${Math.round(d.distance / 3)} paso${Math.round(d.distance / 3) === 1 ? "" : "s"}`)
                   .join(" · ")}
               </div>
             </div>
@@ -657,20 +662,57 @@ export default async function ResumenPage({
       {/* Reflexión post-ronda ELIMINADA 26/07 (Santi nunca la completó — 4/15 rondas).
           ReflexionEditor.tsx queda como dead code por si se retoma otra idea post-ronda. */}
 
-      {/* PP Plan */}
-      <SectionHeader>PP Plan · Practicar próxima</SectionHeader>
+      {/* Plan de práctica TSM: áreas con errores → drill → test (drill primero, test después) */}
+      <SectionHeader>Plan de práctica (TSM) · área → drill → test</SectionHeader>
       <div className="space-y-2">
-        {ppPlan.map((p) => (
-          <Card key={p.code} className="!p-3" style={{ borderLeft: `4px solid ${p.count > 0 ? "var(--accent)" : "var(--green)"}` }}>
+        {tsmPlan.map((p) => (
+          <Card
+            key={p.area}
+            className="!p-3"
+            style={{
+              borderLeft: `4px solid ${p.errors > 0 ? "var(--accent)" : "var(--green)"}`,
+              opacity: p.errors > 0 ? 1 : 0.6,
+            }}
+          >
             <div className="flex justify-between items-baseline">
               <span className="font-semibold text-sm">{p.label}</span>
-              <span className="gf-display text-2xl">{p.count}</span>
+              <span className="gf-display text-2xl">{p.errors}</span>
             </div>
-            <div className="text-xs text-[var(--muted)] mt-1">{p.reason}</div>
+            <div className="text-xs text-[var(--muted)] mt-0.5">{p.evidence}</div>
+            {p.errors > 0 && (
+              <div className="text-xs mt-1.5 gf-mono">
+                {p.wedgeMatrixDrill ? (
+                  <>
+                    Drill:{" "}
+                    <Link href="/range/wedge-matrix" className="underline font-semibold">
+                      Wedge Matrix
+                    </Link>
+                  </>
+                ) : p.drill ? (
+                  <>
+                    Drill: <strong>{DRILL_BY_TYPE[p.drill].shortLabel}</strong>
+                  </>
+                ) : (
+                  <>Drill: al range</>
+                )}
+                {p.test && (
+                  <>
+                    {" "}→ Test: <strong>{DRILL_BY_TYPE[p.test].shortLabel}</strong>
+                  </>
+                )}
+              </div>
+            )}
           </Card>
         ))}
-        <Link href="/range/pp/nueva" className="gf-btn w-full !py-2 mt-2">
-          🎯 Cargar sesión de práctica
+        <Link
+          href={
+            tsmDrills.length > 0
+              ? `/range/pp/nueva?drills=${tsmDrills.join(",")}`
+              : "/range/pp/nueva"
+          }
+          className="gf-btn w-full !py-2 mt-2"
+        >
+          🎯 Practicar este plan
         </Link>
       </div>
 
