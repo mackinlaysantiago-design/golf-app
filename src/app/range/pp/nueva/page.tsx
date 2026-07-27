@@ -572,7 +572,7 @@ export default function NuevaPPPage() {
     if (d.format === "RATIO_HIGHER")
       return "Cada fila es una tanda: cuántas dejaste DENTRO del 2-putt circle y cuántas PELOTAS tiraste. Ej: 5 y 9.";
     if (d.type === "GO_TO_CLUB")
-      return "Cada fila es una tanda de 9 tiros con UN palo: elegí el PALO y anotá cuántos al FAIRWAY, IZQUIERDA y DERECHA (fw+izq+der = 9). Tu Go-To = el palo con mejor % de FW acumulado.";
+      return "Cada fila es una tanda de 9 tiros con UN palo: elegí el PALO y anotá cuántos a la IZQUIERDA, al FAIRWAY y a la DERECHA (izq+fw+der = 9). Tu Go-To = el palo con mejor % de FW acumulado.";
     return "Cada fila es una tanda: anotá tu sensación de 1 a 5 (5 = lo sentiste perfecto).";
   }
 
@@ -1012,7 +1012,7 @@ export default function NuevaPPPage() {
         <div>
           <div className="flex justify-between items-center">
             <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-              Tandas · palo + FW / izquierda / derecha
+              Tandas · palo + izquierda / FW / derecha
             </label>
             {totShots > 0 && (
               <span className="text-[10px] gf-mono">
@@ -1024,8 +1024,8 @@ export default function NuevaPPPage() {
           <div className="flex gap-2 mb-0.5 items-center">
             <span className="w-6" />
             <span className="flex-[1.6] text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Palo</span>
-            <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">FW</span>
             <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Izq</span>
+            <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">FW</span>
             <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Der</span>
             <span className="w-7" />
           </div>
@@ -1044,16 +1044,16 @@ export default function NuevaPPPage() {
               <input
                 type="number" inputMode="numeric" pattern="[0-9]*"
                 className="gf-input !p-2 text-center flex-1"
-                placeholder="fw"
-                value={r.fw}
-                onChange={(ev) => setGoToRow(d.type, i, "fw", ev.target.value)}
+                placeholder="izq"
+                value={r.left}
+                onChange={(ev) => setGoToRow(d.type, i, "left", ev.target.value)}
               />
               <input
                 type="number" inputMode="numeric" pattern="[0-9]*"
                 className="gf-input !p-2 text-center flex-1"
-                placeholder="izq"
-                value={r.left}
-                onChange={(ev) => setGoToRow(d.type, i, "left", ev.target.value)}
+                placeholder="fw"
+                value={r.fw}
+                onChange={(ev) => setGoToRow(d.type, i, "fw", ev.target.value)}
               />
               <input
                 type="number" inputMode="numeric" pattern="[0-9]*"
