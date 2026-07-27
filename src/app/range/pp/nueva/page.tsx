@@ -41,6 +41,7 @@ type StreakRow = { distance: string; streak: string };
 type RatioLowerRow = { distance: string; strokes: string; balls: string };
 type RatioHigherRow = { inTarget: string; balls: string };
 type LegacyRow = { value: string };
+type GoToRow = { fw: string; left: string; right: string };
 
 type DrillEntry = {
   enabled: boolean;
@@ -50,8 +51,10 @@ type DrillEntry = {
   ratioLowerRows?: RatioLowerRow[];
   // RatioHigher
   ratioHigherRows?: RatioHigherRow[];
-  // Legacy (Go-To Club): cada intento es un score 0-9
+  // Legacy (ratings 1-5): cada intento es un número
   legacyRows?: LegacyRow[];
+  // Go-To Club: por tanda de 9 → fw / izquierda / derecha
+  goToRows?: GoToRow[];
   // Para legacy
   distance: string;
   club: string;
@@ -95,6 +98,9 @@ function emptyEntry(d: DrillDef): DrillEntry {
   }
   if (d.format === "RATIO_HIGHER") {
     return { ...base, ratioHigherRows: [{ inTarget: "", balls: "" }] };
+  }
+  if (d.format === "GO_TO_DIR") {
+    return { ...base, goToRows: [{ fw: "", left: "", right: "" }] };
   }
   return { ...base, legacyRows: [{ value: "" }] };
 }
@@ -331,6 +337,19 @@ export default function NuevaPPPage() {
   }
 
   // ===== Legacy rows (Go-To Club) =====
+  function setGoToRow(type: DrillType, idx: number, field: keyof GoToRow, value: string) {
+    const next = [...(drills[type].goToRows ?? [])];
+    next[idx] = { ...next[idx], [field]: value };
+    update(type, "goToRows", next);
+  }
+  function addGoToRow(type: DrillType) {
+    update(type, "goToRows", [...(drills[type].goToRows ?? []), { fw: "", left: "", right: "" }]);
+  }
+  function removeGoToRow(type: DrillType, idx: number) {
+    const next = (drills[type].goToRows ?? []).filter((_, i) => i !== idx);
+    update(type, "goToRows", next.length > 0 ? next : [{ fw: "", left: "", right: "" }]);
+  }
+
   function addLegacyRow(type: DrillType) {
     update(type, "legacyRows", [...(drills[type].legacyRows ?? []), { value: "" }]);
   }
@@ -366,8 +385,13 @@ export default function NuevaPPPage() {
           .map((r) => ({ inTarget: parseInt(r.inTarget), balls: parseInt(r.balls) }))
           .filter((r) => !isNaN(r.inTarget) && !isNaN(r.balls) && r.balls > 0);
         attempts = { type: "RATIO_HIGHER", attempts: rows };
+      } else if (d.format === "GO_TO_DIR") {
+        const rows = (e.goToRows ?? [])
+          .map((r) => ({ fw: parseInt(r.fw), left: parseInt(r.left) || 0, right: parseInt(r.right) || 0 }))
+          .filter((r) => !isNaN(r.fw));
+        attempts = { type: "GO_TO_DIR", attempts: rows };
       } else {
-        // Legacy (Go-To Club)
+        // Legacy (ratings 1-5)
         const arr = (e.legacyRows ?? []).map((r) => parseInt(r.value)).filter((n) => !isNaN(n));
         attempts = arr;
       }
@@ -546,7 +570,7 @@ export default function NuevaPPPage() {
     if (d.format === "RATIO_HIGHER")
       return "Cada fila es una tanda: cuántas dejaste DENTRO del 2-putt circle y cuántas PELOTAS tiraste. Ej: 5 y 9.";
     if (d.type === "GO_TO_CLUB")
-      return "Elegí el palo y por cada tanda de 9 tiros anotá cuántos terminaron en el FAIRWAY (0-9). 9/9 = subís al palo siguiente.";
+      return "Elegí el palo. Por cada tanda de 9 tiros anotá cuántos al FAIRWAY, cuántos se fueron a la IZQUIERDA y cuántos a la DERECHA (FW+izq+der = 9). 9/9 en FW = subís al palo siguiente.";
     return "Cada fila es una tanda: anotá tu sensación de 1 a 5 (5 = lo sentiste perfecto).";
   }
 
@@ -589,6 +613,7 @@ export default function NuevaPPPage() {
             {d.format === "STREAK_BY_DIST" && renderStreakInputs(d, e)}
             {d.format === "RATIO_LOWER_BY_DIST" && renderRatioLowerInputs(d, e)}
             {d.format === "RATIO_HIGHER" && renderRatioHigherInputs(d, e)}
+            {d.format === "GO_TO_DIR" && renderGoToInputs(d, e, lvl)}
             {d.format === "LEGACY_NUMBER_ARRAY" && renderLegacyInputs(d, e, lvl)}
           </div>
         )}
@@ -617,9 +642,13 @@ export default function NuevaPPPage() {
         const ss = parseInt(r.streak);
         return !isNaN(dd) && !isNaN(ss) && (isNaN(dist) || dd >= dist) && ss >= N;
       }).length;
+    } else if (d.format === "GO_TO_DIR") {
+      // Go-To Club: lograr 9/9 en fairway
+      goalText = `Lograr ${d.scoreOf}/${d.scoreOf} en FW`;
+      const fws = (e.goToRows ?? []).map((r) => parseInt(r.fw)).filter((n) => !isNaN(n));
+      achieved = fws.filter((n) => n >= d.scoreOf).length;
     } else if (d.format === "LEGACY_NUMBER_ARRAY") {
-      // Go-To Club: lograr scoreOf (típicamente 9/9)
-      goalText = `Lograr ${d.scoreOf}/${d.scoreOf}${d.type === "GO_TO_CLUB" ? " en FW" : ""}`;
+      goalText = `Lograr ${d.scoreOf}/${d.scoreOf}`;
       const arr = (e.legacyRows ?? []).map((r) => parseInt(r.value)).filter((n) => !isNaN(n));
       achieved = arr.filter((n) => n >= d.scoreOf).length;
     } else if (d.format === "RATIO_LOWER_BY_DIST") {
@@ -967,27 +996,104 @@ export default function NuevaPPPage() {
     );
   }
 
-  function renderLegacyInputs(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
-    const rows = e.legacyRows ?? [];
+  function renderGoToInputs(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
+    const rows = e.goToRows ?? [];
+    const tot = rows.reduce(
+      (acc, r) => {
+        acc.fw += parseInt(r.fw) || 0;
+        acc.left += parseInt(r.left) || 0;
+        acc.right += parseInt(r.right) || 0;
+        return acc;
+      },
+      { fw: 0, left: 0, right: 0 },
+    );
+    const totShots = tot.fw + tot.left + tot.right;
     return (
       <>
-        {d.type === "GO_TO_CLUB" && (
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">Palo</label>
-            <select
-              className="gf-input mt-0.5"
-              value={e.club}
-              onChange={(ev) => update(d.type, "club", ev.target.value)}
-            >
-              {GO_TO_CLUB_LADDER.map((c) => (
-                <option key={c} value={c}>
-                  {CLUB_LABEL[c] ?? c}
-                  {lvl?.currentClub === c ? " · nivel actual" : ""}
-                </option>
-              ))}
-            </select>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">Palo</label>
+          <select
+            className="gf-input mt-0.5"
+            value={e.club}
+            onChange={(ev) => update(d.type, "club", ev.target.value)}
+          >
+            {GO_TO_CLUB_LADDER.map((c) => (
+              <option key={c} value={c}>
+                {CLUB_LABEL[c] ?? c}
+                {lvl?.currentClub === c ? " · nivel actual" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Intentos · FW / izquierda / derecha
+            </label>
+            {totShots > 0 && (
+              <span className="text-[10px] gf-mono">
+                FW {tot.fw}/{totShots} · {tot.left} izq · {tot.right} der
+              </span>
+            )}
           </div>
-        )}
+          <p className="text-[11px] text-[var(--muted)] mb-1.5">{inputHelp(d)}</p>
+          <div className="flex gap-2 mb-0.5 items-center">
+            <span className="w-6" />
+            <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">FW</span>
+            <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Izq</span>
+            <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-[var(--muted)]">Der</span>
+            <span className="w-7" />
+          </div>
+          {rows.map((r, i) => (
+            <div key={i} className="flex gap-2 mb-1 items-center">
+              <span className="text-[10px] text-[var(--muted)] gf-mono w-6 text-right">#{i + 1}</span>
+              <input
+                type="number" inputMode="numeric" pattern="[0-9]*"
+                className="gf-input !p-2 text-center flex-1"
+                placeholder="fw"
+                value={r.fw}
+                onChange={(ev) => setGoToRow(d.type, i, "fw", ev.target.value)}
+              />
+              <input
+                type="number" inputMode="numeric" pattern="[0-9]*"
+                className="gf-input !p-2 text-center flex-1"
+                placeholder="izq"
+                value={r.left}
+                onChange={(ev) => setGoToRow(d.type, i, "left", ev.target.value)}
+              />
+              <input
+                type="number" inputMode="numeric" pattern="[0-9]*"
+                className="gf-input !p-2 text-center flex-1"
+                placeholder="der"
+                value={r.right}
+                onChange={(ev) => setGoToRow(d.type, i, "right", ev.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => removeGoToRow(d.type, i)}
+                className="text-[var(--red)] text-xs px-2 w-7"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => addGoToRow(d.type)}
+            className="text-xs text-[var(--fairway)] mt-1"
+          >
+            + Agregar intento
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderLegacyInputs(d: DrillDef, e: DrillEntry, lvl?: LevelInfo) {
+    const rows = e.legacyRows ?? [];
+    void lvl;
+    return (
+      <>
         <div>
           <label className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
             Intentos · {d.scoreLabel}

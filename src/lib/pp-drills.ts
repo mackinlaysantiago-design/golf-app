@@ -37,9 +37,11 @@ export type AttemptFormat =
   | "STREAK_BY_DIST"
   | "RATIO_LOWER_BY_DIST"
   | "RATIO_HIGHER"
+  | "GO_TO_DIR" // Go-To Club: por tanda de 9 → {fw, left, right} (pedido Santi 27/07)
   | "LEGACY_NUMBER_ARRAY";
 
 export type StreakAttempt = { distance: number; streak: number };
+export type GoToDirAttempt = { fw: number; left: number; right: number };
 export type RatioLowerAttempt = { distance: number; strokes: number; balls: number };
 export type RatioHigherAttempt = { inTarget: number; balls: number };
 
@@ -47,6 +49,7 @@ export type AttemptsData =
   | { type: "STREAK_BY_DIST"; attempts: StreakAttempt[] }
   | { type: "RATIO_LOWER_BY_DIST"; attempts: RatioLowerAttempt[] }
   | { type: "RATIO_HIGHER"; attempts: RatioHigherAttempt[] }
+  | { type: "GO_TO_DIR"; attempts: GoToDirAttempt[] }
   | { type: "LEGACY_NUMBER_ARRAY"; attempts: number[] };
 
 // Cómo se evalúa cada drill (modo viejo, mantenido para Go-To Club + lecturas legacy)
@@ -218,7 +221,7 @@ export const DRILLS: DrillDef[] = [
     scoreOf: 9,
     scoreLabel: "en FW de 9",
     scoring: "PCT_HITS_PERFECT",
-    format: "LEGACY_NUMBER_ARRAY",
+    format: "GO_TO_DIR",
     hasLevelUp: true,
     ppCode: "A",
     ppLabel: "No entró a SZ",
@@ -404,6 +407,9 @@ export function parseAttempts(raw: unknown, format: AttemptFormat): AttemptsData
     if (o.type === "RATIO_HIGHER") {
       return { type: "RATIO_HIGHER", attempts: (o.attempts as RatioHigherAttempt[]) ?? [] };
     }
+    if (o.type === "GO_TO_DIR") {
+      return { type: "GO_TO_DIR", attempts: (o.attempts as GoToDirAttempt[]) ?? [] };
+    }
   }
 
   return emptyOf(format);
@@ -411,6 +417,7 @@ export function parseAttempts(raw: unknown, format: AttemptFormat): AttemptsData
 
 function emptyOf(format: AttemptFormat): AttemptsData {
   if (format === "STREAK_BY_DIST") return { type: "STREAK_BY_DIST", attempts: [] };
+  if (format === "GO_TO_DIR") return { type: "GO_TO_DIR", attempts: [] };
   if (format === "RATIO_LOWER_BY_DIST") return { type: "RATIO_LOWER_BY_DIST", attempts: [] };
   if (format === "RATIO_HIGHER") return { type: "RATIO_HIGHER", attempts: [] };
   return { type: "LEGACY_NUMBER_ARRAY", attempts: [] };
@@ -482,8 +489,13 @@ export function leveledUpInSession(
     return { leveledUp: bestDist != null, reachedDistance: bestDist };
   }
 
+  if (data.type === "GO_TO_DIR") {
+    const reached = data.attempts.some((a) => a.fw >= drill.scoreOf);
+    return { leveledUp: reached, reachedDistance: null };
+  }
+
   if (data.type === "LEGACY_NUMBER_ARRAY") {
-    const reached = data.attempts.some((a) => a === drill.scoreOf);
+    const reached = data.attempts.some((a) => a >= drill.scoreOf);
     return { leveledUp: reached, reachedDistance: null };
   }
 

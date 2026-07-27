@@ -51,10 +51,15 @@ async function getLevels(): Promise<Record<string, LvlInfo>> {
       let bestRank = -1;
       for (const s of drillSessions) {
         if (!s.club) continue;
-        const data = parseAttempts(s.attemptsJson, "LEGACY_NUMBER_ARRAY");
-        if (data.type !== "LEGACY_NUMBER_ARRAY") continue;
-        const max = data.attempts.length > 0 ? Math.max(...data.attempts) : 0;
-        if (max === drill.scoreOf) {
+        const data = parseAttempts(s.attemptsJson, "GO_TO_DIR");
+        // Máximo de FW por tanda: shape nuevo {fw,left,right} o legacy number[]
+        let max = 0;
+        if (data.type === "GO_TO_DIR" && data.attempts.length > 0) {
+          max = Math.max(...data.attempts.map((a) => a.fw));
+        } else if (data.type === "LEGACY_NUMBER_ARRAY" && data.attempts.length > 0) {
+          max = Math.max(...data.attempts);
+        }
+        if (max >= drill.scoreOf) {
           const rank = GO_TO_CLUB_LADDER.indexOf(s.club);
           if (rank > bestRank) bestRank = rank;
         }
