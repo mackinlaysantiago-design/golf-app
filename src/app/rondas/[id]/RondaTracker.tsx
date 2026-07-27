@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, SectionHeader, Pill } from "@/components/ui/Card";
+import { Card, Pill } from "@/components/ui/Card";
 import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
@@ -156,12 +156,8 @@ export default function RondaTracker({
   }, [round.players]);
 
   const [data, setData] = useState<CellState>(initial);
-  // Scorecard live: abierta por default si la ronda ya tiene scores cargados.
-  // Si recién arrancás (0 scores), arranca cerrada para no agregar ruido.
-  const hasAnyScore = round.players.some((rp) =>
-    rp.holes.some((h) => h.score != null && h.score > 0),
-  );
-  const [scorecardOpen, setScorecardOpen] = useState(hasAnyScore);
+  // Scorecard live: siempre arranca colapsada (pedido Santi 26/07 — no comerse la pantalla)
+  const [scorecardOpen, setScorecardOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
@@ -597,35 +593,34 @@ export default function RondaTracker({
 
   return (
     <div className="px-4 pt-4 pb-4 space-y-3">
-      <header className="flex justify-between items-baseline">
-        <div>
-          <h1 className="gf-display text-2xl text-[var(--fairway)]">
+      {/* 1 · Header chico: cancha + links en una línea */}
+      <header className="flex justify-between items-center gap-2">
+        <div className="min-w-0">
+          <span className="gf-display text-lg text-[var(--fairway)]">
             {round.course.name}
-          </h1>
-          <p className="text-xs text-[var(--muted)] gf-mono">
-            {new Date(round.date).toLocaleDateString("es-AR")} ·{" "}
-            SZ {round.enterSzYds}y · Down {round.downInSzStrokes} · 1PC {round.onePuttCircleFt}ft
-          </p>
+          </span>
+          <span className="text-[10px] text-[var(--muted)] gf-mono ml-2">
+            {new Date(round.date).toLocaleDateString("es-AR")}
+          </span>
         </div>
-        <div className="flex flex-col gap-1 items-end">
-          <Link
-            href={`/rondas/${round.id}/resumen`}
-            className="gf-pill"
-          >
+        <div className="flex items-center gap-3 shrink-0">
+          <Link href={`/rondas/${round.id}/resumen`} className="gf-pill">
             Resumen ›
           </Link>
           <button
             type="button"
             onClick={() => setSetupOpen(true)}
-            className="text-[11px] text-[var(--muted)] underline"
+            className="text-base"
+            aria-label="Editar setup"
           >
-            ⚙️ Editar setup
+            ⚙️
           </button>
           <Link
             href={`/rondas/${round.id}/briefing`}
-            className="text-[11px] text-[var(--muted)] underline"
+            className="text-base"
+            aria-label="Briefing"
           >
-            🧠 Briefing
+            🧠
           </Link>
         </div>
       </header>
@@ -634,51 +629,46 @@ export default function RondaTracker({
         <EditarSetupModal round={round} onClose={() => setSetupOpen(false)} />
       )}
 
-      {/* HCP por modalidad — desplegable, primero */}
-      {round.players.some((rp) => rp.modalityHcps) && (
-        <details className="rounded p-2" style={{ background: "var(--white)" }}>
-          <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-[var(--muted)]">
-            🎯 HCP por modalidad
-          </summary>
-          <table className="w-full text-[10px] mt-2">
-            <thead>
-              <tr>
-                <th className="text-left p-0.5 text-[var(--muted)]">Mod.</th>
-                {round.players.map((rp) => (
-                  <th key={rp.id} className="p-0.5 text-center text-[var(--muted)]">
-                    {rp.player.name.split(" ")[0]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"] as const).map(
-                (mod) => (
-                  <tr key={mod} className="border-t border-[var(--green-pale)]">
-                    <td className="p-0.5 gf-mono text-[var(--muted)]">
-                      {mod === "MEDAL" ? "Medal Tot" : mod === "MEDAL_IDA" ? "Medal Ida" : mod === "MEDAL_VUELTA" ? "Medal Vta" : mod === "STABLEFORD" ? "Stbl Tot" : mod === "STABLEFORD_IDA" ? "Stbl Ida" : "Stbl Vta"}
-                    </td>
-                    {round.players.map((rp) => {
-                      const chs = rp.modalityHcps as Record<string, number> | null;
-                      const v = chs?.[mod];
-                      return (
-                        <td key={rp.id} className="p-0.5 text-center gf-mono">
-                          {v != null ? v : "—"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-          <div className="text-[9px] text-[var(--muted)] mt-1 text-center">
-            * Medal CH usa stroke allocation hoyo a hoyo. Stableford usa Stableford CH.
-          </div>
-        </details>
+      {/* 2 · Selector de hoyo — arriba de todo, sticky */}
+      {nav}
+
+      {/* 3 · Estrategia del hoyo (DECADE + gear) — lo primero al llegar al tee */}
+      {currentHoleInfo && (
+        <div ref={holeHeaderRef} style={{ scrollMarginTop: 60 }}>
+          {(() => {
+            const cells = data[meRP.id]?.[currentHole] ?? {};
+            return (
+              <Card className="space-y-2">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+                  Estrategia del hoyo · HCP {currentHoleInfo.hcpHoyo}
+                </div>
+                <DecadeInput
+                  pinColor={cells.pinColor ?? null}
+                  dangerSide={cells.dangerSide ?? null}
+                  aimedAtCenter={cells.aimedAtCenter ?? null}
+                  recoveryMode={cells.recoveryMode ?? null}
+                  onSet={(field, value) =>
+                    setDecade(meRP.id, currentHole, field, value)
+                  }
+                />
+                <GearSelector
+                  currentHole={currentHole}
+                  roundGoal={
+                    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
+                    null
+                  }
+                  cells={data[meRP.id] ?? {}}
+                  onSetGoal={(goal) => setTargetGoal(meRP.id, currentHole, goal)}
+                />
+              </Card>
+            );
+          })()}
+        </div>
       )}
 
-      {/* Leaderboard live (no SOLO) */}
+      {/* HCP por modalidad: se ve/edita en ⚙️ Editar setup (tab HCPs) — fuera del tracker 26/07 */}
+
+      {/* 4 · Leaderboard live (no SOLO) */}
       {!isSolo && (
         <Card className="!p-3">
           <div className="flex justify-between items-center mb-2">
@@ -1147,47 +1137,10 @@ export default function RondaTracker({
         );
       })()}
 
-      {nav}
-
-      {/* Tracker del hoyo actual: para Santi (siempre full datos) + score para los demás */}
+      {/* 6-7 · Tracker del hoyo actual: golpes de todos + mis stats + botones */}
       {currentHoleInfo && (
         <>
-          <div ref={holeHeaderRef} style={{ scrollMarginTop: 16 }}>
-            <SectionHeader>
-              Hoyo {currentHole} · Par {currentHoleInfo.par} · HCP {currentHoleInfo.hcpHoyo}
-            </SectionHeader>
-          </div>
-          {/* 1 · ESTRATEGIA del hoyo (DECADE + gear) — se define ANTES de anotar nada */}
-          {(() => {
-            const cells = data[meRP.id]?.[currentHole] ?? {};
-            return (
-              <Card className="space-y-2">
-                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                  1 · Estrategia del hoyo
-                </div>
-                <DecadeInput
-                  pinColor={cells.pinColor ?? null}
-                  dangerSide={cells.dangerSide ?? null}
-                  aimedAtCenter={cells.aimedAtCenter ?? null}
-                  recoveryMode={cells.recoveryMode ?? null}
-                  onSet={(field, value) =>
-                    setDecade(meRP.id, currentHole, field, value)
-                  }
-                />
-                <GearSelector
-                  currentHole={currentHole}
-                  roundGoal={
-                    findGoalByConfig(round.enterSzYds, round.downInSzStrokes)?.label ??
-                    null
-                  }
-                  cells={data[meRP.id] ?? {}}
-                  onSetGoal={(goal) => setTargetGoal(meRP.id, currentHole, goal)}
-                />
-              </Card>
-            );
-          })()}
-
-          {/* 2 · GOLPES por jugador — grilla compacta: un renglón por equipo, con quién tiene golpe */}
+          {/* GOLPES por jugador — grilla compacta: un renglón por equipo, con quién tiene golpe */}
           {(() => {
             const gridTeams: (typeof round.players)[] = (() => {
               if (round.mode === "FOUR_P" && round.pairs) {
@@ -1215,7 +1168,7 @@ export default function RondaTracker({
             return (
               <Card className="space-y-1.5">
                 <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                  2 · Golpes {gridTeams.length === 2 ? "(un renglón por equipo)" : ""}
+                  Golpes {gridTeams.length === 2 ? "(un renglón por equipo)" : ""}
                 </div>
                 {gridTeams.map((team, ti) => (
                   <div key={ti} className="flex gap-1.5">
@@ -1278,7 +1231,7 @@ export default function RondaTracker({
               <Card key={rp.id} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                    3 · Mis stats (Scoring Method)
+                    Mis stats (Scoring Method)
                   </span>
                   {cells.score != null && cells.score > 0 && currentHoleInfo && (
                     <VsParPill score={cells.score} par={currentHoleInfo.par} />
