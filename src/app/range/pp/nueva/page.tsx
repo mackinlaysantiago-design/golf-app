@@ -18,10 +18,14 @@ import {
 } from "@/lib/pp-drills";
 import { DRILL_TO_AREA, AREA_ORDER } from "@/lib/pp-areas";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { getDraft, deleteDraft } from "@/lib/offline/db";
 
 // Key del IndexedDB draft (única por tipo de form, app-wide)
-// v2: invalida drafts guardados en ft (pre-pasos, 27/07) — ej. el "35 pasos" fantasma
-const DRAFT_KEY = "pp-session-draft-v2";
+// v2: invalidó drafts en ft (pre-pasos). v3: el draft v2 del Go-To tenía fw/left
+// cruzados (Santi cargó con lógica izq/fw/der sobre columnas fw/izq/der) — al
+// migrar v2→v3 se intercambian una sola vez.
+const DRAFT_KEY = "pp-session-draft-v3";
+const OLD_DRAFT_KEY_V2 = "pp-session-draft-v2";
 
 /** Sortea drills por área TSM, después DRILL primero, TEST después. */
 function sortDrillsTsm(drills: DrillDef[]): DrillDef[] {
@@ -163,9 +167,31 @@ export default function NuevaPPPage() {
     if (draftMountedRef.current) return;
     let cancelled = false;
     (async () => {
-      const saved = (await draft.load()) as
-        | { date?: string; notes?: string; drills?: Record<DrillType, DrillEntry> }
-        | null;
+      type SavedDraft = { date?: string; notes?: string; drills?: Record<DrillType, DrillEntry> };
+      let saved = (await draft.load()) as SavedDraft | null;
+      if (!saved) {
+        // Migración v2→v3: intercambiar fw↔left en las tandas del Go-To (una sola vez)
+        try {
+          const old = (await getDraft(OLD_DRAFT_KEY_V2))?.data as SavedDraft | undefined;
+          if (old?.drills?.GO_TO_CLUB?.goToRows) {
+            old.drills.GO_TO_CLUB = {
+              ...old.drills.GO_TO_CLUB,
+              goToRows: old.drills.GO_TO_CLUB.goToRows.map((r) => ({
+                ...r,
+                fw: r.left,
+                left: r.fw,
+              })),
+            };
+          }
+          if (old) {
+            saved = old;
+            await draft.saveImmediate(old);
+            await deleteDraft(OLD_DRAFT_KEY_V2);
+          }
+        } catch {
+          /* sin draft viejo */
+        }
+      }
       if (cancelled || !saved) {
         draftMountedRef.current = true;
         return;
