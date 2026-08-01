@@ -19,8 +19,11 @@ type PlayerScores = {
 //  - Medal Ida usa HCP Medal Ida
 //  - Medal Vuelta usa HCP Medal Vuelta
 function chForModality(p: PlayerScores, mod: BetModality): number {
-  // Match (todas las variantes) → HCP Stableford
-  if (mod.startsWith("MATCH")) return p.modalityHcps?.STABLEFORD ?? p.hcp;
+  // Match (todas las variantes) → 85% del HCP Stableford, redondeado
+  if (mod.startsWith("MATCH")) {
+    const raw = p.modalityHcps?.STABLEFORD ?? p.hcp;
+    return Math.round(raw * 0.85);
+  }
   // Stableford → HCP Stableford
   if (mod === "STABLEFORD") return p.modalityHcps?.STABLEFORD ?? p.hcp;
   if (mod === "STABLEFORD_IDA") return p.modalityHcps?.STABLEFORD_IDA ?? p.modalityHcps?.STABLEFORD ?? p.hcp;
@@ -206,20 +209,39 @@ export function computeBetWinner(
     const wins: Record<string, number> = {};
     for (const p of players) wins[p.playerId] = 0;
 
-    for (const h of holes) {
-      const nets = players
-        .map((p) => {
-          const score = p.scoresByHole[h.number];
-          if (score == null || score === 0) return null;
-          const ch = chForModality(p, modality);
-          const strokes = strokesPerHole(ch, courseHoles)[h.number] ?? 0;
-          return { playerId: p.playerId, net: score - strokes };
-        })
-        .filter((x): x is { playerId: string; net: number } => x !== null);
-      if (nets.length < 2) continue;
-      const minNet = Math.min(...nets.map((n) => n.net));
-      const winners = nets.filter((n) => n.net === minNet);
-      if (winners.length === 1) wins[winners[0].playerId]++;
+    if (players.length === 2) {
+      // 1v1: diferencia de CH match → golpes solo al de mayor CH
+      const [pA, pB] = players;
+      const chA = chForModality(pA, modality);
+      const chB = chForModality(pB, modality);
+      const diff = Math.abs(chA - chB);
+      const strokesA = strokesPerHole(chA >= chB ? diff : 0, courseHoles);
+      const strokesB = strokesPerHole(chB > chA ? diff : 0, courseHoles);
+      for (const h of holes) {
+        const scoreA = pA.scoresByHole[h.number];
+        const scoreB = pB.scoresByHole[h.number];
+        if (scoreA == null || scoreA === 0 || scoreB == null || scoreB === 0) continue;
+        const netA = scoreA - (strokesA[h.number] ?? 0);
+        const netB = scoreB - (strokesB[h.number] ?? 0);
+        if (netA < netB) wins[pA.playerId]++;
+        else if (netB < netA) wins[pB.playerId]++;
+      }
+    } else {
+      for (const h of holes) {
+        const nets = players
+          .map((p) => {
+            const score = p.scoresByHole[h.number];
+            if (score == null || score === 0) return null;
+            const ch = chForModality(p, modality);
+            const strokes = strokesPerHole(ch, courseHoles)[h.number] ?? 0;
+            return { playerId: p.playerId, net: score - strokes };
+          })
+          .filter((x): x is { playerId: string; net: number } => x !== null);
+        if (nets.length < 2) continue;
+        const minNet = Math.min(...nets.map((n) => n.net));
+        const winners = nets.filter((n) => n.net === minNet);
+        if (winners.length === 1) wins[winners[0].playerId]++;
+      }
     }
 
     const scores = players.map((p) => ({
