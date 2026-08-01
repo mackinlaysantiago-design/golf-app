@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-const MODALITIES = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA"];
+const MODALITIES = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA", "MATCH", "MATCH_IDA", "MATCH_VUELTA"];
 
 // POST: para cada RoundPlayer existente, recompute modalityHcps via lookup en CourseHcpRange
 // Útil para rondas creadas antes de la feature, o cuando los HCPs cambiaron y hay que actualizar.

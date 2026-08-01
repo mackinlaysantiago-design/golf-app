@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const parsed = RoundSchema.parse(body);
 
   // Lookup CH por modalidad para cada jugador (Medal Total, Stableford, Ida/Vuelta, etc)
-  const MODALITIES = ["MEDAL", "STABLEFORD", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD_IDA", "STABLEFORD_VUELTA"];
+  const MODALITIES = ["MEDAL", "STABLEFORD", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD_IDA", "STABLEFORD_VUELTA", "MATCH", "MATCH_IDA", "MATCH_VUELTA"];
   const playersWithChs = await Promise.all(
     parsed.players.map(async (p) => {
       if (p.hcpIndex == null) return { ...p, modalityHcps: null };
