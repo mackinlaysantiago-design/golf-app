@@ -19,8 +19,10 @@ type PlayerScores = {
 //  - Medal Ida usa HCP Medal Ida
 //  - Medal Vuelta usa HCP Medal Vuelta
 function chForModality(p: PlayerScores, mod: BetModality): number {
-  // Match (todas las variantes) → HCP Stableford
-  if (mod.startsWith("MATCH")) return p.modalityHcps?.STABLEFORD ?? p.hcp;
+  // Match (todas las variantes) → HCP de la tabla de la cancha (modalidad MATCH)
+  if (mod === "MATCH") return p.modalityHcps?.MATCH ?? p.modalityHcps?.STABLEFORD ?? p.hcp;
+  if (mod === "MATCH_IDA") return p.modalityHcps?.MATCH_IDA ?? p.modalityHcps?.MATCH ?? p.hcp;
+  if (mod === "MATCH_VUELTA") return p.modalityHcps?.MATCH_VUELTA ?? p.modalityHcps?.MATCH ?? p.hcp;
   // Stableford → HCP Stableford
   if (mod === "STABLEFORD") return p.modalityHcps?.STABLEFORD ?? p.hcp;
   if (mod === "STABLEFORD_IDA") return p.modalityHcps?.STABLEFORD_IDA ?? p.modalityHcps?.STABLEFORD ?? p.hcp;
