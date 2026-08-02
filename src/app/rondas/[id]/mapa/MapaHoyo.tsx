@@ -72,11 +72,12 @@ function legIcon(dist: string, club: string | null) {
     className: "",
     html: `<div style="transform:translate(-100%,-50%);margin-left:-14px;text-align:right">
       <div style="background:#111827;color:#fff;font-weight:800;font-size:17px;
-        padding:2px 9px;border-radius:6px;display:inline-block">${esc(dist)}</div>
+        padding:2px 9px;border-radius:6px;display:inline-block;white-space:nowrap">${esc(dist)}</div>
       ${
         club
           ? `<div style="background:#4f46e5;color:#fff;font-weight:700;font-size:10px;
-             padding:2px 8px;border-radius:5px;margin-top:2px;display:inline-block">${esc(club)}</div>`
+             padding:2px 8px;border-radius:5px;margin-top:2px;display:inline-block;
+             white-space:nowrap">${esc(club)}</div>`
           : ""
       }
     </div>`,
