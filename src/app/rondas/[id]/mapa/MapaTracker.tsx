@@ -41,6 +41,9 @@ export type RoundMapa = {
   players: PlayerLite[];
 };
 
+const GREEN_VACIO: MapaGreen = {
+  teeLat: null, teeLng: null, centerLat: null, centerLng: null, frontLat: null, frontLng: null,
+};
 const LIES = ["Calle", "Green", "Rough", "Bunker", "Antegreen", "Penalización", "En el hoyo"];
 const UNDO_MS = 6000;
 
@@ -163,12 +166,28 @@ export default function MapaTracker({
 
   const dFront = distTo(info?.green.frontLat ?? null, info?.green.frontLng ?? null);
   const dCenter = distTo(info?.green.centerLat ?? null, info?.green.centerLng ?? null);
-  const dTarget = target ? distTo(target.lat, target.lng) : dCenter;
+
+  // De dónde SALE el tiro que estás planificando. En el drive es el TEE, aunque el
+  // GPS te ponga en otro lado: así podés registrarlo después, caminando al hoyo
+  // siguiente, y el tiro igual queda guardado desde donde se pegó de verdad.
+  // Del segundo golpe en adelante sí es tu posición: ahí sí estás en la pelota.
+  const enElTee = shots.length === 0;
+  const origen =
+    enElTee && infoBase?.green.teeLat != null && infoBase.green.teeLng != null
+      ? { lat: infoBase.green.teeLat, lng: infoBase.green.teeLng }
+      : lat != null && lng != null
+        ? { lat, lng }
+        : null;
+
+  // La distancia del tiro se mide desde ese origen, no desde el GPS.
+  const dTarget =
+    origen && target
+      ? Math.round(yardsBetween(origen.lat, origen.lng, target.lat, target.lng))
+      : dCenter;
 
   // En el tee manda el plan de cancha: por distancia el automático diría Driver en
   // el 1 y tu plan dice 4i porque con driver te pasás. Del segundo golpe en adelante
   // manda el cálculo por carry medido.
-  const enElTee = shots.length === 0;
   const sugerido = useMemo(() => {
     if (enElTee && plan) return { club: plan.teeClub, fuente: "plan" as const };
     if (dTarget == null) return null;
@@ -178,7 +197,9 @@ export default function MapaTracker({
 
   // ── Acciones ───────────────────────────────────────────────────────────────
   async function registrarGolpe() {
-    if (lat == null || lng == null || busy) return;
+    // Alcanza con tener el origen: en el tee sale de las coordenadas del hoyo, así
+    // que se puede registrar el drive aunque el GPS todavía no haya enganchado.
+    if (!origen || busy) return;
     setBusy(true);
     try {
       const res = await fetch("/api/shots", {
@@ -188,8 +209,8 @@ export default function MapaTracker({
           roundHoleId: info?.roundHoleId ?? undefined,
           roundPlayerId: info?.roundHoleId ? undefined : round.meRoundPlayerId,
           holeNumber: info?.roundHoleId ? undefined : hole,
-          lat,
-          lng,
+          lat: origen.lat,
+          lng: origen.lng,
           targetLat: target?.lat ?? null,
           targetLng: target?.lng ?? null,
           club: sugerido?.club ?? null,
@@ -273,9 +294,11 @@ export default function MapaTracker({
   return (
     <div className="fixed inset-0 z-50 bg-black">
       <MapaHoyo
-        green={info?.green ?? { teeLat: null, teeLng: null, centerLat: null, centerLng: null, frontLat: null, frontLng: null }}
+        green={info?.green ?? GREEN_VACIO}
         userLat={lat}
         userLng={lng}
+        originLat={origen?.lat ?? null}
+        originLng={origen?.lng ?? null}
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
         shots={shots}
@@ -334,16 +357,16 @@ export default function MapaTracker({
       <div className="absolute z-[1000] left-2 bottom-28">
         <button
           type="button"
-          disabled={lat == null || busy}
+          disabled={!origen || busy}
           onClick={() => void registrarGolpe()}
           className="rounded-2xl px-4 py-3 text-left shadow-xl disabled:opacity-50"
           style={{ background: "#4f46e5", color: "#fff" }}
         >
           <div className="font-bold text-sm">⛳ Registrar golpe</div>
           <div className="text-[11px] opacity-90">
-            {lat == null
+            {!origen
               ? "esperando señal de GPS…"
-              : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${sugerido?.fuente === "plan" ? " · del plan" : ""}`}
+              : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${sugerido?.fuente === "plan" ? " · desde el tee" : ""}`}
           </div>
         </button>
       </div>

@@ -3,7 +3,7 @@
 // Mapa del hoyo a pantalla completa: satélite, línea al target, anillos de distancia,
 // tu posición y los tiros ya registrados. Tocar el mapa mueve el TARGET (a dónde
 // apuntás), que es lo que hace que después se pueda medir decisión vs ejecución.
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { attachSatelliteLayer } from "@/lib/map-tiles";
@@ -77,6 +77,8 @@ export default function MapaHoyo({
   green,
   userLat,
   userLng,
+  originLat,
+  originLng,
   targetLat,
   targetLng,
   shots,
@@ -87,6 +89,9 @@ export default function MapaHoyo({
   green: MapaGreen;
   userLat: number | null;
   userLng: number | null;
+  /** De dónde sale el tiro que estás planificando: el TEE en el drive, tu GPS después. */
+  originLat: number | null;
+  originLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
   shots: MapaShot[];
@@ -100,16 +105,6 @@ export default function MapaHoyo({
   const onMoveTargetRef = useRef(onMoveTarget);
   onMoveTargetRef.current = onMoveTarget;
   const fittedHoleRef = useRef<string | null>(null);
-
-  // ¿El GPS te pone en la cancha o estás probando desde otro lado?
-  const enLaCancha =
-    userLat != null &&
-    userLng != null &&
-    green.centerLat != null &&
-    green.centerLng != null &&
-    yardsBetween(userLat, userLng, green.centerLat, green.centerLng) < LEJOS_YDS;
-  const originLat = enLaCancha ? userLat : green.teeLat;
-  const originLng = enLaCancha ? userLng : green.teeLng;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -136,22 +131,77 @@ export default function MapaHoyo({
     };
   }, []);
 
+  // Todos los puntos que tienen que entrar en pantalla para este hoyo.
+  const puntosDelHoyo = useMemo(() => {
+    const pts: L.LatLngTuple[] = [];
+    const push = (la: number | null, ln: number | null) => {
+      if (la != null && ln != null) pts.push([la, ln]);
+    };
+    push(green.teeLat, green.teeLng);
+    push(green.frontLat, green.frontLng);
+    push(green.centerLat, green.centerLng);
+    push(originLat, originLng);
+    push(targetLat, targetLng);
+    for (const s of shots) push(s.fromLat, s.fromLng);
+    return pts;
+  }, [green, originLat, originLng, targetLat, targetLng, shots]);
+
   // Encuadre: tee/vos → green. Se rehace cuando cambia el hoyo, no en cada tick de GPS.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const key = `${green.centerLat},${green.centerLng}`;
     if (fittedHoleRef.current === key) return;
-    const pts: L.LatLngTuple[] = [];
-    if (green.centerLat != null && green.centerLng != null) pts.push([green.centerLat, green.centerLng]);
-    if (originLat != null && originLng != null) pts.push([originLat, originLng]);
-    if (pts.length >= 2) {
-      map.fitBounds(L.latLngBounds(pts), { padding: [60, 90], maxZoom: 19, animate: false });
+    if (puntosDelHoyo.length >= 2) {
+      map.fitBounds(L.latLngBounds(puntosDelHoyo), {
+        padding: [60, 90],
+        maxZoom: 19,
+        animate: false,
+      });
       fittedHoleRef.current = key;
-    } else if (pts.length === 1) {
-      map.setView(pts[0], 17, { animate: false });
+    } else if (puntosDelHoyo.length === 1) {
+      map.setView(puntosDelHoyo[0], 17, { animate: false });
     }
-  }, [green, originLat, originLng]);
+  }, [green, puntosDelHoyo]);
+
+  // El mapa queda ANCLADO al hoyo: se hace zoom y se toca, pero no te podés ir
+  // caminando hasta el hoyo de al lado (pedido de Santi — "me voy siempre para algún
+  // lado raro"). El margen es generoso para que entre un tiro bien errado y para que
+  // se pueda arrastrar un nodo afuera de la calle.
+  //
+  // El límite se calcula SOLO con los puntos firmes del hoyo (tee, green y los tiros
+  // ya guardados). Si entraran el target o el GPS vivo, moverías el objetivo y el
+  // mapa se re-encerraría abajo del dedo en cada arrastre.
+  const puntosFirmes = useMemo(() => {
+    const pts: L.LatLngTuple[] = [];
+    const push = (la: number | null, ln: number | null) => {
+      if (la != null && ln != null) pts.push([la, ln]);
+    };
+    push(green.teeLat, green.teeLng);
+    push(green.frontLat, green.frontLng);
+    push(green.centerLat, green.centerLng);
+    for (const s of shots) push(s.fromLat, s.fromLng);
+    return pts;
+  }, [green, shots]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    // Con menos de dos puntos distintos el bounds es degenerado: getBoundsZoom
+    // devuelve Infinity y setMinZoom(Infinity) deja el mapa muerto. Mejor sin límite.
+    const distintos = new Set(puntosFirmes.map((p) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`));
+    if (distintos.size < 2) {
+      map.setMaxBounds(null as unknown as L.LatLngBounds); // null = sin límite (API de Leaflet)
+      map.setMinZoom(1);
+      return;
+    }
+    const limite = L.latLngBounds(puntosFirmes).pad(0.6);
+    map.setMaxBounds(limite);
+    map.options.maxBoundsViscosity = 1.0; // tope duro, no elástico
+    // Tampoco se puede alejar más allá del hoyo: si no, "no moverse" no sirve de nada.
+    const zoomMin = map.getBoundsZoom(limite);
+    map.setMinZoom(Number.isFinite(zoomMin) ? Math.max(1, Math.min(zoomMin, 18)) : 1);
+  }, [puntosFirmes]);
 
   // Todo lo dibujable se rehace junto: son pocas capas y así no quedan restos.
   useEffect(() => {
@@ -296,9 +346,17 @@ export default function MapaHoyo({
       });
     }
 
-    if (origin) {
+    // Punto azul = dónde estás vos según el GPS. Es distinto del origen del tiro:
+    // en el drive el tiro sale del TEE aunque estés parado en otro lado.
+    const enLaCancha =
+      userLat != null &&
+      userLng != null &&
+      green.centerLat != null &&
+      green.centerLng != null &&
+      yardsBetween(userLat, userLng, green.centerLat, green.centerLng) < LEJOS_YDS;
+    if (enLaCancha) {
       add(
-        L.circleMarker(origin, {
+        L.circleMarker([userLat!, userLng!], {
           radius: 7,
           color: "#fff",
           weight: 2,
@@ -313,7 +371,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onTapShot]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }
