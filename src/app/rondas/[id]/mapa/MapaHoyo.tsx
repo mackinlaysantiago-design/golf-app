@@ -14,6 +14,8 @@ export type MapaShot = {
   shotNumber: number;
   fromLat: number | null;
   fromLng: number | null;
+  targetLat: number | null;
+  targetLng: number | null;
   club: string | null;
   lie: string | null;
   shotLengthYds: number | null;
@@ -84,6 +86,7 @@ export default function MapaHoyo({
   targetLng,
   shots,
   onMoveTarget,
+  onMoveOrigin,
   onMoveShot,
   onTapShot,
 }: {
@@ -97,6 +100,8 @@ export default function MapaHoyo({
   targetLng: number | null;
   shots: MapaShot[];
   onMoveTarget: (lat: number, lng: number) => void;
+  /** Mover la PELOTA: de dónde sale el próximo tiro. */
+  onMoveOrigin: (lat: number, lng: number) => void;
   onMoveShot: (id: string, lat: number, lng: number) => void;
   onTapShot: (id: string) => void;
 }) {
@@ -361,6 +366,29 @@ export default function MapaHoyo({
       });
     }
 
+    // La PELOTA: de dónde sale el próximo tiro. Es arrastrable porque el GPS no
+    // siempre sirve — reconstruyendo un hoyo desde el sillón, o con señal mala en
+    // cancha, hay que poder decir "la bola está acá" y que el tiro salga de ahí.
+    if (origin) {
+      const bola = add(
+        L.marker(origin, {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="width:18px;height:18px;border-radius:50%;background:#fff;
+              border:3px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
+              transform:translate(-9px,-9px)"></div>`,
+            iconSize: [0, 0],
+          }),
+          draggable: true,
+          zIndexOffset: 500,
+        }),
+      );
+      bola.on("dragend", () => {
+        const ll = bola.getLatLng();
+        onMoveOrigin(ll.lat, ll.lng);
+      });
+    }
+
     // Punto azul = dónde estás vos según el GPS. Es distinto del origen del tiro:
     // en el drive el tiro sale del TEE aunque estés parado en otro lado.
     const enLaCancha =
@@ -386,7 +414,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onMoveOrigin, onTapShot]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }

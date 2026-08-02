@@ -73,6 +73,9 @@ export default function MapaTracker({
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
   const [cierre, setCierre] = useState<CierreState | null>(null);
+  // Pelota puesta a mano. Se limpia al cambiar de hoyo y al registrar un tiro: cada
+  // tiro nuevo vuelve a decidir de dónde sale según el GPS.
+  const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
 
   // El RoundHole se crea recién con el primer tiro, así que su id llega en la
   // respuesta del POST y no en las props hasta el próximo render del server.
@@ -138,6 +141,7 @@ export default function MapaTracker({
   const centerLng = infoBase?.green.centerLng ?? null;
   useEffect(() => {
     setTarget(centerLat != null && centerLng != null ? { lat: centerLat, lng: centerLng } : null);
+    setOrigenManual(null);
   }, [hole, centerLat, centerLng]);
 
   // Tiros del hoyo.
@@ -171,17 +175,31 @@ export default function MapaTracker({
   const dFront = distTo(info?.green.frontLat ?? null, info?.green.frontLng ?? null);
   const dCenter = distTo(info?.green.centerLat ?? null, info?.green.centerLng ?? null);
 
-  // De dónde SALE el tiro que estás planificando. En el drive es el TEE, aunque el
-  // GPS te ponga en otro lado: así podés registrarlo después, caminando al hoyo
-  // siguiente, y el tiro igual queda guardado desde donde se pegó de verdad.
-  // Del segundo golpe en adelante sí es tu posición: ahí sí estás en la pelota.
+  // De dónde SALE el tiro que estás planificando — o sea, dónde está la pelota.
+  //
+  //  1. Si la moviste a mano en el mapa, manda eso. El GPS no siempre sirve:
+  //     reconstruyendo un hoyo desde el sillón te pone a kilómetros, y en cancha
+  //     puede tener mala señal.
+  //  2. En el drive, el TEE. Aunque el GPS te ponga en otro lado, así podés
+  //     registrarlo caminando al hoyo siguiente y queda bien igual.
+  //  3. Tu GPS, si te pone en la cancha: ahí sí estás parado en la pelota.
+  //  4. Si el GPS te pone lejos, la pelota arranca donde apuntaste el tiro anterior
+  //     ("asumo que fue adonde apunté") y la corregís arrastrándola.
   const enElTee = shots.length === 0;
-  const origen =
-    enElTee && infoBase?.green.teeLat != null && infoBase.green.teeLng != null
+  const teePos =
+    infoBase?.green.teeLat != null && infoBase.green.teeLng != null
       ? { lat: infoBase.green.teeLat, lng: infoBase.green.teeLng }
-      : lat != null && lng != null
-        ? { lat, lng }
-        : null;
+      : null;
+  const gpsEnLaCancha =
+    lat != null && lng != null && dCenter != null && dCenter <= 1200 ? { lat, lng } : null;
+  const ultimoTarget = (() => {
+    const u = shots[shots.length - 1];
+    return u?.targetLat != null && u.targetLng != null
+      ? { lat: u.targetLat, lng: u.targetLng }
+      : null;
+  })();
+  const origen =
+    origenManual ?? (enElTee ? (teePos ?? gpsEnLaCancha) : (gpsEnLaCancha ?? ultimoTarget ?? teePos));
 
   // La distancia del tiro se mide desde ese origen, no desde el GPS.
   const dTarget =
@@ -239,6 +257,7 @@ export default function MapaTracker({
       if (!infoBase?.roundHoleId) {
         setHoleIdNuevo((m) => ({ ...m, [hole]: d.roundHoleId }));
       }
+      setOrigenManual(null);
       setUndo({
         id: d.shot.id,
         label: `${d.shot.club ?? "tiro"} · ${dTarget ?? "?"} yd`,
@@ -249,14 +268,35 @@ export default function MapaTracker({
     }
   }
 
-  async function patchShot(id: string, body: Record<string, unknown>) {
-    await fetch(`/api/shots/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    await loadShots();
-  }
+  const handleMoveTarget = useCallback((la: number, ln: number) => {
+    setTarget({ lat: la, lng: ln });
+  }, []);
+  const handleMoveOrigin = useCallback((la: number, ln: number) => {
+    setOrigenManual({ lat: la, lng: ln });
+  }, []);
+  const handleTapShot = useCallback((id: string) => {
+    setEditingShot(id);
+    setPanel("shot");
+  }, []);
+
+  const patchShot = useCallback(
+    async (id: string, body: Record<string, unknown>) => {
+      await fetch(`/api/shots/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await loadShots();
+    },
+    [loadShots],
+  );
+
+  const handleMoveShot = useCallback(
+    (id: string, la: number, ln: number) => {
+      void patchShot(id, { fromLat: la, fromLng: ln });
+    },
+    [patchShot],
+  );
 
   async function borrarShot(id: string) {
     await fetch(`/api/shots/${id}`, { method: "DELETE" });
@@ -312,12 +352,10 @@ export default function MapaTracker({
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
         shots={shots}
-        onMoveTarget={(la, ln) => setTarget({ lat: la, lng: ln })}
-        onMoveShot={(id, la, ln) => void patchShot(id, { fromLat: la, fromLng: ln })}
-        onTapShot={(id) => {
-          setEditingShot(id);
-          setPanel("shot");
-        }}
+        onMoveTarget={handleMoveTarget}
+        onMoveOrigin={handleMoveOrigin}
+        onMoveShot={handleMoveShot}
+        onTapShot={handleTapShot}
       />
 
       {/* Barra de distancias */}
@@ -382,7 +420,13 @@ export default function MapaTracker({
           <div className="text-[11px] opacity-90">
             {!origen
               ? "esperando señal de GPS…"
-              : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${sugerido?.fuente === "plan" ? " · desde el tee" : ""}`}
+              : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${
+                  origenManual
+                    ? " · pelota a mano"
+                    : sugerido?.fuente === "plan"
+                      ? " · desde el tee"
+                      : ""
+                }`}
           </div>
         </button>
       </div>
