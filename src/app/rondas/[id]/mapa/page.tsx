@@ -33,6 +33,8 @@ export default async function MapaPage({
               score: true,
               puttDistancesFt: true,
               keysBroken: true,
+              pinColor: true,
+              recoveryMode: true,
             },
           },
         },
@@ -63,7 +65,7 @@ export default async function MapaPage({
       par: h.par,
       hcpHoyo: h.hcpHoyo,
       roundHoleId: misHoyos.get(h.number)?.id ?? null,
-      tieneScore: misHoyos.get(h.number)?.score != null,
+      score: misHoyos.get(h.number)?.score ?? null,
       // Lo ya cargado, para que la hoja de cierre abra con los datos puestos y no
       // en blanco: si abriera vacía, volver a guardar te borraría los putts.
       puttsFt: parsePuttDistances(misHoyos.get(h.number)?.puttDistancesFt) ?? [],
@@ -71,6 +73,8 @@ export default async function MapaPage({
         const k = misHoyos.get(h.number)?.keysBroken;
         return Array.isArray(k) ? (k as number[]) : [];
       })(),
+      pinColor: misHoyos.get(h.number)?.pinColor ?? null,
+      recoveryMode: misHoyos.get(h.number)?.recoveryMode ?? null,
       scoresOtros: Object.fromEntries(
         round.players
           .filter((rp) => !rp.player.isMe)
@@ -95,6 +99,7 @@ export default async function MapaPage({
         id: round.id,
         courseName: round.course.name,
         onePuttCircleFt: round.onePuttCircleFt,
+        enterSzYds: round.enterSzYds,
         meRoundPlayerId: me.id,
         // Se manda el roundPlayerId como id: la hoja de cierre guarda por jugador
         // de la ronda, no por Player global.

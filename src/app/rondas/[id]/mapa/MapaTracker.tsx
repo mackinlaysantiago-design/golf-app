@@ -8,7 +8,7 @@
 // la distancia. Ese toque cierra el tiro anterior (dónde estás parado es dónde cayó)
 // y abre el plan del siguiente.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -17,7 +17,7 @@ import { suggestClub, type ClubCarry } from "@/lib/shot-gps";
 import { holePlan } from "@/lib/plan-cancha";
 import { deviationIsMeaningful } from "@/lib/shot-geometry";
 import type { MapaShot, MapaGreen } from "./MapaHoyo";
-import CierreHoyo, { type CierreState } from "./CierreHoyo";
+import DatosHoyo from "./DatosHoyo";
 
 const MapaHoyo = dynamic(() => import("./MapaHoyo"), { ssr: false });
 
@@ -26,12 +26,14 @@ export type HoleMapa = {
   par: number;
   hcpHoyo: number | null;
   roundHoleId: string | null;
-  /** Ya tiene score cargado. */
-  tieneScore: boolean;
+  /** Score ya guardado del hoyo (null si no tiene). */
+  score: number | null;
   /** Lo ya cargado del hoyo, para que la hoja de cierre abra con datos y no en blanco. */
   puttsFt: number[];
   keys: number[];
   scoresOtros: Record<string, number | null>;
+  pinColor: string | null;
+  recoveryMode: boolean | null;
   green: MapaGreen;
 };
 
@@ -41,6 +43,7 @@ export type RoundMapa = {
   id: string;
   courseName: string;
   onePuttCircleFt: number;
+  enterSzYds: number;
   meRoundPlayerId: string;
   players: PlayerLite[];
 };
@@ -73,10 +76,9 @@ export default function MapaTracker({
   // tiro desde el tee en un hoyo que ya tenía tiros.
   const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "cierre" | "shot" | "tiros">("none");
+  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
-  const [cierre, setCierre] = useState<CierreState | null>(null);
   // Pelota puesta a mano. Se limpia al cambiar de hoyo y al registrar un tiro: cada
   // tiro nuevo vuelve a decidir de dónde sale según el GPS.
   const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
@@ -327,37 +329,45 @@ export default function MapaTracker({
   // score: si lo hiciera, en una ronda ya cargada la hoja no aparecería nunca — que
   // es justo lo que estaba pasando.
   const [cerrados, setCerrados] = useState<Set<number>>(() => new Set());
+  // Hoyo al que hay que saltar apenas guardes el actual.
+  const [pendienteHoyo, setPendienteHoyo] = useState<number | null>(null);
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const irAPanel = useCallback((i: 0 | 1) => {
+    const el = pagerRef.current;
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  }, []);
 
-  function abrirCierre(siguiente: number) {
-    setCierre({
-      hole,
-      roundHoleId: info?.roundHoleId ?? null,
-      golpesMios: shots.length,
-      penalidadesMias: shots.filter((s) => s.lie === "Penalización").length,
-      siguiente,
-      puttsFt: infoBase?.puttsFt ?? [],
-      keys: infoBase?.keys ?? [],
-      scoresOtros: infoBase?.scoresOtros ?? {},
-    });
-    setPanel("cierre");
-  }
 
   function irAHoyo(n: number) {
     if (n < 1 || n > 18) return;
     // La hoja de cierre sale solo al AVANZAR desde un hoyo con tiros que todavía no
     // cerraste. Si estás mirando hoyos para ver dónde pegar, se navega derecho.
+    // Si el hoyo tiene tiros y todavía no lo guardaste, en vez de un modal te lleva
+    // al panel de datos deslizando. Ahí guardás y volvés al mapa con el hoyo nuevo.
     if (n > hole && shots.length > 0 && !cerrados.has(hole)) {
-      abrirCierre(n);
+      setPendienteHoyo(n);
+      irAPanel(1);
+      setPanel("none");
       return;
     }
     setHole(n);
     setPanel("none");
+    irAPanel(0);
   }
 
   const editando = shots.find((s) => s.id === editingShot) ?? null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
+      {/* Pager horizontal: mapa ↔ datos. El mapa no se arrastra, así que el deslizar
+          al costado se lo queda esto (patrón H19). scroll-snap nativo: sin gestos a
+          mano, con la inercia del sistema. */}
+      <div
+        ref={pagerRef}
+        className="h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
+        style={{ scrollbarWidth: "none" }}
+      >
+        <section className="relative w-full h-full shrink-0 snap-start">
       <MapaHoyo
         green={info?.green ?? GREEN_VACIO}
         userLat={lat}
@@ -405,7 +415,7 @@ export default function MapaTracker({
           title="Tiros del hoyo"
           onClick={() => setPanel(panel === "tiros" ? "none" : "tiros")}
         />
-        <RailBtn label="✅" title="Cerrar el hoyo" onClick={() => abrirCierre(hole + 1)} />
+        <RailBtn label="📝" title="Datos del hoyo" onClick={() => irAPanel(1)} />
         <RailBtn label="⚙️" title="Setup" onClick={() => router.push(`/rondas/${round.id}?vista=cards`)} />
       </div>
 
@@ -499,6 +509,37 @@ export default function MapaTracker({
             ›
           </button>
         </div>
+      </div>
+
+        </section>
+
+        <section className="w-full h-full shrink-0 snap-start bg-white">
+          <DatosHoyo
+            key={hole}
+            round={round}
+            hole={hole}
+            par={info?.par ?? null}
+            shots={shots}
+            guardados={{
+              score: infoBase?.score ?? null,
+              puttsFt: infoBase?.puttsFt ?? [],
+              keys: infoBase?.keys ?? [],
+              scoresOtros: infoBase?.scoresOtros ?? {},
+              pinColor: infoBase?.pinColor ?? null,
+              recoveryMode: infoBase?.recoveryMode ?? null,
+            }}
+            onSaved={(h) => {
+              setCerrados((prev) => new Set(prev).add(h));
+              router.refresh();
+              // Si veníamos de tocar "siguiente hoyo", ahora sí saltamos.
+              if (pendienteHoyo != null) {
+                setHole(pendienteHoyo);
+                setPendienteHoyo(null);
+                irAPanel(0);
+              }
+            }}
+          />
+        </section>
       </div>
 
       {/* Hojas */}
@@ -677,23 +718,6 @@ export default function MapaTracker({
         </Sheet>
       )}
 
-      {panel === "cierre" && cierre && (
-        <CierreHoyo
-          round={round}
-          state={cierre}
-          onDone={(siguiente, cerrado) => {
-            setCerrados((prev) => new Set(prev).add(cerrado));
-            setPanel("none");
-            setCierre(null);
-            setHole(siguiente);
-            router.refresh();
-          }}
-          onCancel={() => {
-            setPanel("none");
-            setCierre(null);
-          }}
-        />
-      )}
     </div>
   );
 }

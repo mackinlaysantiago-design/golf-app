@@ -117,6 +117,13 @@ export default function MapaHoyo({
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
+      // El mapa NO se arrastra: queda anclado al hoyo y el deslizar horizontal se lo
+      // queda el pager (mapa ↔ datos), como en H19. Zoom y tap siguen andando.
+      dragging: false,
+      // El encuadre entra el hoyo entero, así que no hace falta pan para ver nada.
+      touchZoom: true,
+      doubleClickZoom: true,
+      scrollWheelZoom: true,
     });
     mapRef.current = map;
     const cancelled = { current: false };
@@ -416,5 +423,14 @@ export default function MapaHoyo({
     };
   }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onMoveOrigin, onTapShot]);
 
-  return <div ref={containerRef} className="absolute inset-0" />;
+  // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
+  // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe
+  // al pager y mantiene el zoom de dos dedos.
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0"
+      style={{ touchAction: "pan-x pinch-zoom" }}
+    />
+  );
 }
