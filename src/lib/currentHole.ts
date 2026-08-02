@@ -1,5 +1,5 @@
 // Persistencia local del hoyo actual de una ronda. Compartido entre
-// el tracker (/rondas/[id]) y el GPS view (/labs/maps/[courseId]/play?round=...).
+// el tracker de cards (/rondas/[id]?vista=cards) y el mapa (/rondas/[id]/mapa).
 
 const KEY = (roundId: string) => `gf-round-${roundId}-current-hole`;
 

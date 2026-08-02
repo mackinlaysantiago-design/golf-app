@@ -6,7 +6,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { attachSatelliteLayer } from "@/app/labs/maps/[courseId]/play/mapTiles";
+import { attachSatelliteLayer } from "@/lib/map-tiles";
 import { yardsBetween } from "@/lib/geo";
 
 export type MapaShot = {

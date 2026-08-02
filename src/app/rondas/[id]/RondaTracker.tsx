@@ -1416,9 +1416,10 @@ export default function RondaTracker({
       {/* Shot-capture por voz ARCHIVADO 26/07 (pedido de Santi: cero teléfono en cancha).
           La ruta /rondas/[id]/shot-capture y toda la infra quedan vivas para retomar. */}
 
-      {/* FAB: ir al GPS / mapa del hoyo actual */}
+      {/* FAB: volver a la vista de mapa (la de cancha desde 02/08). Antes apuntaba al
+          mapa viejo de labs y desde acá no había forma de volver a la vista nueva. */}
       <Link
-        href={`/labs/maps/${round.courseId}/play?round=${round.id}`}
+        href={`/rondas/${round.id}/mapa`}
         className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
         style={{
           width: 64,
@@ -1428,9 +1429,9 @@ export default function RondaTracker({
           fontSize: 28,
           boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
         }}
-        aria-label="Abrir mapa GPS del hoyo"
+        aria-label="Volver a la vista de mapa"
       >
-        📍
+        🗺️
       </Link>
     </div>
   );
