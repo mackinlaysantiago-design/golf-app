@@ -84,6 +84,8 @@ export default function MapaHoyo({
   originLng,
   targetLat,
   targetLng,
+  caminadoDesdeLat,
+  caminadoDesdeLng,
   shots,
   onMoveTarget,
   onMoveOrigin,
@@ -98,6 +100,10 @@ export default function MapaHoyo({
   originLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
+  /** Desde dónde venís caminando (el último tiro): se dibuja el rastro punteado.
+   *  Van como primitivos: un objeto nuevo por render redibujaría todo el mapa. */
+  caminadoDesdeLat: number | null;
+  caminadoDesdeLng: number | null;
   shots: MapaShot[];
   onMoveTarget: (lat: number, lng: number) => void;
   /** Mover la PELOTA: de dónde sale el próximo tiro. */
@@ -373,6 +379,20 @@ export default function MapaHoyo({
       });
     }
 
+    // Rastro de lo caminado desde el último tiro hasta donde estás. Es lo que en H19
+    // te deja ver el recorrido del tiro en curso mientras vas a buscar la pelota.
+    if (caminadoDesdeLat != null && caminadoDesdeLng != null && userLat != null && userLng != null) {
+      add(
+        L.polyline(
+          [
+            [caminadoDesdeLat, caminadoDesdeLng],
+            [userLat, userLng],
+          ],
+          { color: "#fff", weight: 2, opacity: 0.75, dashArray: "3 7", interactive: false },
+        ),
+      );
+    }
+
     // La PELOTA: de dónde sale el próximo tiro. Es arrastrable porque el GPS no
     // siempre sirve — reconstruyendo un hoyo desde el sillón, o con señal mala en
     // cancha, hay que poder decir "la bola está acá" y que el tiro salga de ahí.
@@ -421,7 +441,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, shots, onMoveShot, onMoveOrigin, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveShot, onMoveOrigin, onTapShot]);
 
   // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
   // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe

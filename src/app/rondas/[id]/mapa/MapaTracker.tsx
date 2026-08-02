@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import { yardsBetween } from "@/lib/geo";
 import { suggestClub, type ClubCarry } from "@/lib/shot-gps";
 import { holePlan } from "@/lib/plan-cancha";
+import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
 import { useWind } from "@/lib/use-wind";
 import { bearingDeg, windComponents, cardinalFromDeg } from "@/lib/wind-math";
 import { deviationIsMeaningful } from "@/lib/shot-geometry";
@@ -75,7 +76,26 @@ export default function MapaTracker({
   initialHole: number;
 }) {
   const router = useRouter();
+  // El hoyo actual se guarda en localStorage (mismo storage que el tracker de cards).
+  // Sin esto, salir a la tarjeta o al partido y volver te dejaba en el hoyo 1: los
+  // tiros seguían guardados pero no se veían, y parecía que la ronda había arrancado
+  // de cero. Fue lo primero que rompió en la cancha.
   const [hole, setHole] = useState(initialHole);
+  // El efecto que escribe corre en el MISMO commit que el que lee, y con el `hole`
+  // viejo: sin este guard pisaba el hoyo guardado con el inicial justo antes de
+  // restaurarlo, y si salías de la pantalla en ese instante lo perdías.
+  const holeRestaurado = useRef(false);
+  useEffect(() => {
+    const guardado = readCurrentHole(round.id);
+    if (guardado != null) setHole(guardado);
+    holeRestaurado.current = true;
+    // Solo al montar: después manda el estado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!holeRestaurado.current) return;
+    writeCurrentHole(round.id, hole);
+  }, [round.id, hole]);
   const [pos, setPos] = useState<GeolocationPosition | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [target, setTarget] = useState<{ lat: number; lng: number } | null>(null);
@@ -226,6 +246,19 @@ export default function MapaTracker({
   })();
   const origen =
     origenManual ?? (enElTee ? (teePos ?? gpsEnLaCancha) : (gpsEnLaCancha ?? ultimoTarget ?? teePos));
+
+  // Cuánto llevás caminado desde el último tiro. Es el largo que va midiendo el tiro
+  // en curso: en H19 ese número crece mientras caminás (64 → 115 → 225 yd) y es lo que
+  // te dice cuánto pegaste. La distancia al green la tenés arriba.
+  const ultimoTiro = shots[shots.length - 1];
+  const desdeElTiro =
+    ultimoTiro?.fromLat != null &&
+    ultimoTiro.fromLng != null &&
+    lat != null &&
+    lng != null &&
+    gpsEnLaCancha
+      ? Math.round(yardsBetween(ultimoTiro.fromLat, ultimoTiro.fromLng, lat, lng))
+      : null;
 
   // La distancia del tiro se mide desde ese origen, no desde el GPS.
   const dTarget =
@@ -390,7 +423,9 @@ export default function MapaTracker({
       <div
         ref={pagerRef}
         className="h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
-        style={{ scrollbarWidth: "none" }}
+        // overscrollBehaviorX: sin esto, deslizar de vuelta al mapa desde el borde
+        // dispara el gesto "atrás" de Safari y te saca de la pantalla.
+        style={{ scrollbarWidth: "none", overscrollBehaviorX: "contain" }}
       >
         <section className="relative w-full h-full shrink-0 snap-start">
       <MapaHoyo
@@ -402,6 +437,8 @@ export default function MapaTracker({
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
         shots={shots}
+        caminadoDesdeLat={gpsEnLaCancha ? (ultimoTiro?.fromLat ?? null) : null}
+        caminadoDesdeLng={gpsEnLaCancha ? (ultimoTiro?.fromLng ?? null) : null}
         onMoveTarget={handleMoveTarget}
         onMoveOrigin={handleMoveOrigin}
         onMoveShot={handleMoveShot}
@@ -508,7 +545,7 @@ export default function MapaTracker({
                 ? "esperando señal de GPS…"
               : round.noDistanceDevice
                 ? "marcá dónde está la pelota"
-                : `${dTarget ?? "—"} yd${sugerido ? ` · ${sugerido.club}` : ""}${
+                : `${desdeElTiro != null ? `${desdeElTiro} yd caminados · ` : ""}${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
                     ? " · pelota a mano"
                     : sugerido?.fuente === "plan"
