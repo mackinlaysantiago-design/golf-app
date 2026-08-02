@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { SANTI_CARRIES } from "@/lib/club-carries";
+import { loadClubCarries } from "@/lib/club-carries-load";
 import ShotCaptureRound, { type HoleForCapture } from "./ShotCaptureRound";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +72,8 @@ export default async function ShotCapturePage({
     })
     .filter((h): h is HoleForCapture => h !== null);
 
+  const carries = await loadClubCarries();
+
   return (
     <div className="pt-4">
       <header className="px-4">
@@ -81,7 +83,7 @@ export default async function ShotCapturePage({
         <h1 className="gf-display text-2xl text-[var(--fairway)] mt-1">🎙 Cargar tiros por voz</h1>
         <p className="text-sm text-[var(--muted)]">{round.course.name}</p>
       </header>
-      <ShotCaptureRound holes={holes} carries={SANTI_CARRIES} />
+      <ShotCaptureRound holes={holes} carries={carries} />
     </div>
   );
 }
