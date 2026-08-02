@@ -1088,6 +1088,19 @@ export default function RondaTracker({
                             </td>
                           </tr>
                           <tr>
+                            <td className="p-1 text-[9px] text-[var(--muted)]">H</td>
+                            <td></td>
+                            <td colSpan={round.players.length}>
+                              <div className="grid grid-cols-9 gap-px text-[9px]">
+                                {visiblePts.map((p) => (
+                                  <span key={p.holeNumber} className="text-center gf-mono text-[var(--muted)]">
+                                    {p.holeNumber}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                          <tr>
                             <td className="p-1 text-[10px] font-semibold">Pts A</td>
                             <td></td>
                             <td colSpan={round.players.length}>
