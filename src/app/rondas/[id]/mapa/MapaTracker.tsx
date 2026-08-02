@@ -51,6 +51,8 @@ export type RoundMapa = {
   tournamentMode: boolean;
   /** Regla Local G-5: el torneo prohíbe medidores, así que ni las distancias van. */
   noDistanceDevice: boolean;
+  clubSuggestion: boolean;
+  windEnabled: boolean;
   meRoundPlayerId: string;
   players: PlayerLite[];
 };
@@ -238,18 +240,18 @@ export default function MapaTracker({
     // Regla 4.3a(1): "club selection based on the location of the player's ball" no
     // está permitido. El plan de cancha SÍ, porque es información de antes de la
     // vuelta (4.3a(3)) — pero se muestra en la hoja del plan, no pegado a la distancia.
-    if (round.tournamentMode) return null;
+    if (!round.clubSuggestion) return null;
     if (enElTee && plan) return { club: plan.teeClub, fuente: "plan" as const };
     if (dTarget == null) return null;
     const s = suggestClub(dTarget, carries);
     return s ? { club: s.pick.club, alt: s.alt?.club, fuente: "carry" as const } : null;
-  }, [round.tournamentMode, enElTee, plan, dTarget, carries]);
+  }, [round.clubSuggestion, enElTee, plan, dTarget, carries]);
 
   // Viento (Open-Meteo, sin API key). Apagado en torneo: la Regla 4.3a(1) prohíbe
   // usar un dispositivo para medir condiciones que afecten el juego.
   // Se pide el viento de donde está la PELOTA, no del teléfono: si estás
   // reconstruyendo el hoyo desde otro lado, el viento de tu casa no sirve de nada.
-  const wind = useWind(!round.tournamentMode, origen?.lat ?? null, origen?.lng ?? null);
+  const wind = useWind(round.windEnabled, origen?.lat ?? null, origen?.lng ?? null);
   const viento = useMemo(() => {
     if (!wind || !origen || !target) return null;
     const rumbo = bearingDeg(origen.lat, origen.lng, target.lat, target.lng);

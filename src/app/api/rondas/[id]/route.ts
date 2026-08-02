@@ -32,6 +32,13 @@ const PatchSchema = z.object({
       emotionalStateBefore: z.array(z.string()).nullable().optional(),
     })
     .optional(),
+  ayudas: z
+    .object({
+      clubSuggestion: z.boolean().optional(),
+      windEnabled: z.boolean().optional(),
+      tournamentMode: z.boolean().optional(),
+    })
+    .optional(),
   format: z
     .object({
       holesPlayed: z.union([z.literal(9), z.literal(18)]).optional(),
@@ -48,7 +55,63 @@ export async function PATCH(
   const body = await req.json();
   const parsed = PatchSchema.parse(body);
 
+  // Modo torneo: una vez que la ronda arrancó así, NO se puede desactivar ni prender
+  // una ayuda ilegal. El chequeo va en el server porque es lo único que el jugador no
+  // puede saltear — y acá lo que está en juego es una descalificación (Regla 4.3a).
+  let ayudasFinal: {
+    tournamentMode?: boolean;
+    clubSuggestion?: boolean;
+    windEnabled?: boolean;
+  } | null = null;
+
+  if (parsed.ayudas) {
+    const actual = await prisma.round.findUnique({
+      where: { id },
+      select: { tournamentMode: true },
+    });
+    if (!actual) {
+      return NextResponse.json({ error: "Ronda no encontrada" }, { status: 404 });
+    }
+    if (actual.tournamentMode) {
+      const intenta =
+        parsed.ayudas.tournamentMode === false ||
+        parsed.ayudas.clubSuggestion === true ||
+        parsed.ayudas.windEnabled === true;
+      if (intenta) {
+        return NextResponse.json(
+          {
+            error:
+              "La ronda arrancó en modo torneo: no se puede desactivar ni habilitar ayudas prohibidas por la Regla 4.3a.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    // Se resuelve acá, no con spreads dentro del `data`: mandando
+    // { tournamentMode: true, clubSuggestion: true } en el mismo payload, el orden de
+    // las propiedades dejaba el torneo prendido CON la ayuda ilegal habilitada.
+    const torneo = parsed.ayudas.tournamentMode ?? actual.tournamentMode;
+    ayudasFinal = {
+      ...(parsed.ayudas.tournamentMode !== undefined && { tournamentMode: torneo }),
+      // En torneo las ilegales van a false, sin importar qué pida el cliente.
+      ...(torneo
+        ? { clubSuggestion: false, windEnabled: false }
+        : {
+            ...(parsed.ayudas.clubSuggestion !== undefined && {
+              clubSuggestion: parsed.ayudas.clubSuggestion,
+            }),
+            ...(parsed.ayudas.windEnabled !== undefined && {
+              windEnabled: parsed.ayudas.windEnabled,
+            }),
+          }),
+    };
+  }
+
   await prisma.$transaction(async (tx) => {
+    if (ayudasFinal) {
+      await tx.round.update({ where: { id }, data: ayudasFinal });
+    }
     if (parsed.players) {
       for (const p of parsed.players) {
         // Validar que el roundPlayer pertenezca a esta ronda

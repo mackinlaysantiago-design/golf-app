@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, SectionHeader, Pill } from "@/components/ui/Card";
+import { AYUDAS, NO_IMPLEMENTADO } from "@/lib/reglas-ayudas";
 
 type Player = { id: string; name: string; hcpIndex: number | null; isMe: boolean };
 type Course = { id: string; name: string; holes: { number: number; par: number; hcpHoyo: number }[] };
@@ -73,6 +74,8 @@ export default function NuevaRondaClient({
   const [twoPuttCircleYds, setTwoPuttCircleYds] = useState("20");
   const [tournamentMode, setTournamentMode] = useState(false);
   const [noDistanceDevice, setNoDistanceDevice] = useState(false);
+  const [clubSuggestion, setClubSuggestion] = useState(true);
+  const [windEnabled, setWindEnabled] = useState(true);
 
   useEffect(() => {
     if (!me) return;
@@ -249,6 +252,8 @@ export default function NuevaRondaClient({
       twoPuttCircleYds: parseInt(twoPuttCircleYds) || 20,
       tournamentMode,
       noDistanceDevice,
+      clubSuggestion,
+      windEnabled,
       bets: expandBets(),
       pairs:
         mode === "FOUR_P" && pairs === "parejas"
@@ -743,20 +748,28 @@ export default function NuevaRondaClient({
                 className="mt-1"
                 checked={tournamentMode}
                 onChange={(e) => {
-                  setTournamentMode(e.target.checked);
-                  if (!e.target.checked) setNoDistanceDevice(false);
+                  const on = e.target.checked;
+                  setTournamentMode(on);
+                  // Prender torneo apaga las ilegales de una; apagarlo no las prende
+                  // solo — las volvés a elegir vos.
+                  if (on) {
+                    setClubSuggestion(false);
+                    setWindEnabled(false);
+                  } else {
+                    setNoDistanceDevice(false);
+                  }
                 }}
               />
               <span className="text-sm">
                 <strong>Modo torneo</strong>
                 <span className="block text-xs text-[var(--muted)] mt-0.5">
-                  Apaga todo lo que la Regla 4.3a haría ilegal: sugerencia de palo, viento
-                  y plays-like. Quedan las distancias y tu plan de cancha, que sí están
-                  permitidos. Primera infracción es penalidad general; la segunda,
-                  descalificación.
+                  Apaga las ayudas que la Regla 4.3a no permite. Primera infracción es
+                  penalidad general; la segunda, <strong>descalificación</strong>.
+                  Una vez que la ronda arranca en torneo no se puede desactivar.
                 </span>
               </span>
             </label>
+
             {tournamentMode && (
               <label className="flex items-start gap-3 pl-6">
                 <input
@@ -768,11 +781,67 @@ export default function NuevaRondaClient({
                 <span className="text-sm">
                   El torneo <strong>prohíbe medidores</strong> (Regla Local G-5)
                   <span className="block text-xs text-[var(--muted)] mt-0.5">
-                    Oculta también las distancias GPS. Solo queda registrar tiros y el score.
+                    Oculta también las distancias GPS.
                   </span>
                 </span>
               </label>
             )}
+
+            <div className="pt-2 border-t border-[var(--green-pale)] space-y-2">
+              {AYUDAS.map((a) => {
+                const prendida =
+                  a.key === "clubSuggestion"
+                    ? clubSuggestion
+                    : a.key === "windEnabled"
+                      ? windEnabled
+                      : a.key === "distances"
+                        ? !noDistanceDevice
+                        : true;
+                const bloqueada = tournamentMode && !a.legalEnTorneo;
+                return (
+                  <div key={a.key} className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={prendida}
+                      disabled={!a.configurable || bloqueada}
+                      onChange={(e) => {
+                        if (a.key === "clubSuggestion") setClubSuggestion(e.target.checked);
+                        if (a.key === "windEnabled") setWindEnabled(e.target.checked);
+                      }}
+                    />
+                    <span className="text-sm flex-1">
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <strong className={bloqueada ? "text-[var(--muted)]" : ""}>{a.label}</strong>
+                        <span
+                          className="gf-pill !py-0 !px-1.5 text-[9px]"
+                          style={
+                            a.legalEnTorneo
+                              ? { background: "#dcfce7", color: "#15803d" }
+                              : { background: "#fee2e2", color: "#b91c1c" }
+                          }
+                        >
+                          {a.legalEnTorneo ? "legal en torneo" : "ilegal en torneo"}
+                        </span>
+                      </span>
+                      <span className="block text-xs text-[var(--muted)] mt-0.5">{a.detalle}</span>
+                      <span className="block text-[10px] text-[var(--muted)] mt-0.5">
+                        Regla {a.regla}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <details className="text-xs text-[var(--muted)]">
+              <summary>Lo que la app no tiene</summary>
+              <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                {NO_IMPLEMENTADO.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </details>
           </Card>
 
           <div className="flex gap-2">

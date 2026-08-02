@@ -197,6 +197,10 @@ model Round {
   // Algunos torneos prohíben los medidores por Regla Local (Model Local Rule G-5):
   // ahí ni las distancias se pueden mirar.
   noDistanceDevice Boolean @default(false)
+  // Ayudas que se pueden prender de a una fuera de torneo. En torneo van a false y
+  // NO se pueden volver a prender con la ronda empezada.
+  clubSuggestion   Boolean @default(true)
+  windEnabled      Boolean @default(true)
   // 4P parejas
   pairs                String? // JSON: [["playerId1","playerId2"],["playerId3","playerId4"]]
   notes                String?

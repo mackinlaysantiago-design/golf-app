@@ -16,6 +16,8 @@ const RoundSchema = z.object({
   twoPuttCircleYds: z.number().int().min(1).max(50),
   tournamentMode: z.boolean().optional(),
   noDistanceDevice: z.boolean().optional(),
+  clubSuggestion: z.boolean().optional(),
+  windEnabled: z.boolean().optional(),
   pairs: z.array(z.array(z.string())).optional(),
   notes: z.string().nullable().optional(),
   bets: z
@@ -81,6 +83,10 @@ export async function POST(req: NextRequest) {
       twoPuttCircleYds: parsed.twoPuttCircleYds,
       tournamentMode: parsed.tournamentMode ?? false,
       noDistanceDevice: parsed.noDistanceDevice ?? false,
+      // En torneo las ayudas ilegales quedan apagadas SIEMPRE, mande lo que mande el
+      // cliente. La regla no es negociable desde el front.
+      clubSuggestion: parsed.tournamentMode ? false : (parsed.clubSuggestion ?? true),
+      windEnabled: parsed.tournamentMode ? false : (parsed.windEnabled ?? true),
       pairs: parsed.pairs ? JSON.stringify(parsed.pairs) : null,
       notes: parsed.notes ?? null,
       players: {
