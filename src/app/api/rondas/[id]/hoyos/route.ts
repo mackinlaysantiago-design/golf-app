@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { derivePutts } from "@/lib/putts-derive";
+import { deriveSmFromShots } from "@/lib/shots-to-sm";
 
 // Campo Json: `undefined` = no lo toques, `DbNull` = borralo. Distinguirlos importa
 // porque si el hoyo se limpia, el array y los campos derivados tienen que irse juntos.
@@ -58,21 +59,54 @@ export async function PUT(
     );
   }
 
-  // El círculo se configura por ronda; hace falta para derivar puttsInside1PuttCircle.
+  // La config de la ronda: el círculo para derivar puttsInside1PuttCircle y el radio
+  // de la scoring zone para derivar los números del juego largo desde los tiros.
   const round = await prisma.round.findUnique({
     where: { id },
-    select: { onePuttCircleFt: true },
+    select: { onePuttCircleFt: true, enterSzYds: true },
   });
   if (!round) {
     return NextResponse.json({ error: "ronda no encontrada" }, { status: 404 });
   }
 
+  // Tiros ya registrados de los hoyos que se están guardando: si el hoyo se jugó con
+  // el mapa, los números del juego largo salen de ahí y no se cargan a mano.
+  const conShots = await prisma.roundHole.findMany({
+    where: {
+      OR: parsed.entries.map((e) => ({
+        roundPlayerId: e.roundPlayerId,
+        holeNumber: e.holeNumber,
+      })),
+      shots: { some: {} },
+    },
+    select: {
+      roundPlayerId: true,
+      holeNumber: true,
+      shots: {
+        orderBy: { shotNumber: "asc" },
+        select: { shotNumber: true, distanceToTargetYds: true, lie: true },
+      },
+    },
+  });
+  const shotsPorHoyo = new Map(
+    conShots.map((h) => [`${h.roundPlayerId}__${h.holeNumber}`, h.shots]),
+  );
+
   // Cuando el hoyo trae las distancias por putt, esas mandan: los 4 campos legacy se
   // derivan acá y se guardan igual, para que stats / Tiger 5 / keys / resumen / el bot
-  // de coach sigan leyendo lo de siempre sin enterarse del cambio.
+  // de coach sigan leyendo lo de siempre sin enterarse del cambio. Lo mismo con los
+  // tiros y los números del juego largo.
   const entries = parsed.entries.map((e) => {
-    if (e.puttDistancesFt == null) return e;
-    return { ...e, ...derivePutts(e.puttDistancesFt, round.onePuttCircleFt) };
+    let out = e;
+    if (e.puttDistancesFt != null) {
+      out = { ...out, ...derivePutts(e.puttDistancesFt, round.onePuttCircleFt) };
+    }
+    const shots = shotsPorHoyo.get(`${e.roundPlayerId}__${e.holeNumber}`);
+    if (shots?.length) {
+      const sm = deriveSmFromShots(shots, out.putts ?? 0, round.enterSzYds);
+      if (sm) out = { ...out, ...sm };
+    }
+    return out;
   });
 
   await prisma.$transaction(

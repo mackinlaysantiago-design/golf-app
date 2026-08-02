@@ -331,6 +331,13 @@ model RoundShot {
   fromLng             Float?
   distanceToTargetYds Int? // distancia al green/target al pegar (GPS)
   shotLengthYds       Int? // largo del tiro = pos previa → esta (calculado)
+  // PLAN del tiro: a dónde apuntabas cuando decidiste el palo. Con esto y la posición
+  // final (que es el `from` del tiro siguiente) se separa DECISIÓN de EJECUCIÓN:
+  // "apuntaste al centro con 7i y saliste 20 a la izquierda y 15 corto".
+  targetLat           Float?
+  targetLng           Float?
+  lateralDeviationYds Int? // + derecha / − izquierda respecto de la línea al target
+  gpsAccuracyM        Float? // precisión del GPS al registrar; sin esto no se sabe si el desvío es real
 
   // Intención / pre-shot
   club         String? // Driver | 3W | 7i | PW | Putter | ...

@@ -50,15 +50,23 @@ export function computeShotGeo(
 
 export type ClubCarry = { club: string; carryYds: number };
 
-// Tolerancia (yd): si el palo más corto queda a <= esto del target, alcanza con un
-// swing normal y no vale la pena subir de palo.
-const REACH_TOL_YDS = 3;
+// Cuánto más caro es quedarse corto que pasarse. Quedarse corto en golf suele dejar
+// bunker/agua adelante del green, así que se penaliza más — pero se penaliza, no se
+// descarta. La versión anterior agarraba SIEMPRE el palo largo del par sin mirar
+// cuánto se pasaba: para 152 yd elegía el 5i (166, 14 largo) teniendo el 7i (147,
+// 5 corto). El sesgo estaba bien, la calibración no.
+const SHORT_PENALTY = 1.5;
+
+/** Costo de un palo para un target: yardas de error, con lo corto penalizado. */
+function clubCost(carryYds: number, targetYds: number): number {
+  const diff = carryYds - targetYds;
+  return diff >= 0 ? diff : -diff * SHORT_PENALTY;
+}
 
 /**
- * Sugerencia de palo para una distancia, con la tabla de carries del jugador (FlightScope).
- * Toma los dos palos que "bracketean" el target y, con la tendencia anti-corto de Santi,
- * prefiere el más LARGO — salvo que el más corto llegue dentro de REACH_TOL_YDS.
- * `alt` = el otro palo del bracket.
+ * Sugerencia de palo para una distancia, con la tabla de carries MEDIDA del jugador
+ * (ClubDispersion para el juego largo, Wedge Matrix para el corto — ver club-carries.ts).
+ * Elige el de menor costo; `alt` es el segundo, para el tap de cambio rápido.
  */
 export function suggestClub(
   targetYds: number,
@@ -66,22 +74,9 @@ export function suggestClub(
 ): { pick: ClubCarry; alt?: ClubCarry } | null {
   const valid = carries.filter((c) => Number.isFinite(c.carryYds));
   if (!valid.length) return null;
-  const sorted = [...valid].sort((a, b) => a.carryYds - b.carryYds);
 
-  let shorter: ClubCarry | undefined; // mayor carry <= target
-  let longer: ClubCarry | undefined; // menor carry >= target
-  for (const c of sorted) {
-    if (c.carryYds <= targetYds) shorter = c;
-    if (c.carryYds >= targetYds) {
-      longer = c;
-      break;
-    }
-  }
-  if (!shorter) return { pick: longer ?? sorted[0] }; // target más corto que todos
-  if (!longer) return { pick: shorter }; // target más largo que todos → máximo palo
-
-  const shortBy = targetYds - shorter.carryYds; // >= 0
-  return shortBy <= REACH_TOL_YDS
-    ? { pick: shorter, alt: longer }
-    : { pick: longer, alt: shorter }; // anti-corto: mejor llegar
+  const ranked = [...valid].sort(
+    (a, b) => clubCost(a.carryYds, targetYds) - clubCost(b.carryYds, targetYds),
+  );
+  return { pick: ranked[0], alt: ranked[1] };
 }
