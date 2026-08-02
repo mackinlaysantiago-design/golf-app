@@ -1072,82 +1072,66 @@ export default function RondaTracker({
                       );
                     })()}
 
-                    {/* Puntos Match BB+WB por hoyo en parejas */}
-                    {pairsPointsByHole.length > 0 && (
-                      <>
-                        <tr className="border-t-2 border-[var(--accent)]">
-                          <td colSpan={2 + round.players.length} className="p-1 text-[9px] uppercase tracking-wider text-[var(--muted)] text-center">
-                            Match BB + WB por hoyo
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="p-1 text-[10px] font-semibold">Pts A</td>
-                          <td></td>
-                          <td colSpan={round.players.length}>
-                            <div className="grid grid-cols-9 gap-px text-[10px]">
-                              {pairsPointsByHole.slice(0, 9).map((p) => (
-                                <span key={p.holeNumber} className="text-center gf-mono"
-                                  style={{
-                                    background: p.ptsA > p.ptsB ? "var(--green-pale)" : p.ptsA < p.ptsB ? "#fde0dc" : undefined,
-                                    color: p.ptsA > p.ptsB ? "var(--green)" : p.ptsA < p.ptsB ? "var(--red)" : undefined,
-                                  }}
-                                >
-                                  {p.ptsA}
-                                </span>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-9 gap-px text-[10px] mt-px">
-                              {pairsPointsByHole.slice(9, 18).map((p) => (
-                                <span key={p.holeNumber} className="text-center gf-mono"
-                                  style={{
-                                    background: p.ptsA > p.ptsB ? "var(--green-pale)" : p.ptsA < p.ptsB ? "#fde0dc" : undefined,
-                                    color: p.ptsA > p.ptsB ? "var(--green)" : p.ptsA < p.ptsB ? "var(--red)" : undefined,
-                                  }}
-                                >
-                                  {p.ptsA}
-                                </span>
-                              ))}
-                            </div>
-                            <div className="text-right gf-mono text-[10px] font-bold mt-1">
-                              Total A: {pairsPointsByHole.reduce((s, p) => s + p.ptsA, 0)}
-                            </div>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="p-1 text-[10px] font-semibold">Pts B</td>
-                          <td></td>
-                          <td colSpan={round.players.length}>
-                            <div className="grid grid-cols-9 gap-px text-[10px]">
-                              {pairsPointsByHole.slice(0, 9).map((p) => (
-                                <span key={p.holeNumber} className="text-center gf-mono"
-                                  style={{
-                                    background: p.ptsB > p.ptsA ? "var(--green-pale)" : p.ptsB < p.ptsA ? "#fde0dc" : undefined,
-                                    color: p.ptsB > p.ptsA ? "var(--green)" : p.ptsB < p.ptsA ? "var(--red)" : undefined,
-                                  }}
-                                >
-                                  {p.ptsB}
-                                </span>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-9 gap-px text-[10px] mt-px">
-                              {pairsPointsByHole.slice(9, 18).map((p) => (
-                                <span key={p.holeNumber} className="text-center gf-mono"
-                                  style={{
-                                    background: p.ptsB > p.ptsA ? "var(--green-pale)" : p.ptsB < p.ptsA ? "#fde0dc" : undefined,
-                                    color: p.ptsB > p.ptsA ? "var(--green)" : p.ptsB < p.ptsA ? "var(--red)" : undefined,
-                                  }}
-                                >
-                                  {p.ptsB}
-                                </span>
-                              ))}
-                            </div>
-                            <div className="text-right gf-mono text-[10px] font-bold mt-1">
-                              Total B: {pairsPointsByHole.reduce((s, p) => s + p.ptsB, 0)}
-                            </div>
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                    {/* Puntos Match BB+WB por hoyo en parejas — muestra solo la vuelta activa */}
+                    {pairsPointsByHole.length > 0 && (() => {
+                      const visiblePts = inVuelta
+                        ? pairsPointsByHole.slice(9, 18)
+                        : pairsPointsByHole.slice(0, 9);
+                      const labelVuelta = inVuelta ? "Vuelta (10-18)" : "Ida (1-9)";
+                      const totalA = visiblePts.reduce((s, p) => s + p.ptsA, 0);
+                      const totalB = visiblePts.reduce((s, p) => s + p.ptsB, 0);
+                      return (
+                        <>
+                          <tr className="border-t-2 border-[var(--accent)]">
+                            <td colSpan={2 + round.players.length} className="p-1 text-[9px] uppercase tracking-wider text-[var(--muted)] text-center">
+                              Match BB + WB · {labelVuelta}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-1 text-[10px] font-semibold">Pts A</td>
+                            <td></td>
+                            <td colSpan={round.players.length}>
+                              <div className="grid grid-cols-9 gap-px text-[10px]">
+                                {visiblePts.map((p) => (
+                                  <span key={p.holeNumber} className="text-center gf-mono"
+                                    style={{
+                                      background: p.ptsA > p.ptsB ? "var(--green-pale)" : p.ptsA < p.ptsB ? "#fde0dc" : undefined,
+                                      color: p.ptsA > p.ptsB ? "var(--green)" : p.ptsA < p.ptsB ? "var(--red)" : undefined,
+                                    }}
+                                  >
+                                    {p.ptsA}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="text-right gf-mono text-[10px] font-bold mt-1">
+                                Total A: {totalA}
+                              </div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-1 text-[10px] font-semibold">Pts B</td>
+                            <td></td>
+                            <td colSpan={round.players.length}>
+                              <div className="grid grid-cols-9 gap-px text-[10px]">
+                                {visiblePts.map((p) => (
+                                  <span key={p.holeNumber} className="text-center gf-mono"
+                                    style={{
+                                      background: p.ptsB > p.ptsA ? "var(--green-pale)" : p.ptsB < p.ptsA ? "#fde0dc" : undefined,
+                                      color: p.ptsB > p.ptsA ? "var(--green)" : p.ptsB < p.ptsA ? "var(--red)" : undefined,
+                                    }}
+                                  >
+                                    {p.ptsB}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="text-right gf-mono text-[10px] font-bold mt-1">
+                                Total B: {totalB}
+                              </div>
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })()}
                   </tbody>
                 </table>
               </div>
