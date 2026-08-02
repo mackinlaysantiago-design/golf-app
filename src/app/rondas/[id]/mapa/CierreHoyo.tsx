@@ -18,6 +18,10 @@ export type CierreState = {
   /** Tiros marcados como penalización: suman un golpe extra cada uno. */
   penalidadesMias: number;
   siguiente: number;
+  /** Lo que ya estaba guardado del hoyo: la hoja abre con esto puesto, no en blanco. */
+  puttsFt: number[];
+  keys: number[];
+  scoresOtros: Record<string, number | null>;
 };
 
 export default function CierreHoyo({
@@ -31,10 +35,14 @@ export default function CierreHoyo({
   onDone: (siguiente: number, cerrado: number) => void;
   onCancel: () => void;
 }) {
-  const [puttsFt, setPuttsFt] = useState<number[]>([]);
+  const [puttsFt, setPuttsFt] = useState<number[]>(state.puttsFt);
   const [draft, setDraft] = useState<Record<number, string>>({});
-  const [keys, setKeys] = useState<number[]>([]);
-  const [otros, setOtros] = useState<Record<string, string>>({});
+  const [keys, setKeys] = useState<number[]>(state.keys);
+  const [otros, setOtros] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(state.scoresOtros).map(([id, v]) => [id, v == null ? "" : String(v)]),
+    ),
+  );
   const [busy, setBusy] = useState(false);
 
   const otrosJugadores = round.players.filter((p) => !p.isMe);

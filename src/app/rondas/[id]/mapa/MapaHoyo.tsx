@@ -17,6 +17,7 @@ export type MapaShot = {
   club: string | null;
   lie: string | null;
   shotLengthYds: number | null;
+  distanceToTargetYds: number | null;
   lateralDeviationYds: number | null;
   gpsAccuracyM: number | null;
 };
@@ -180,7 +181,21 @@ export default function MapaHoyo({
     push(green.teeLat, green.teeLng);
     push(green.frontLat, green.frontLng);
     push(green.centerLat, green.centerLng);
-    for (const s of shots) push(s.fromLat, s.fromLng);
+    // Los tiros entran salvo los que quedaron con la posición disparatada (guardados
+    // con el GPS lejos de la cancha). Si entraran, un solo tiro malo estiraría el
+    // límite kilómetros y el anclaje al hoyo dejaría de servir. Esos se editan y se
+    // borran desde la lista de tiros, que no depende del mapa.
+    for (const sh of shots) {
+      if (sh.fromLat == null || sh.fromLng == null) continue;
+      if (
+        green.centerLat != null &&
+        green.centerLng != null &&
+        yardsBetween(sh.fromLat, sh.fromLng, green.centerLat, green.centerLng) > LEJOS_YDS
+      ) {
+        continue;
+      }
+      pts.push([sh.fromLat, sh.fromLng]);
+    }
     return pts;
   }, [green, shots]);
 

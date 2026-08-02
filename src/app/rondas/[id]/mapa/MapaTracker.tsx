@@ -26,8 +26,12 @@ export type HoleMapa = {
   par: number;
   hcpHoyo: number | null;
   roundHoleId: string | null;
-  /** Ya tiene score cargado: el hoyo se considera cerrado y no vuelve a pedir la hoja. */
+  /** Ya tiene score cargado. */
   tieneScore: boolean;
+  /** Lo ya cargado del hoyo, para que la hoja de cierre abra con datos y no en blanco. */
+  puttsFt: number[];
+  keys: number[];
+  scoresOtros: Record<string, number | null>;
   green: MapaGreen;
 };
 
@@ -65,7 +69,7 @@ export default function MapaTracker({
   const [target, setTarget] = useState<{ lat: number; lng: number } | null>(null);
   const [shots, setShots] = useState<MapaShot[]>([]);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "cierre" | "shot">("none");
+  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "cierre" | "shot" | "tiros">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
   const [cierre, setCierre] = useState<CierreState | null>(null);
@@ -258,31 +262,37 @@ export default function MapaTracker({
     await fetch(`/api/shots/${id}`, { method: "DELETE" });
     setUndo((u) => (u?.id === id ? null : u));
     setEditingShot(null);
-    setPanel("none");
+    // Si venías de la lista, quedate en la lista: puede haber más de un tiro para borrar.
+    setPanel((p) => (p === "shot" ? "none" : p));
     await loadShots();
   }
 
-  // Hoyos que ya se cerraron (o que ya venían con score de antes). Sin esto, volver
-  // atrás a mirar un hoyo y avanzar de nuevo te obligaba a cerrarlo otra vez.
-  const [cerrados, setCerrados] = useState<Set<number>>(
-    () => new Set(holes.filter((h) => h.tieneScore).map((h) => h.number)),
-  );
+  // Hoyos cerrados EN ESTA sesión: evita que volver atrás a mirar un hoyo y avanzar
+  // de nuevo te obligue a cerrarlo otra vez. NO se precarga con los que ya tienen
+  // score: si lo hiciera, en una ronda ya cargada la hoja no aparecería nunca — que
+  // es justo lo que estaba pasando.
+  const [cerrados, setCerrados] = useState<Set<number>>(() => new Set());
+
+  function abrirCierre(siguiente: number) {
+    setCierre({
+      hole,
+      roundHoleId: info?.roundHoleId ?? null,
+      golpesMios: shots.length,
+      penalidadesMias: shots.filter((s) => s.lie === "Penalización").length,
+      siguiente,
+      puttsFt: infoBase?.puttsFt ?? [],
+      keys: infoBase?.keys ?? [],
+      scoresOtros: infoBase?.scoresOtros ?? {},
+    });
+    setPanel("cierre");
+  }
 
   function irAHoyo(n: number) {
     if (n < 1 || n > 18) return;
     // La hoja de cierre sale solo al AVANZAR desde un hoyo con tiros que todavía no
     // cerraste. Si estás mirando hoyos para ver dónde pegar, se navega derecho.
     if (n > hole && shots.length > 0 && !cerrados.has(hole)) {
-      setCierre({
-        hole,
-        roundHoleId: info?.roundHoleId ?? null,
-        golpesMios: shots.length,
-        // Las penalidades suman golpe además del tiro. Van acá para que el score que
-        // ves en la hoja sea EXACTAMENTE el que el server calcula y guarda.
-        penalidadesMias: shots.filter((s) => s.lie === "Penalización").length,
-        siguiente: n,
-      });
-      setPanel("cierre");
+      abrirCierre(n);
       return;
     }
     setHole(n);
@@ -337,6 +347,12 @@ export default function MapaTracker({
           highlight={!!plan?.danger}
           onClick={() => setPanel(panel === "plan" ? "none" : "plan")}
         />
+        <RailBtn
+          label={shots.length ? `⛳${shots.length}` : "⛳"}
+          title="Tiros del hoyo"
+          onClick={() => setPanel(panel === "tiros" ? "none" : "tiros")}
+        />
+        <RailBtn label="✅" title="Cerrar el hoyo" onClick={() => abrirCierre(hole + 1)} />
         <RailBtn label="⚙️" title="Setup" onClick={() => router.push(`/rondas/${round.id}?vista=cards`)} />
       </div>
 
@@ -471,6 +487,56 @@ export default function MapaTracker({
             <p className="text-sm text-neutral-500">
               No hay plan cargado para {round.courseName}. Solo La Lucila lo tiene.
             </p>
+          )}
+        </Sheet>
+      )}
+
+      {panel === "tiros" && (
+        <Sheet onClose={() => setPanel("none")} title={`Tiros del hoyo ${hole}`}>
+          {shots.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Todavía no registraste ningún tiro en este hoyo.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {shots.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 rounded-xl bg-neutral-100 p-2">
+                  <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    {s.shotNumber}
+                  </span>
+                  <button
+                    type="button"
+                    className="flex-1 text-left"
+                    onClick={() => {
+                      setEditingShot(s.id);
+                      setPanel("shot");
+                    }}
+                  >
+                    <div className="text-sm font-semibold">
+                      {s.club ?? "sin palo"}
+                      {s.shotLengthYds != null ? ` · ${s.shotLengthYds} yd` : ""}
+                    </div>
+                    <div className="text-[11px] text-neutral-500">
+                      {s.lie ?? "sin lie"}
+                      {s.distanceToTargetYds != null ? ` · quedaban ${s.distanceToTargetYds} yd` : ""}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Borrar tiro ${s.shotNumber}`}
+                    onClick={() => void borrarShot(s.id)}
+                    className="px-2 text-lg"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+              <p className="text-[11px] text-neutral-500 pt-1">
+                Desde acá se pueden borrar tiros que quedaron con la posición mal (por
+                ejemplo, guardados con el GPS lejos de la cancha) y que no se alcanzan
+                tocándolos en el mapa.
+              </p>
+            </div>
           )}
         </Sheet>
       )}

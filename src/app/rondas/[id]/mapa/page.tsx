@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { loadClubCarries } from "@/lib/club-carries-load";
+import { parsePuttDistances } from "@/lib/putts-derive";
 import MapaTracker, { type HoleMapa } from "./MapaTracker";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,18 @@ export default async function MapaPage({
       },
       players: {
         orderBy: { position: "asc" },
-        include: { player: true, holes: { select: { id: true, holeNumber: true, score: true } } },
+        include: {
+          player: true,
+          holes: {
+            select: {
+              id: true,
+              holeNumber: true,
+              score: true,
+              puttDistancesFt: true,
+              keysBroken: true,
+            },
+          },
+        },
       },
     },
   });
@@ -52,6 +64,18 @@ export default async function MapaPage({
       hcpHoyo: h.hcpHoyo,
       roundHoleId: misHoyos.get(h.number)?.id ?? null,
       tieneScore: misHoyos.get(h.number)?.score != null,
+      // Lo ya cargado, para que la hoja de cierre abra con los datos puestos y no
+      // en blanco: si abriera vacía, volver a guardar te borraría los putts.
+      puttsFt: parsePuttDistances(misHoyos.get(h.number)?.puttDistancesFt) ?? [],
+      keys: (() => {
+        const k = misHoyos.get(h.number)?.keysBroken;
+        return Array.isArray(k) ? (k as number[]) : [];
+      })(),
+      scoresOtros: Object.fromEntries(
+        round.players
+          .filter((rp) => !rp.player.isMe)
+          .map((rp) => [rp.id, rp.holes.find((x) => x.holeNumber === h.number)?.score ?? null]),
+      ),
       green: {
         teeLat: mp?.teeLat ?? null,
         teeLng: mp?.teeLng ?? null,
