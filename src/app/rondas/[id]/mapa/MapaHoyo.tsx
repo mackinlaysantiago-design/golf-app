@@ -324,13 +324,32 @@ export default function MapaHoyo({
           zIndexOffset: 400,
         }),
       );
+      // El objetivo corre SOBRE la línea, no por cualquier lado: así las dos piernas
+      // (hasta el círculo y del círculo al green) siempre suman el largo del hoyo, que
+      // es lo que hace útil el plan. Lo que se arrastra se proyecta sobre el segmento.
+      const sobreLaLinea = (ll: L.LatLng): L.LatLng => {
+        if (!origin || !greenPt) return ll;
+        const [oLat, oLng] = origin;
+        const [gLat, gLng] = greenPt;
+        // Proyección en un plano local: a escala de un hoyo el error es despreciable.
+        const kx = Math.cos((oLat * Math.PI) / 180);
+        const vx = (gLng - oLng) * kx;
+        const vy = gLat - oLat;
+        const wx = (ll.lng - oLng) * kx;
+        const wy = ll.lat - oLat;
+        const len2 = vx * vx + vy * vy;
+        if (len2 < 1e-12) return ll;
+        const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
+        return L.latLng(oLat + vy * t, oLng + (gLng - oLng) * t);
+      };
       asa.on("drag", () => {
-        const ll = asa.getLatLng();
+        const ll = sobreLaLinea(asa.getLatLng());
         aro.setLatLng(ll);
         centro.setLatLng(ll); // si no, el puntito queda clavado hasta que soltás
       });
       asa.on("dragend", () => {
-        const ll = asa.getLatLng();
+        const ll = sobreLaLinea(asa.getLatLng());
+        asa.setLatLng(ll);
         onMoveTarget(ll.lat, ll.lng);
       });
       const centro = add(
