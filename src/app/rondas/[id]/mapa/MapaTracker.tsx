@@ -594,6 +594,7 @@ export default function MapaTracker({
         onMoveTarget={handleMoveTarget}
         onMoveOrigin={handleMoveOrigin}
         onMovePin={handleMovePin}
+        esTee={enElTee}
         onLegsY={setLegsY}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}

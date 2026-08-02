@@ -74,6 +74,7 @@ export default function MapaHoyo({
   originLng,
   targetLat,
   targetLng,
+  esTee,
   caminadoDesdeLat,
   caminadoDesdeLng,
   shots,
@@ -92,6 +93,8 @@ export default function MapaHoyo({
   originLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
+  /** El tiro de salida: el marcador del origen es el TEE, no la pelota. */
+  esTee: boolean;
   /** Desde dónde venís caminando (el último tiro): se dibuja el rastro punteado.
    *  Van como primitivos: un objeto nuevo por render redibujaría todo el mapa. */
   caminadoDesdeLat: number | null;
@@ -438,15 +441,19 @@ export default function MapaHoyo({
     // siempre sirve — reconstruyendo un hoyo desde el sillón, o con señal mala en
     // cancha, hay que poder decir "la bola está acá" y que el tiro salga de ahí.
     if (origin) {
+      // En el tiro de salida el marcador es el TEE; después es la pelota. Los dos se
+      // arrastran, pero se ven distinto para saber qué estás moviendo.
+      const iconoOrigen = esTee
+        ? `<div style="transform:translate(-11px,-11px);width:22px;height:22px;border-radius:6px;
+             background:#fff;border:2px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
+             display:flex;align-items:center;justify-content:center;font-size:13px;
+             line-height:1">🏌</div>`
+        : `<div style="width:18px;height:18px;border-radius:50%;background:#fff;
+             border:3px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
+             transform:translate(-9px,-9px)"></div>`;
       const bola = add(
         L.marker(origin, {
-          icon: L.divIcon({
-            className: "",
-            html: `<div style="width:18px;height:18px;border-radius:50%;background:#fff;
-              border:3px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
-              transform:translate(-9px,-9px)"></div>`,
-            iconSize: [0, 0],
-          }),
+          icon: L.divIcon({ className: "", html: iconoOrigen, iconSize: [0, 0] }),
           draggable: true,
           zIndexOffset: 500,
         }),
@@ -482,7 +489,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveTarget, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, esTee, shots, onMoveTarget, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
 
   // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
   // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe
