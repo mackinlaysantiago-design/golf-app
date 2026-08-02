@@ -105,7 +105,7 @@ export default function MapaTracker({
   // tiro desde el tee en un hoyo que ya tenía tiros.
   const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar">("none");
+  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar" | "salida">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
   // Tiro recién cerrado, esperando que confirmes palo y lie.
@@ -637,6 +637,17 @@ export default function MapaTracker({
         </button>
       </div>
 
+      {/* Ajustar la salida — mismas tres opciones que da H19 */}
+      {enElTee && !round.noDistanceDevice && (
+        <button
+          type="button"
+          onClick={() => setPanel("salida")}
+          className="absolute z-[1000] left-2 bottom-[104px] rounded-full bg-black/60 text-white text-[10px] px-2.5 py-1 backdrop-blur"
+        >
+          salida: {origenManual ? "movida" : "estándar"} ▾
+        </button>
+      )}
+
       {/* Toast de deshacer */}
       {undo && (
         <div className="absolute z-[1000] left-2 right-2 bottom-44">
@@ -769,6 +780,50 @@ export default function MapaTracker({
               No hay plan cargado para {round.courseName}. Solo La Lucila lo tiene.
             </p>
           )}
+        </Sheet>
+      )}
+
+      {panel === "salida" && (
+        <Sheet onClose={() => setPanel("none")} title="Ajustá tu salida">
+          <div className="space-y-2">
+            <p className="text-xs text-neutral-500">
+              El tiro de salida arranca en el tee que tenemos mapeado. Si las marcas
+              están adelantadas o atrasadas, corregilo acá.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setOrigenManual(null);
+                setPanel("none");
+              }}
+              className={`w-full text-left rounded-xl p-3 ${!origenManual ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
+            >
+              <div className="font-semibold text-sm">Dejar la salida estándar</div>
+              <div className="text-[11px] opacity-80">La del mapa de la cancha.</div>
+            </button>
+            <button
+              type="button"
+              disabled={!gpsEnLaCancha}
+              onClick={() => {
+                if (lat != null && lng != null) setOrigenManual({ lat, lng });
+                setPanel("none");
+              }}
+              className="w-full text-left rounded-xl p-3 bg-neutral-100 disabled:opacity-40"
+            >
+              <div className="font-semibold text-sm">Mover a mi posición actual</div>
+              <div className="text-[11px] text-neutral-500">
+                {gpsEnLaCancha
+                  ? "Usás dónde estás parado ahora como tee."
+                  : "Necesita que el GPS te ubique en la cancha."}
+              </div>
+            </button>
+            <div className="rounded-xl p-3 bg-neutral-100">
+              <div className="font-semibold text-sm">Moverla a mano</div>
+              <div className="text-[11px] text-neutral-500">
+                Cerrá esto y arrastrá la pelota en el mapa.
+              </div>
+            </div>
+          </div>
         </Sheet>
       )}
 
