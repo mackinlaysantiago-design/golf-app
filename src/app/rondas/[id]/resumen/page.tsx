@@ -223,18 +223,19 @@ export default async function ResumenPage({
     const sectionHoles = holesForSection(sec);
     return r.players.map((rp) => {
       const { medalCh, stblCh } = chForSection(rp, sec);
-      const medalStrokes = strokesPerHole(medalCh, courseHcpMap);
       const stblStrokes = strokesPerHole(stblCh, courseHcpMap);
-      let bruto = 0, neto = 0, stbl = 0;
+      let bruto = 0, stbl = 0, played = 0;
       for (const h of sectionHoles) {
         const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
         const sc = hd?.score;
         if (sc != null && sc > 0) {
           bruto += sc;
-          neto += sc - (medalStrokes[h.number] ?? 0);
+          played++;
           stbl += stablefordPoints(h.par, sc, stblStrokes[h.number] ?? 0);
         }
       }
+      // Medal: bruto total − CH de la tabla (no por hoyo)
+      const neto = played > 0 ? bruto - medalCh : 0;
       return {
         playerId: rp.id,
         name: rp.player.name,
@@ -271,15 +272,11 @@ export default async function ResumenPage({
       if (pairAR.length !== 2 || pairBR.length !== 2) return null;
 
       const sectionHoles = holesForSection(sec);
-      let mA = 0, mB = 0, medA = 0, medB = 0, sA = 0, sB = 0;
+      let mA = 0, mB = 0, sA = 0, sB = 0;
+      // Medal: acumular brutos por jugador y restar CH al final
+      const brutosA = [0, 0], brutosB = [0, 0];
+      const playedA = [0, 0], playedB = [0, 0];
       for (const h of sectionHoles) {
-        const netForMedal = (rp: typeof pairAR[number]) => {
-          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
-          if (!hd?.score) return null;
-          const { medalCh } = chForSection(rp, sec);
-          const strokes = strokesPerHole(medalCh, courseHcpMap)[h.number] ?? 0;
-          return hd.score - strokes;
-        };
         const netForMatch = (rp: typeof pairAR[number]) => {
           const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
           if (!hd?.score) return null;
@@ -294,17 +291,18 @@ export default async function ResumenPage({
           const strokes = strokesPerHole(stblCh, courseHcpMap)[h.number] ?? 0;
           return stablefordPoints(h.par, hd.score, strokes);
         };
-
-        const medA1 = pairAR.map(netForMedal).filter((n): n is number => n != null);
-        const medB1 = pairBR.map(netForMedal).filter((n): n is number => n != null);
+        pairAR.forEach((rp, i) => {
+          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+          if (hd?.score) { brutosA[i] += hd.score; playedA[i]++; }
+        });
+        pairBR.forEach((rp, i) => {
+          const hd = rp.holes.find((rh) => rh.holeNumber === h.number);
+          if (hd?.score) { brutosB[i] += hd.score; playedB[i]++; }
+        });
         const matA1 = pairAR.map(netForMatch).filter((n): n is number => n != null);
         const matB1 = pairBR.map(netForMatch).filter((n): n is number => n != null);
         sA += pairAR.reduce((s, rp) => s + stblFor(rp), 0);
         sB += pairBR.reduce((s, rp) => s + stblFor(rp), 0);
-        if (medA1.length === 2 && medB1.length === 2) {
-          medA += medA1[0] + medA1[1];
-          medB += medB1[0] + medB1[1];
-        }
         if (matA1.length === 2 && matB1.length === 2) {
           const minA = Math.min(...matA1), maxA = Math.max(...matA1);
           const minB = Math.min(...matB1), maxB = Math.max(...matB1);
@@ -312,6 +310,15 @@ export default async function ResumenPage({
           if (maxA < maxB) mA += 1; else if (maxB < maxA) mB += 1;
         }
       }
+      // Medal parejas: bruto total − CH por jugador
+      const medA = pairAR.reduce((sum, rp, i) => {
+        const { medalCh } = chForSection(rp, sec);
+        return playedA[i] > 0 ? sum + brutosA[i] - medalCh : sum;
+      }, 0);
+      const medB = pairBR.reduce((sum, rp, i) => {
+        const { medalCh } = chForSection(rp, sec);
+        return playedB[i] > 0 ? sum + brutosB[i] - medalCh : sum;
+      }, 0);
       return [
         { label: "Pareja A", playerNames: pairAR.map((rp) => rp.player.name), matchPoints: mA, medalSum: medA, stbl: sA },
         { label: "Pareja B", playerNames: pairBR.map((rp) => rp.player.name), matchPoints: mB, medalSum: medB, stbl: sB },
