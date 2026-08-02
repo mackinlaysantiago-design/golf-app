@@ -271,7 +271,7 @@ export default function MapaTracker({
   const editando = shots.find((s) => s.id === editingShot) ?? null;
 
   return (
-    <div className="fixed inset-0 bg-black">
+    <div className="fixed inset-0 z-50 bg-black">
       <MapaHoyo
         green={info?.green ?? { teeLat: null, teeLng: null, centerLat: null, centerLng: null, frontLat: null, frontLng: null }}
         userLat={lat}
@@ -288,7 +288,7 @@ export default function MapaTracker({
       />
 
       {/* Barra de distancias */}
-      <div className="absolute top-0 left-0 right-0 p-2 flex items-start gap-2 pointer-events-none">
+      <div className="absolute z-[1000] top-0 left-0 right-0 p-2 flex items-start gap-2 pointer-events-none">
         <Link
           href={`/rondas/${round.id}?vista=cards`}
           className="pointer-events-auto rounded-full bg-black/60 text-white text-[11px] px-3 py-2 backdrop-blur"
@@ -305,7 +305,7 @@ export default function MapaTracker({
       </div>
 
       {/* Rail derecho */}
-      <div className="absolute right-2 top-24 flex flex-col gap-2">
+      <div className="absolute z-[1000] right-2 top-24 flex flex-col gap-2">
         <RailBtn label="📋" title="Tarjeta" onClick={() => router.push(`/rondas/${round.id}/scorecard`)} />
         <RailBtn label="🏆" title="Partido" onClick={() => router.push(`/rondas/${round.id}/resumen`)} />
         <RailBtn
@@ -318,7 +318,7 @@ export default function MapaTracker({
       </div>
 
       {/* Estado GPS */}
-      <div className="absolute left-2 top-24 pointer-events-none">
+      <div className="absolute z-[1000] left-2 top-24 pointer-events-none">
         <div className="rounded-full bg-black/60 text-white text-[10px] px-2 py-1 backdrop-blur">
           {gpsError
             ? `GPS: ${gpsError}`
@@ -331,7 +331,7 @@ export default function MapaTracker({
       </div>
 
       {/* Registrar golpe */}
-      <div className="absolute left-2 bottom-24">
+      <div className="absolute z-[1000] left-2 bottom-28">
         <button
           type="button"
           disabled={lat == null || busy}
@@ -350,7 +350,7 @@ export default function MapaTracker({
 
       {/* Toast de deshacer */}
       {undo && (
-        <div className="absolute left-2 right-2 bottom-40">
+        <div className="absolute z-[1000] left-2 right-2 bottom-44">
           <div className="rounded-xl bg-white shadow-xl px-3 py-2 flex items-center gap-2">
             <button
               type="button"
@@ -377,7 +377,7 @@ export default function MapaTracker({
       )}
 
       {/* Selector de hoyo */}
-      <div className="absolute left-0 right-0 bottom-0 bg-white/95 backdrop-blur">
+      <div className="absolute z-[1000] left-0 right-0 bottom-0 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-between px-3 py-2">
           <button type="button" onClick={() => irAHoyo(hole - 1)} className="px-3 text-2xl">
             ‹
@@ -583,7 +583,7 @@ function Sheet({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-20 flex flex-col justify-end" onClick={onClose}>
+    <div className="absolute inset-0 z-[1100] flex flex-col justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
       <div
         className="relative bg-white rounded-t-2xl p-4 max-h-[75vh] overflow-y-auto"

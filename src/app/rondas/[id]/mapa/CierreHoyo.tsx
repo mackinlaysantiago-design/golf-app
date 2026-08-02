@@ -90,7 +90,7 @@ export default function CierreHoyo({
   }
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col justify-end">
+    <div className="absolute inset-0 z-[1200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       <div className="relative bg-white rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
