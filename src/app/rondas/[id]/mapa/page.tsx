@@ -35,6 +35,7 @@ export default async function MapaPage({
               keysBroken: true,
               pinColor: true,
               recoveryMode: true,
+              _count: { select: { shots: true } },
             },
           },
         },
@@ -60,21 +61,27 @@ export default async function MapaPage({
 
   const holes: HoleMapa[] = jugados.map((h) => {
     const mp = puntos.get(h.number);
+    const mio = misHoyos.get(h.number);
+    const putts = parsePuttDistances(mio?.puttDistancesFt);
     return {
       number: h.number,
       par: h.par,
       hcpHoyo: h.hcpHoyo,
-      roundHoleId: misHoyos.get(h.number)?.id ?? null,
-      score: misHoyos.get(h.number)?.score ?? null,
+      roundHoleId: mio?.id ?? null,
+      score: mio?.score ?? null,
       // Lo ya cargado, para que la hoja de cierre abra con los datos puestos y no
       // en blanco: si abriera vacía, volver a guardar te borraría los putts.
-      puttsFt: parsePuttDistances(misHoyos.get(h.number)?.puttDistancesFt) ?? [],
+      puttsFt: putts ?? [],
+      // Distinto de "0 putts": null es que nunca se cargaron. Hace falta para saber
+      // si el hoyo está completo o a medias.
+      puttsCargados: putts != null,
+      tiros: mio?._count.shots ?? 0,
       keys: (() => {
-        const k = misHoyos.get(h.number)?.keysBroken;
+        const k = mio?.keysBroken;
         return Array.isArray(k) ? (k as number[]) : [];
       })(),
-      pinColor: misHoyos.get(h.number)?.pinColor ?? null,
-      recoveryMode: misHoyos.get(h.number)?.recoveryMode ?? null,
+      pinColor: mio?.pinColor ?? null,
+      recoveryMode: mio?.recoveryMode ?? null,
       scoresOtros: Object.fromEntries(
         round.players
           .filter((rp) => !rp.player.isMe)

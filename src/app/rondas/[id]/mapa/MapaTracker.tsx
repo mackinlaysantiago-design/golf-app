@@ -33,6 +33,9 @@ export type HoleMapa = {
   score: number | null;
   /** Lo ya cargado del hoyo, para que la hoja de cierre abra con datos y no en blanco. */
   puttsFt: number[];
+  /** Los putts se cargaron alguna vez (distinto de "hice 0 putts"). */
+  puttsCargados: boolean;
+  tiros: number;
   keys: number[];
   scoresOtros: Record<string, number | null>;
   pinColor: string | null;
@@ -736,19 +739,44 @@ export default function MapaTracker({
       {panel === "holes" && (
         <Sheet onClose={() => setPanel("none")} title="Ir a un hoyo">
           <div className="grid grid-cols-5 gap-2">
-            {holes.map((h) => (
-              <button
-                key={h.number}
-                type="button"
-                onClick={() => {
-                  setHole(h.number);
-                  setPanel("none");
-                }}
-                className={`rounded-xl py-3 font-bold ${h.number === hole ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
-              >
-                {h.number}
-              </button>
-            ))}
+            {holes.map((h) => {
+              // Verde: score y putts cargados, no falta nada.
+              // Amarillo: hay algo (tiros, score o putts) pero está a medias.
+              const completo = h.score != null && h.puttsCargados;
+              const algo = h.tiros > 0 || h.score != null || h.puttsCargados;
+              const fondo =
+                h.number === hole
+                  ? "bg-indigo-600 text-white"
+                  : completo
+                    ? "bg-green-600 text-white"
+                    : algo
+                      ? "bg-amber-400 text-neutral-900"
+                      : "bg-neutral-100";
+              return (
+                <button
+                  key={h.number}
+                  type="button"
+                  onClick={() => {
+                    setHole(h.number);
+                    setPanel("none");
+                  }}
+                  className={`rounded-xl py-3 font-bold ${fondo}`}
+                >
+                  {h.number}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 mt-3 text-[10px] text-neutral-500">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-green-600 inline-block" /> completo
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-amber-400 inline-block" /> a medias
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-neutral-100 border border-neutral-300 inline-block" /> sin cargar
+            </span>
           </div>
         </Sheet>
       )}
