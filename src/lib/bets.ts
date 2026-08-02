@@ -246,15 +246,26 @@ export function computeBetWinner(
 
   const playerScores = players.map((p) => {
     const ch = chForModality(p, modality);
-    const strokes = strokesPerHole(ch, courseHoles);
     let total = 0;
     let played = 0;
-    for (const h of holes) {
-      const s = p.scoresByHole[h.number];
-      if (s == null || s === 0) continue;
-      played++;
-      if (isMedal) total += s - (strokes[h.number] ?? 0);
-      else if (isStbl) total += stablefordPoints(h.par, s, strokes[h.number] ?? 0);
+    if (isMedal) {
+      // Medal: bruto total − CH de la tabla. No importa en qué hoyo cae cada golpe.
+      let bruto = 0;
+      for (const h of holes) {
+        const s = p.scoresByHole[h.number];
+        if (s == null || s === 0) continue;
+        played++;
+        bruto += s;
+      }
+      if (played > 0) total = bruto - ch;
+    } else {
+      const strokes = strokesPerHole(ch, courseHoles);
+      for (const h of holes) {
+        const s = p.scoresByHole[h.number];
+        if (s == null || s === 0) continue;
+        played++;
+        if (isStbl) total += stablefordPoints(h.par, s, strokes[h.number] ?? 0);
+      }
     }
     return { playerId: p.playerId, value: total, played };
   });
