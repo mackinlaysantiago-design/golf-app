@@ -66,12 +66,20 @@ function shotIcon(club: string, yds: string | null) {
   });
 }
 
-function labelIcon(text: string) {
+// Etiqueta de una pierna del plan: la distancia grande y el palo abajo, como H19.
+function legIcon(dist: string, club: string | null) {
   return L.divIcon({
     className: "",
-    html: `<div style="background:#fff;color:#111;border-radius:12px;padding:2px 8px;
-      font-weight:700;font-size:12px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.4);
-      transform:translate(16px,-10px)">${esc(text)}</div>`,
+    html: `<div style="transform:translate(-100%,-50%);margin-left:-14px;text-align:right">
+      <div style="background:#111827;color:#fff;font-weight:800;font-size:17px;
+        padding:2px 9px;border-radius:6px;display:inline-block">${esc(dist)}</div>
+      ${
+        club
+          ? `<div style="background:#4f46e5;color:#fff;font-weight:700;font-size:10px;
+             padding:2px 8px;border-radius:5px;margin-top:2px;display:inline-block">${esc(club)}</div>`
+          : ""
+      }
+    </div>`,
     iconSize: [0, 0],
   });
 }
@@ -84,6 +92,8 @@ export default function MapaHoyo({
   originLng,
   targetLat,
   targetLng,
+  clubHastaTarget,
+  clubTargetAlGreen,
   caminadoDesdeLat,
   caminadoDesdeLng,
   shots,
@@ -100,6 +110,9 @@ export default function MapaHoyo({
   originLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
+  /** Palo que cubre cada pierna del plan: hasta el círculo, y del círculo al green. */
+  clubHastaTarget: string | null;
+  clubTargetAlGreen: string | null;
   /** Desde dónde venís caminando (el último tiro): se dibuja el rastro punteado.
    *  Van como primitivos: un objeto nuevo por render redibujaría todo el mapa. */
   caminadoDesdeLat: number | null;
@@ -268,27 +281,83 @@ export default function MapaHoyo({
       }
     }
 
-    // Línea al target + chapita con la distancia.
-    if (origin && targetLat != null && targetLng != null) {
+    // La línea del plan: de la pelota al CENTRO DEL GREEN, con el círculo del objetivo
+    // en el medio. Como en H19, se muestran las DOS piernas del plan — hasta el círculo
+    // y del círculo al green — cada una con el palo que la cubre. Eso es DECADE: el
+    // tiro de ahora y el de después, decididos juntos.
+    const greenPt: L.LatLngTuple | null =
+      green.centerLat != null && green.centerLng != null ? [green.centerLat, green.centerLng] : null;
+
+    if (origin && greenPt) {
       add(
-        L.polyline([origin, [targetLat, targetLng]], {
+        L.polyline([origin, greenPt], {
           color: "#ffffff",
           weight: 2,
           opacity: 0.9,
           interactive: false,
         }),
       );
-      add(
+    }
+
+    if (origin && targetLat != null && targetLng != null) {
+      // Círculo grande y transparente: se arrastra para mover el objetivo.
+      const aro = add(
         L.circleMarker([targetLat, targetLng], {
-          radius: 9,
+          radius: 26,
           color: "#fff",
           weight: 3,
-          fillColor: "#4f46e5",
-          fillOpacity: 0.9,
+          opacity: 0.95,
+          fillColor: "#fff",
+          fillOpacity: 0.12,
         }),
       );
-      const d = Math.round(yardsBetween(origin[0], origin[1], targetLat, targetLng));
-      add(L.marker([targetLat, targetLng], { icon: labelIcon(`${d} yd`), interactive: false }));
+      aro.on("mousedown", () => undefined); // circleMarker no arrastra: va un marker invisible encima
+      const asa = add(
+        L.marker([targetLat, targetLng], {
+          icon: L.divIcon({
+            className: "",
+            html: '<div style="width:56px;height:56px;transform:translate(-28px,-28px)"></div>',
+            iconSize: [0, 0],
+          }),
+          draggable: true,
+          zIndexOffset: 400,
+        }),
+      );
+      asa.on("drag", () => {
+        const ll = asa.getLatLng();
+        aro.setLatLng(ll);
+        centro.setLatLng(ll); // si no, el puntito queda clavado hasta que soltás
+      });
+      asa.on("dragend", () => {
+        const ll = asa.getLatLng();
+        onMoveTarget(ll.lat, ll.lng);
+      });
+      const centro = add(
+        L.circleMarker([targetLat, targetLng], { radius: 2, color: "#fff", fillOpacity: 1 }),
+      );
+
+      const hastaElAro = Math.round(yardsBetween(origin[0], origin[1], targetLat, targetLng));
+      add(
+        L.marker([targetLat, targetLng], {
+          icon: legIcon(`${hastaElAro} yd`, clubHastaTarget),
+          interactive: false,
+        }),
+      );
+      if (greenPt) {
+        const delAroAlGreen = Math.round(
+          yardsBetween(targetLat, targetLng, greenPt[0], greenPt[1]),
+        );
+        const medio: L.LatLngTuple = [
+          (targetLat + greenPt[0]) / 2,
+          (targetLng + greenPt[1]) / 2,
+        ];
+        add(
+          L.marker(medio, {
+            icon: legIcon(`${delAroAlGreen} yd`, clubTargetAlGreen),
+            interactive: false,
+          }),
+        );
+      }
     }
 
     if (green.centerLat != null && green.centerLng != null) {
@@ -441,7 +510,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveShot, onMoveOrigin, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, clubHastaTarget, clubTargetAlGreen, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveTarget, onMoveShot, onMoveOrigin, onTapShot]);
 
   // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
   // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe

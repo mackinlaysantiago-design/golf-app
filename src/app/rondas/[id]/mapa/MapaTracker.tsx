@@ -105,12 +105,16 @@ export default function MapaTracker({
   // tiro desde el tee en un hoyo que ya tenía tiros.
   const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros">("none");
+  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
+  // Tiro recién cerrado, esperando que confirmes palo y lie.
+  const [confirmar, setConfirmar] = useState<MapaShot | null>(null);
   // Pelota puesta a mano. Se limpia al cambiar de hoyo y al registrar un tiro: cada
   // tiro nuevo vuelve a decidir de dónde sale según el GPS.
   const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
+  // Una vez que movés el círculo, deja de reacomodarse solo.
+  const [objetivoTocado, setObjetivoTocado] = useState(false);
 
   // El RoundHole se crea recién con el primer tiro, así que su id llega en la
   // respuesta del POST y no en las props hasta el próximo render del server.
@@ -177,7 +181,10 @@ export default function MapaTracker({
   useEffect(() => {
     setTarget(centerLat != null && centerLng != null ? { lat: centerLat, lng: centerLng } : null);
     setOrigenManual(null);
+    setObjetivoTocado(false);
   }, [hole, centerLat, centerLng]);
+
+
 
   // Tiros del hoyo.
   const loadShots = useCallback(async () => {
@@ -247,6 +254,19 @@ export default function MapaTracker({
   const origen =
     origenManual ?? (enElTee ? (teePos ?? gpsEnLaCancha) : (gpsEnLaCancha ?? ultimoTarget ?? teePos));
 
+  // Punto sobre la línea origen→green, a `yds` del origen. Sirve para poner el
+  // círculo del objetivo donde llega el palo elegido.
+  function puntoSobreLaLinea(
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number },
+    yds: number,
+  ) {
+    const total = yardsBetween(a.lat, a.lng, b.lat, b.lng);
+    if (total < 1) return b;
+    const t = Math.min(1, yds / total);
+    return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+  }
+
   // Cuánto llevás caminado desde el último tiro. Es el largo que va midiendo el tiro
   // en curso: en H19 ese número crece mientras caminás (64 → 115 → 225 yd) y es lo que
   // te dice cuánto pegaste. La distancia al green la tenés arriba.
@@ -292,6 +312,45 @@ export default function MapaTracker({
     return { ...c, speed: wind.speed, cardinal: cardinalFromDeg(wind.direction) };
   }, [wind, origen, target]);
 
+  // El círculo arranca donde LLEGA el palo con el que vas a pegar: en el tee del 1 el
+  // plan dice 4i, así que el objetivo cae a 188 yd y el resto queda para el approach.
+  // Si el green está más cerca que eso, el objetivo es el green. Se recalcula solo
+  // hasta que lo movés a mano.
+  useEffect(() => {
+    if (objetivoTocado || !origen || centerLat == null || centerLng == null) return;
+    const green = { lat: centerLat, lng: centerLng };
+    const alGreen = yardsBetween(origen.lat, origen.lng, green.lat, green.lng);
+    const planClub = enElTee && plan ? carries.find((c) => c.club === plan.teeClub) : undefined;
+    const alcance = planClub?.carryYds ?? Math.max(...carries.map((c) => c.carryYds), 0);
+    if (!alcance || alGreen <= alcance + 5) {
+      setTarget(green);
+      return;
+    }
+    setTarget(puntoSobreLaLinea(origen, green, alcance));
+    // `origen` cambia con cada tick de GPS; se compara por valor para no re-fijar el
+    // objetivo todo el tiempo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objetivoTocado, origen?.lat, origen?.lng, centerLat, centerLng, enElTee, plan, carries]);
+
+  // Los dos palos del plan: el de ahora (hasta el círculo) y el de después (del
+  // círculo al green). Es la decisión de los dos tiros juntos, que es de lo que se
+  // trata DECADE.
+  const dTargetAlGreen =
+    target && centerLat != null && centerLng != null
+      ? Math.round(yardsBetween(target.lat, target.lng, centerLat, centerLng))
+      : null;
+  const clubHastaTarget = !round.clubSuggestion
+    ? null
+    : enElTee && plan
+      ? plan.teeClub
+      : dTarget != null
+        ? (suggestClub(dTarget, carries)?.pick.club ?? null)
+        : null;
+  const clubTargetAlGreen =
+    !round.clubSuggestion || dTargetAlGreen == null || dTargetAlGreen < 5
+      ? null
+      : (suggestClub(dTargetAlGreen, carries)?.pick.club ?? null);
+
   // ── Acciones ───────────────────────────────────────────────────────────────
   async function registrarGolpe() {
     // Alcanza con tener el origen: en el tee sale de las coordenadas del hoyo, así
@@ -333,11 +392,30 @@ export default function MapaTracker({
         setHoleIdNuevo((m) => ({ ...m, [hole]: d.roundHoleId }));
       }
       setOrigenManual(null);
-      setUndo({
-        id: d.shot.id,
-        label: `${d.shot.club ?? "tiro"} · ${dTarget ?? "?"} yd`,
-        until: Date.now() + UNDO_MS,
-      });
+      // Si se cerró el tiro anterior, ya se sabe CUÁNTO midió. Recién ahí se puede
+      // sugerir con qué palo lo pegaste — por la distancia, no por la que te faltaba.
+      // Se abre la confirmación de ese tiro: aceptás el palo o lo cambiás, y marcás
+      // dónde quedó la pelota.
+      if (d.closed) {
+        // La sugerencia acá es por la distancia MEDIDA, no por la que te faltaba
+        // antes de pegar. Es la forma de deducir con qué palo pegaste.
+        const porDistancia =
+          round.clubSuggestion && d.closed.shotLengthYds != null
+            ? (suggestClub(d.closed.shotLengthYds, carries)?.pick.club ?? null)
+            : null;
+        const cerrado = porDistancia ? { ...d.closed, club: porDistancia } : d.closed;
+        if (porDistancia && porDistancia !== d.closed.club) {
+          void patchShot(d.closed.id, { club: porDistancia });
+        }
+        setConfirmar(cerrado);
+        setPanel("confirmar");
+      } else {
+        setUndo({
+          id: d.shot.id,
+          label: `${d.shot.club ?? "tiro"} · ${dTarget ?? "?"} yd`,
+          until: Date.now() + UNDO_MS,
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -345,6 +423,7 @@ export default function MapaTracker({
 
   const handleMoveTarget = useCallback((la: number, ln: number) => {
     setTarget({ lat: la, lng: ln });
+    setObjetivoTocado(true);
   }, []);
   const handleMoveOrigin = useCallback((la: number, ln: number) => {
     setOrigenManual({ lat: la, lng: ln });
@@ -436,6 +515,8 @@ export default function MapaTracker({
         originLng={origen?.lng ?? null}
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
+        clubHastaTarget={clubHastaTarget}
+        clubTargetAlGreen={clubTargetAlGreen}
         shots={shots}
         caminadoDesdeLat={gpsEnLaCancha ? (ultimoTiro?.fromLat ?? null) : null}
         caminadoDesdeLng={gpsEnLaCancha ? (ultimoTiro?.fromLng ?? null) : null}
@@ -688,6 +769,74 @@ export default function MapaTracker({
               No hay plan cargado para {round.courseName}. Solo La Lucila lo tiene.
             </p>
           )}
+        </Sheet>
+      )}
+
+      {panel === "confirmar" && confirmar && (
+        <Sheet
+          onClose={() => {
+            setPanel("none");
+            setConfirmar(null);
+          }}
+          title={
+            confirmar.shotLengthYds != null
+              ? `Pegaste ${confirmar.shotLengthYds} yd`
+              : `Tiro ${confirmar.shotNumber}`
+          }
+        >
+          <div className="space-y-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                ¿Con qué palo? {round.clubSuggestion && "— sugerido por la distancia"}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {carries.map((c) => (
+                  <button
+                    key={c.club}
+                    type="button"
+                    onClick={() => {
+                      setConfirmar({ ...confirmar, club: c.club });
+                      void patchShot(confirmar.id, { club: c.club });
+                    }}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs ${confirmar.club === c.club ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
+                  >
+                    {c.club}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                ¿Dónde quedó la pelota?
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {LIES.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => {
+                      setConfirmar({ ...confirmar, lie: l });
+                      void patchShot(confirmar.id, { lie: l });
+                    }}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs ${confirmar.lie === l ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel("none");
+                setConfirmar(null);
+              }}
+              className="w-full rounded-xl py-3 font-bold text-white"
+              style={{ background: "#4f46e5" }}
+            >
+              Listo
+            </button>
+          </div>
         </Sheet>
       )}
 
