@@ -289,6 +289,10 @@ model RoundHole {
   firstPuttDistanceFt    Int? // largo del 1er putt en ft
   puttMadeDistanceFt     Int? // largo del putt embocado
   puttsInside1PuttCircle Int?
+  // Distancia de CADA putt en ft, en orden (1er putt, 2do, 3ro...). Fuente de verdad
+  // desde 02/08/2026: los 4 campos de arriba se DERIVAN de acá (lib/putts-derive.ts).
+  // null en rondas viejas → se sigue leyendo de los campos legacy.
+  puttDistancesFt        Json?
   score                  Int? // golpes totales del hoyo
   // The Scoring Method — Level 2
   penaltyStrokes         Int? // golpes de penalidad en el hoyo (key #2)

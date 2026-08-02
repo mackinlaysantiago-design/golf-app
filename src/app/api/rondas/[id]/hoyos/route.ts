@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { derivePutts } from "@/lib/putts-derive";
+
+// Campo Json: `undefined` = no lo toques, `DbNull` = borralo. Distinguirlos importa
+// porque si el hoyo se limpia, el array y los campos derivados tienen que irse juntos.
+const puttJson = (v: number[] | null | undefined) =>
+  v === undefined ? undefined : v === null ? Prisma.DbNull : v;
 
 const HoleEntrySchema = z.object({
   roundPlayerId: z.string(),
@@ -12,6 +19,9 @@ const HoleEntrySchema = z.object({
   firstPuttDistanceFt: z.number().int().nullable().optional(),
   puttMadeDistanceFt: z.number().int().nullable().optional(),
   puttsInside1PuttCircle: z.number().int().nullable().optional(),
+  // Distancia de cada putt en ft, en orden. Cuando viene, MANDA: el server deriva
+  // los 4 campos de arriba y pisa lo que haya mandado el cliente.
+  puttDistancesFt: z.array(z.number().int().min(0).max(200)).max(10).nullable().optional(),
   score: z.number().int().nullable().optional(),
   penaltyStrokes: z.number().int().nullable().optional(),
   keysBroken: z.array(z.number().int().min(1).max(10)).nullable().optional(),
@@ -48,8 +58,25 @@ export async function PUT(
     );
   }
 
+  // El círculo se configura por ronda; hace falta para derivar puttsInside1PuttCircle.
+  const round = await prisma.round.findUnique({
+    where: { id },
+    select: { onePuttCircleFt: true },
+  });
+  if (!round) {
+    return NextResponse.json({ error: "ronda no encontrada" }, { status: 404 });
+  }
+
+  // Cuando el hoyo trae las distancias por putt, esas mandan: los 4 campos legacy se
+  // derivan acá y se guardan igual, para que stats / Tiger 5 / keys / resumen / el bot
+  // de coach sigan leyendo lo de siempre sin enterarse del cambio.
+  const entries = parsed.entries.map((e) => {
+    if (e.puttDistancesFt == null) return e;
+    return { ...e, ...derivePutts(e.puttDistancesFt, round.onePuttCircleFt) };
+  });
+
   await prisma.$transaction(
-    parsed.entries.map((e) =>
+    entries.map((e) =>
       prisma.roundHole.upsert({
         where: {
           roundPlayerId_holeNumber: {
@@ -68,6 +95,7 @@ export async function PUT(
           firstPuttDistanceFt: e.firstPuttDistanceFt ?? null,
           puttMadeDistanceFt: e.puttMadeDistanceFt ?? null,
           puttsInside1PuttCircle: e.puttsInside1PuttCircle ?? null,
+          puttDistancesFt: puttJson(e.puttDistancesFt),
           score: e.score ?? null,
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,
@@ -85,6 +113,7 @@ export async function PUT(
           firstPuttDistanceFt: e.firstPuttDistanceFt ?? null,
           puttMadeDistanceFt: e.puttMadeDistanceFt ?? null,
           puttsInside1PuttCircle: e.puttsInside1PuttCircle ?? null,
+          puttDistancesFt: puttJson(e.puttDistancesFt),
           score: e.score ?? null,
           penaltyStrokes: e.penaltyStrokes ?? null,
           keysBroken: e.keysBroken ?? undefined,

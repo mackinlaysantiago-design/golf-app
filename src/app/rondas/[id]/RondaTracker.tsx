@@ -9,6 +9,7 @@ import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
 import ScoreMark from "@/components/ui/ScoreMark";
 import { SM_KEYS } from "@/lib/sm-keys";
+import { parsePuttDistances, derivePutts } from "@/lib/putts-derive";
 import {
   findGoalByConfig,
   findGoalByLabel,
@@ -37,6 +38,7 @@ type RoundHoleData = {
   firstPuttDistanceFt: number | null;
   puttMadeDistanceFt: number | null;
   puttsInside1PuttCircle: number | null;
+  puttDistancesFt: unknown; // JsonValue desde Prisma — array de ft, un valor por putt
   score: number | null;
   penaltyStrokes: number | null;
   keysBroken: unknown; // JsonValue desde Prisma — se cast a number[] al usar
@@ -119,6 +121,10 @@ export default function RondaTracker({
 
   // Estado local: { roundPlayerId: { holeNumber: { field: value } } }
   type CellValues = Partial<Record<FieldKey, number | null>> & {
+    // Fuente de verdad de los putts: un valor (en ft) por putt, en orden.
+    // Los 4 campos legacy se derivan de acá — en el cliente para que la UI reaccione
+    // al toque, y de nuevo en el server al guardar (ahí manda el server).
+    puttDistancesFt?: number[] | null;
     keysBroken?: number[] | null;
     targetGoal?: string | null;
     pinColor?: "GREEN" | "YELLOW" | "RED" | null;
@@ -141,6 +147,7 @@ export default function RondaTracker({
           firstPuttDistanceFt: h.firstPuttDistanceFt,
           puttMadeDistanceFt: h.puttMadeDistanceFt,
           puttsInside1PuttCircle: h.puttsInside1PuttCircle,
+          puttDistancesFt: parsePuttDistances(h.puttDistancesFt),
           score: h.score,
           penaltyStrokes: h.penaltyStrokes,
           keysBroken: Array.isArray(h.keysBroken) ? (h.keysBroken as number[]) : null,
@@ -175,6 +182,7 @@ export default function RondaTracker({
       c.firstPuttDistanceFt != null ||
       c.puttMadeDistanceFt != null ||
       c.puttsInside1PuttCircle != null ||
+      Array.isArray(c.puttDistancesFt) ||
       c.penaltyStrokes != null ||
       (Array.isArray(c.keysBroken) && c.keysBroken.length > 0) ||
       c.targetGoal != null ||
@@ -268,8 +276,24 @@ export default function RondaTracker({
 
   // Putts en PASOS en la UI (1 paso = 3 ft = 1 yd); la DB sigue en ft para no
   // romper las stats históricas ni los thresholds (1PC, buckets, SG).
-  const ftToPasos = (ft: number | null | undefined) => (ft == null ? null : Math.round(ft / 3));
-  const pasosToFt = (v: string) => (v === "" ? "" : String((parseInt(v) || 0) * 3));
+  // La conversión vive en PuttsField (único lugar donde se cargan putts ahora).
+
+  // Cargar la distancia de CADA putt reemplaza a los 4 campos que se cargaban a mano.
+  // Acá se derivan en el cliente para que la UI (flags, mismatch de score, resumen)
+  // reaccione en el acto; el server vuelve a derivar al guardar y esa es la que vale.
+  function setPuttDistances(rpId: string, hole: number, distancesFt: number[]) {
+    setData((prev) => {
+      const cur = prev[rpId]?.[hole] ?? {};
+      const d = derivePutts(distancesFt, round.onePuttCircleFt);
+      return {
+        ...prev,
+        [rpId]: {
+          ...prev[rpId],
+          [hole]: { ...cur, puttDistancesFt: distancesFt, ...d },
+        },
+      };
+    });
+  }
 
   // El score debería ser Enter SZ + Inside SZ — si no coincide, alertar en rojo.
   function scoreMismatch(cells: CellValues): boolean {
@@ -1282,38 +1306,22 @@ export default function RondaTracker({
                         onChange={(v) => setCell(rp.id, currentHole, "strokesInsideSz", v)}
                       />
                       <NumField
-                        label="Putts"
-                        value={cells.putts ?? null}
-                        onChange={(v) => setCell(rp.id, currentHole, "putts", v)}
-                      />
-                      <NumField
-                        label="1st putt (pasos)"
-                        value={ftToPasos(cells.firstPuttDistanceFt)}
-                        onChange={(v) =>
-                          setCell(rp.id, currentHole, "firstPuttDistanceFt", pasosToFt(v))
-                        }
-                      />
-                      <NumField
-                        label="Putt embocado (pasos)"
-                        value={ftToPasos(cells.puttMadeDistanceFt)}
-                        onChange={(v) =>
-                          setCell(rp.id, currentHole, "puttMadeDistanceFt", pasosToFt(v))
-                        }
-                      />
-                      <NumField
-                        label={`Putts dentro 1PC (${Math.max(1, Math.round(round.onePuttCircleFt / 3))} paso${Math.round(round.onePuttCircleFt / 3) > 1 ? "s" : ""})`}
-                        value={cells.puttsInside1PuttCircle ?? null}
-                        onChange={(v) =>
-                          setCell(rp.id, currentHole, "puttsInside1PuttCircle", v)
-                        }
-                      />
-                      <NumField
                         label="Penalidades"
                         value={cells.penaltyStrokes ?? null}
                         onChange={(v) => setCell(rp.id, currentHole, "penaltyStrokes", v)}
                         isLast
                       />
                     </div>
+                    <PuttsField
+                      distancesFt={cells.puttDistancesFt ?? null}
+                      onePuttCircleFt={round.onePuttCircleFt}
+                      onChange={(arr) => setPuttDistances(rp.id, currentHole, arr)}
+                      legacy={{
+                        putts: cells.putts ?? null,
+                        firstPuttDistanceFt: cells.firstPuttDistanceFt ?? null,
+                        puttMadeDistanceFt: cells.puttMadeDistanceFt ?? null,
+                      }}
+                    />
                     {scoreMismatch(cells) && (
                       <div
                         className="text-[11px] font-bold rounded p-1.5 text-center"
@@ -1492,6 +1500,159 @@ function NumField({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={focusNext}
       />
+    </div>
+  );
+}
+
+// Carga de putts: un input de PASOS por putt, en orden. De acá salen los 4 campos que
+// antes se cargaban a mano (putts, 1er putt, putt embocado, putts dentro del 1PC).
+// Con 3 putts la distancia del putt del medio no se puede inferir de ningún lado —
+// por eso se carga cada uno y no hay nada que adivinar.
+const ORDINAL_PUTT = ["1er", "2do", "3ro", "4to", "5to", "6to"];
+
+function PuttsField({
+  distancesFt,
+  onePuttCircleFt,
+  onChange,
+  legacy,
+}: {
+  distancesFt: number[] | null;
+  onePuttCircleFt: number;
+  onChange: (arr: number[]) => void;
+  legacy: {
+    putts: number | null;
+    firstPuttDistanceFt: number | null;
+    puttMadeDistanceFt: number | null;
+  };
+}) {
+  const list = distancesFt ?? [];
+  const circlePasos = Math.max(1, Math.round(onePuttCircleFt / 3));
+  const inside = list.filter((d) => d <= onePuttCircleFt).length;
+
+  // Texto en curso de cada input. Sin esto, borrar con backspace para retipear
+  // reescribe un 0 al instante y no te deja vaciar el campo (mismo bug que rompió
+  // los inputs de práctica en julio). El array se actualiza igual mientras tanto.
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  const commit = (next: number[]) => {
+    setDraft({}); // los índices se corren al agregar o borrar: los drafts dejan de valer
+    onChange(next);
+  };
+
+  // Hoyo viejo, cargado antes de que existiera el array: mostrar lo que hay para no
+  // perderlo de vista. Con 1 o 2 putts se puede reconstruir exacto; con 3+ no.
+  const showLegacy = distancesFt == null && legacy.putts != null;
+  // Con 0 putts no hay distancia que copiar y el array correcto es []; con 1 o 2 se
+  // reconstruye exacto. Con 3+ no, porque falta la distancia del putt del medio.
+  const canSeed =
+    showLegacy &&
+    legacy.putts != null &&
+    legacy.putts <= 2 &&
+    (legacy.putts === 0 || legacy.puttMadeDistanceFt != null);
+
+  function seed() {
+    if (legacy.putts === 0) return commit([]);
+    if (legacy.putts === 1) return commit([legacy.puttMadeDistanceFt!]);
+    commit([legacy.firstPuttDistanceFt ?? legacy.puttMadeDistanceFt!, legacy.puttMadeDistanceFt!]);
+  }
+
+  // Tipear NO reordena ni cambia la cantidad de putts, así que el draft se mantiene.
+  const setAt = (i: number, pasos: string) => {
+    setDraft((d) => ({ ...d, [i]: pasos }));
+    const n = parseInt(pasos);
+    const next = [...list];
+    next[i] = Number.isFinite(n) && n > 0 ? n * 3 : 0;
+    onChange(next);
+  };
+
+  return (
+    <div className="pt-2 border-t border-[var(--green-pale)]">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+          Putts (pasos, uno por putt)
+        </span>
+        {list.length > 0 && (
+          <span className="text-[10px] text-[var(--muted)]">
+            {list.length} putt{list.length === 1 ? "" : "s"} · {inside} dentro del círculo (
+            {circlePasos} paso{circlePasos > 1 ? "s" : ""})
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2 mt-1">
+        {list.map((ft, i) => (
+          <div key={i} className="w-[68px]">
+            <label className="text-[9px] uppercase tracking-wider text-[var(--muted)] flex items-center justify-between">
+              {ORDINAL_PUTT[i] ?? `${i + 1}º`}
+              <button
+                type="button"
+                aria-label={`Borrar ${ORDINAL_PUTT[i] ?? i + 1} putt`}
+                onClick={() => commit(list.filter((_, j) => j !== i))}
+                className="text-[var(--muted)] px-1 leading-none"
+              >
+                ×
+              </button>
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="gf-input gf-numfield mt-0.5 text-center"
+              value={draft[i] ?? String(Math.round(ft / 3))}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setAt(i, e.target.value)}
+              onBlur={() =>
+                setDraft((d) => {
+                  const c = { ...d };
+                  delete c[i];
+                  return c;
+                })
+              }
+            />
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => commit([...list, 0])}
+          className="gf-pill gf-pill-accent mb-1"
+        >
+          + putt
+        </button>
+
+        {list.length === 0 &&
+          (distancesFt == null ? (
+            !showLegacy && (
+              <button
+                type="button"
+                onClick={() => commit([])}
+                className="gf-pill mb-1"
+                title="El hoyo se terminó sin putts (embocaste de afuera del green)"
+              >
+                0 putts
+              </button>
+            )
+          ) : (
+            // Ya quedó registrado que no hubo putts. Para cambiarlo está "+ putt" al lado.
+            <span className="gf-pill mb-1">0 putts · embocaste de afuera</span>
+          ))}
+      </div>
+
+      {showLegacy && (
+        <div className="text-[10px] text-[var(--muted)] mt-1 flex items-center gap-2 flex-wrap">
+          <span>
+            Cargado antes: {legacy.putts} putt{legacy.putts === 1 ? "" : "s"}
+            {legacy.firstPuttDistanceFt != null &&
+              ` · 1er ${Math.round(legacy.firstPuttDistanceFt / 3)} pasos`}
+            {legacy.puttMadeDistanceFt != null &&
+              ` · embocado ${Math.round(legacy.puttMadeDistanceFt / 3)} pasos`}
+          </span>
+          {canSeed && (
+            <button type="button" onClick={seed} className="underline">
+              pasar a la carga nueva
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
