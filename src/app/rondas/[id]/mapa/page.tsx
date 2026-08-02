@@ -32,6 +32,7 @@ export default async function MapaPage({
               holeNumber: true,
               score: true,
               puttDistancesFt: true,
+              putts: true,
               keysBroken: true,
               pinColor: true,
               recoveryMode: true,
@@ -73,8 +74,10 @@ export default async function MapaPage({
       // en blanco: si abriera vacía, volver a guardar te borraría los putts.
       puttsFt: putts ?? [],
       // Distinto de "0 putts": null es que nunca se cargaron. Hace falta para saber
-      // si el hoyo está completo o a medias.
-      puttsCargados: putts != null,
+      // si el hoyo está completo o a medias. Las rondas viejas tienen los putts en el
+      // campo legacy y no en el array: también cuentan como cargados, si no una vuelta
+      // entera cargada a mano aparecería toda a medias.
+      puttsCargados: putts != null || mio?.putts != null,
       tiros: mio?._count.shots ?? 0,
       keys: (() => {
         const k = mio?.keysBroken;
