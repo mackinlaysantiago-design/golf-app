@@ -188,6 +188,15 @@ model Round {
   downInSzStrokes      Int       @default(3) // golpes desde SZ que define "Down in SZ"
   onePuttCircleFt      Int       @default(6) // ft del 1-putt circle
   twoPuttCircleYds     Int       @default(20) // yds del 2-putt circle (para distribución putt)
+
+  // Modo torneo: apaga todo lo que la Regla 4.3a haría ilegal — sugerencia de palo
+  // (4.3a(1): "club selection based on the location of the player's ball"), viento y
+  // plays-like (4.3a(1): medir condiciones), y la elipse de dispersión sobre la línea
+  // (línea de juego recomendada). Penalidad: general la 1ª vez, DESCALIFICACIÓN la 2ª.
+  tournamentMode   Boolean @default(false)
+  // Algunos torneos prohíben los medidores por Regla Local (Model Local Rule G-5):
+  // ahí ni las distancias se pueden mirar.
+  noDistanceDevice Boolean @default(false)
   // 4P parejas
   pairs                String? // JSON: [["playerId1","playerId2"],["playerId3","playerId4"]]
   notes                String?

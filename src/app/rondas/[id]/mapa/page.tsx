@@ -100,6 +100,8 @@ export default async function MapaPage({
         courseName: round.course.name,
         onePuttCircleFt: round.onePuttCircleFt,
         enterSzYds: round.enterSzYds,
+        tournamentMode: round.tournamentMode,
+        noDistanceDevice: round.noDistanceDevice,
         meRoundPlayerId: me.id,
         // Se manda el roundPlayerId como id: la hoja de cierre guarda por jugador
         // de la ronda, no por Player global.

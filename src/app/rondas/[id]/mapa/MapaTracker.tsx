@@ -15,6 +15,8 @@ import dynamic from "next/dynamic";
 import { yardsBetween } from "@/lib/geo";
 import { suggestClub, type ClubCarry } from "@/lib/shot-gps";
 import { holePlan } from "@/lib/plan-cancha";
+import { useWind } from "@/lib/use-wind";
+import { bearingDeg, windComponents, cardinalFromDeg } from "@/lib/wind-math";
 import { deviationIsMeaningful } from "@/lib/shot-geometry";
 import type { MapaShot, MapaGreen } from "./MapaHoyo";
 import DatosHoyo from "./DatosHoyo";
@@ -44,6 +46,11 @@ export type RoundMapa = {
   courseName: string;
   onePuttCircleFt: number;
   enterSzYds: number;
+  /** Regla 4.3a(1): en torneo no se puede sugerir palo, medir viento ni ajustar por
+   *  condiciones. Penalidad general la 1ª vez, descalificación la 2ª. */
+  tournamentMode: boolean;
+  /** Regla Local G-5: el torneo prohíbe medidores, así que ni las distancias van. */
+  noDistanceDevice: boolean;
   meRoundPlayerId: string;
   players: PlayerLite[];
 };
@@ -228,11 +235,27 @@ export default function MapaTracker({
   // el 1 y tu plan dice 4i porque con driver te pasás. Del segundo golpe en adelante
   // manda el cálculo por carry medido.
   const sugerido = useMemo(() => {
+    // Regla 4.3a(1): "club selection based on the location of the player's ball" no
+    // está permitido. El plan de cancha SÍ, porque es información de antes de la
+    // vuelta (4.3a(3)) — pero se muestra en la hoja del plan, no pegado a la distancia.
+    if (round.tournamentMode) return null;
     if (enElTee && plan) return { club: plan.teeClub, fuente: "plan" as const };
     if (dTarget == null) return null;
     const s = suggestClub(dTarget, carries);
     return s ? { club: s.pick.club, alt: s.alt?.club, fuente: "carry" as const } : null;
-  }, [enElTee, plan, dTarget, carries]);
+  }, [round.tournamentMode, enElTee, plan, dTarget, carries]);
+
+  // Viento (Open-Meteo, sin API key). Apagado en torneo: la Regla 4.3a(1) prohíbe
+  // usar un dispositivo para medir condiciones que afecten el juego.
+  // Se pide el viento de donde está la PELOTA, no del teléfono: si estás
+  // reconstruyendo el hoyo desde otro lado, el viento de tu casa no sirve de nada.
+  const wind = useWind(!round.tournamentMode, origen?.lat ?? null, origen?.lng ?? null);
+  const viento = useMemo(() => {
+    if (!wind || !origen || !target) return null;
+    const rumbo = bearingDeg(origen.lat, origen.lng, target.lat, target.lng);
+    const c = windComponents(wind.direction, wind.speed, rumbo);
+    return { ...c, speed: wind.speed, cardinal: cardinalFromDeg(wind.direction) };
+  }, [wind, origen, target]);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
   async function registrarGolpe() {
@@ -392,12 +415,19 @@ export default function MapaTracker({
           ‹ cards
         </Link>
         <div className="flex-1" />
-        <div className="rounded-2xl bg-white/95 px-3 py-1.5 text-right shadow-lg">
-          <div className="text-3xl font-black leading-none tabular-nums">{dCenter ?? "—"}</div>
-          <div className="text-[10px] text-neutral-600 leading-tight">
-            frente {dFront ?? "—"} · centro
+        {round.noDistanceDevice ? (
+          <div className="rounded-2xl bg-red-600 text-white px-3 py-1.5 text-right shadow-lg">
+            <div className="text-xs font-black leading-tight">SIN MEDIDOR</div>
+            <div className="text-[10px] leading-tight opacity-90">Regla local del torneo</div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-2xl bg-white/95 px-3 py-1.5 text-right shadow-lg">
+            <div className="text-3xl font-black leading-none tabular-nums">{dCenter ?? "—"}</div>
+            <div className="text-[10px] text-neutral-600 leading-tight">
+              frente {dFront ?? "—"} · centro
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Rail derecho */}
@@ -432,6 +462,33 @@ export default function MapaTracker({
         </div>
       </div>
 
+      {/* Viento — solo fuera de torneo (Regla 4.3a(1)) */}
+      {viento && (
+        <div className="absolute z-[1000] left-2 top-36 pointer-events-none">
+          <div className="rounded-xl bg-black/65 text-white px-2.5 py-1.5 backdrop-blur text-[11px] leading-tight">
+            <div className="font-bold">
+              {Math.round(viento.speed)} km/h {viento.cardinal}
+            </div>
+            <div className="opacity-90">
+              {Math.abs(viento.head) < 1
+                ? "sin componente"
+                : viento.head > 0
+                  ? `${Math.round(viento.head)} en contra`
+                  : `${Math.round(-viento.head)} a favor`}
+              {viento.cross >= 1 && ` · ${Math.round(viento.cross)} de ${viento.crossSide}`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {round.tournamentMode && (
+        <div className="absolute z-[1000] left-2 top-36 pointer-events-none">
+          <div className="rounded-full bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 shadow">
+            MODO TORNEO · sin palo ni viento
+          </div>
+        </div>
+      )}
+
       {/* Registrar golpe */}
       <div className="absolute z-[1000] left-2 bottom-28">
         <button
@@ -447,7 +504,9 @@ export default function MapaTracker({
               ? "cargando los tiros del hoyo…"
               : !origen
                 ? "esperando señal de GPS…"
-              : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${
+              : round.noDistanceDevice
+                ? "marcá dónde está la pelota"
+                : `${dTarget ?? "—"} yd${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
                     ? " · pelota a mano"
                     : sugerido?.fuente === "plan"

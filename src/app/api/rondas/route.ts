@@ -14,6 +14,8 @@ const RoundSchema = z.object({
   downInSzStrokes: z.number().int().min(1).max(10),
   onePuttCircleFt: z.number().int().min(1).max(30),
   twoPuttCircleYds: z.number().int().min(1).max(50),
+  tournamentMode: z.boolean().optional(),
+  noDistanceDevice: z.boolean().optional(),
   pairs: z.array(z.array(z.string())).optional(),
   notes: z.string().nullable().optional(),
   bets: z
@@ -77,6 +79,8 @@ export async function POST(req: NextRequest) {
       downInSzStrokes: parsed.downInSzStrokes,
       onePuttCircleFt: parsed.onePuttCircleFt,
       twoPuttCircleYds: parsed.twoPuttCircleYds,
+      tournamentMode: parsed.tournamentMode ?? false,
+      noDistanceDevice: parsed.noDistanceDevice ?? false,
       pairs: parsed.pairs ? JSON.stringify(parsed.pairs) : null,
       notes: parsed.notes ?? null,
       players: {

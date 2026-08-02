@@ -71,6 +71,8 @@ export default function NuevaRondaClient({
   const [downInSzStrokes, setDownInSzStrokes] = useState("3");
   const [onePuttCircleFt, setOnePuttCircleFt] = useState("6");
   const [twoPuttCircleYds, setTwoPuttCircleYds] = useState("20");
+  const [tournamentMode, setTournamentMode] = useState(false);
+  const [noDistanceDevice, setNoDistanceDevice] = useState(false);
 
   useEffect(() => {
     if (!me) return;
@@ -245,6 +247,8 @@ export default function NuevaRondaClient({
       downInSzStrokes: parseInt(downInSzStrokes) || 3,
       onePuttCircleFt: parseInt(onePuttCircleFt) || 6,
       twoPuttCircleYds: parseInt(twoPuttCircleYds) || 20,
+      tournamentMode,
+      noDistanceDevice,
       bets: expandBets(),
       pairs:
         mode === "FOUR_P" && pairs === "parejas"
@@ -730,6 +734,47 @@ export default function NuevaRondaClient({
               </div>
             </details>
           </Card>
+
+          <SectionHeader>Competencia</SectionHeader>
+          <Card className="space-y-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={tournamentMode}
+                onChange={(e) => {
+                  setTournamentMode(e.target.checked);
+                  if (!e.target.checked) setNoDistanceDevice(false);
+                }}
+              />
+              <span className="text-sm">
+                <strong>Modo torneo</strong>
+                <span className="block text-xs text-[var(--muted)] mt-0.5">
+                  Apaga todo lo que la Regla 4.3a haría ilegal: sugerencia de palo, viento
+                  y plays-like. Quedan las distancias y tu plan de cancha, que sí están
+                  permitidos. Primera infracción es penalidad general; la segunda,
+                  descalificación.
+                </span>
+              </span>
+            </label>
+            {tournamentMode && (
+              <label className="flex items-start gap-3 pl-6">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={noDistanceDevice}
+                  onChange={(e) => setNoDistanceDevice(e.target.checked)}
+                />
+                <span className="text-sm">
+                  El torneo <strong>prohíbe medidores</strong> (Regla Local G-5)
+                  <span className="block text-xs text-[var(--muted)] mt-0.5">
+                    Oculta también las distancias GPS. Solo queda registrar tiros y el score.
+                  </span>
+                </span>
+              </label>
+            )}
+          </Card>
+
           <div className="flex gap-2">
             <button
               onClick={() => setStep(mode === "SOLO" ? 3 : 4)}
