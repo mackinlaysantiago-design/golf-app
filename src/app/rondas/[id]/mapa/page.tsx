@@ -36,6 +36,8 @@ export default async function MapaPage({
               keysBroken: true,
               pinColor: true,
               recoveryMode: true,
+              pinLat: true,
+              pinLng: true,
               _count: { select: { shots: true } },
             },
           },
@@ -93,8 +95,10 @@ export default async function MapaPage({
       green: {
         teeLat: mp?.teeLat ?? null,
         teeLng: mp?.teeLng ?? null,
-        centerLat: mp?.centerLat ?? null,
-        centerLng: mp?.centerLng ?? null,
+        // Si movieron la bandera ese día, manda el pin: de él dependen todas las
+        // distancias. Si no, el centro del green del mapa de la cancha.
+        centerLat: mio?.pinLat ?? mp?.centerLat ?? null,
+        centerLng: mio?.pinLng ?? mp?.centerLng ?? null,
         frontLat: mp?.frontLat ?? null,
         frontLng: mp?.frontLng ?? null,
       },

@@ -108,7 +108,7 @@ export default function MapaTracker({
   // tiro desde el tee en un hoyo que ya tenía tiros.
   const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar" | "salida">("none");
+  const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar" | "salida" | "putts">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
   // Tiro recién cerrado, esperando que confirmes palo y lie.
@@ -118,6 +118,15 @@ export default function MapaTracker({
   const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
   // Una vez que movés el círculo, deja de reacomodarse solo.
   const [objetivoTocado, setObjetivoTocado] = useState(false);
+  // Altura en pantalla del medio de cada pierna: los carteles quedan pegados al borde
+  // izquierdo pero suben y bajan siguiendo su tramo, como en H19.
+  const [legsY, setLegsY] = useState<{ uno: number | null; dos: number | null }>({
+    uno: null,
+    dos: null,
+  });
+  // En la cancha la señal se corta: si un guardado falla hay que decirlo, si no creés
+  // que quedó cargado y no quedó.
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
   // El RoundHole se crea recién con el primer tiro, así que su id llega en la
   // respuesta del POST y no en las props hasta el próximo render del server.
@@ -216,6 +225,15 @@ export default function MapaTracker({
     void loadShots();
   }, [loadShots]);
 
+  // Limpiar al cambiar de hoyo, además de recargar. Depender solo de la identidad de
+  // loadShots dejaba los tiros del hoyo anterior en pantalla si el camino de cambio
+  // no alteraba el roundHoleId a tiempo — pasó en cancha: el hoyo 2 mostraba el drive
+  // del hoyo 1 y la app creía que ya no estabas en el tee.
+  useEffect(() => {
+    setShots([]);
+    setShotsListos(false);
+  }, [hole]);
+
   useEffect(() => {
     if (!undo) return;
     const t = setTimeout(() => setUndo(null), Math.max(0, undo.until - Date.now()));
@@ -241,6 +259,8 @@ export default function MapaTracker({
   //  3. Tu GPS, si te pone en la cancha: ahí sí estás parado en la pelota.
   //  4. Si el GPS te pone lejos, la pelota arranca donde apuntaste el tiro anterior
   //     ("asumo que fue adonde apunté") y la corregís arrastrándola.
+  // Con la pelota en el green ya no se registran tiros: se cargan putts. Igual que H19,
+  // que cambia el botón a "Añadir putts".
   const enElTee = shots.length === 0;
   const teePos =
     infoBase?.green.teeLat != null && infoBase.green.teeLng != null
@@ -282,6 +302,10 @@ export default function MapaTracker({
     gpsEnLaCancha
       ? Math.round(yardsBetween(ultimoTiro.fromLat, ultimoTiro.fromLng, lat, lng))
       : null;
+
+  // Con la pelota en el green ya no se registran tiros: se cargan putts. Igual que
+  // H19, que cambia el botón a "Añadir putts".
+  const enElGreen = ultimoTiro?.lie === "Green";
 
   // La distancia del tiro se mide desde ese origen, no desde el GPS.
   const dTarget =
@@ -355,6 +379,32 @@ export default function MapaTracker({
       : (suggestClub(dTargetAlGreen, carries)?.pick.club ?? null);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
+
+  // Guarda solo la CANTIDAD de putts (distancias en 0). Las distancias en pasos se
+  // completan en el panel de datos al salir del hoyo, que es cuando te las acordás.
+  async function guardarCantidadPutts(n: number) {
+    try {
+      const res = await fetch(`/api/rondas/${round.id}/hoyos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: [
+            {
+              roundPlayerId: round.meRoundPlayerId,
+              holeNumber: hole,
+              puttDistancesFt: Array(n).fill(0),
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setErrorGuardado(null);
+      setPanel("none");
+      router.refresh();
+    } catch {
+      setErrorGuardado("No se pudieron guardar los putts. Probá de nuevo.");
+    }
+  }
   async function registrarGolpe() {
     // Alcanza con tener el origen: en el tee sale de las coordenadas del hoyo, así
     // que se puede registrar el drive aunque el GPS todavía no haya enganchado.
@@ -431,6 +481,26 @@ export default function MapaTracker({
   const handleMoveOrigin = useCallback((la: number, ln: number) => {
     setOrigenManual({ lat: la, lng: ln });
   }, []);
+  const handleMovePin = useCallback(
+    (la: number, ln: number) => {
+      void fetch(`/api/rondas/${round.id}/hoyos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: [
+            { roundPlayerId: round.meRoundPlayerId, holeNumber: hole, pinLat: la, pinLng: ln },
+          ],
+        }),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          setErrorGuardado(null);
+          router.refresh();
+        })
+        .catch(() => setErrorGuardado("No se pudo guardar la bandera. Probá de nuevo."));
+    },
+    [round.id, round.meRoundPlayerId, hole, router],
+  );
   const handleTapShot = useCallback((id: string) => {
     setEditingShot(id);
     setPanel("shot");
@@ -518,13 +588,13 @@ export default function MapaTracker({
         originLng={origen?.lng ?? null}
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
-        clubHastaTarget={clubHastaTarget}
-        clubTargetAlGreen={clubTargetAlGreen}
         shots={shots}
         caminadoDesdeLat={gpsEnLaCancha ? (ultimoTiro?.fromLat ?? null) : null}
         caminadoDesdeLng={gpsEnLaCancha ? (ultimoTiro?.fromLng ?? null) : null}
         onMoveTarget={handleMoveTarget}
         onMoveOrigin={handleMoveOrigin}
+        onMovePin={handleMovePin}
+        onLegsY={setLegsY}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}
       />
@@ -572,6 +642,16 @@ export default function MapaTracker({
         <RailBtn label="⚙️" title="Setup" onClick={() => router.push(`/rondas/${round.id}?vista=cards`)} />
       </div>
 
+      {/* Las dos piernas del plan, pegadas al borde izquierdo. Van como chrome y no
+          como marcadores del mapa: así nunca se pisan entre ellas ni con el círculo,
+          que es exactamente lo que hace H19. */}
+      {!round.noDistanceDevice && dTargetAlGreen != null && dTargetAlGreen >= 5 && (
+        <Pierna yds={dTargetAlGreen} club={clubTargetAlGreen} carries={carries} y={legsY.dos} />
+      )}
+      {!round.noDistanceDevice && dTarget != null && (
+        <Pierna yds={dTarget} club={clubHastaTarget} carries={carries} y={legsY.uno} />
+      )}
+
       {/* Estado GPS */}
       <div className="absolute z-[1000] left-2 top-24 pointer-events-none">
         <div className="rounded-full bg-black/60 text-white text-[10px] px-2 py-1 backdrop-blur">
@@ -612,8 +692,23 @@ export default function MapaTracker({
         </div>
       )}
 
-      {/* Registrar golpe */}
+      {/* Registrar golpe — o putts, si la pelota ya está en el green */}
       <div className="absolute z-[1000] left-2 bottom-28">
+        {enElGreen ? (
+          <button
+            type="button"
+            onClick={() => setPanel("putts")}
+            className="rounded-2xl px-4 py-3 text-left shadow-xl"
+            style={{ background: "#16a34a", color: "#fff" }}
+          >
+            <div className="font-bold text-sm">⛳ Añadir putts</div>
+            <div className="text-[11px] opacity-90">
+              {infoBase?.puttsFt?.length
+                ? `${infoBase.puttsFt.length} cargado${infoBase.puttsFt.length === 1 ? "" : "s"}`
+                : "estás en el green"}
+            </div>
+          </button>
+        ) : (
         <button
           type="button"
           disabled={!origen || busy || !shotsListos}
@@ -638,6 +733,7 @@ export default function MapaTracker({
                 }`}
           </div>
         </button>
+        )}
       </div>
 
       {/* Ajustar la salida — mismas tres opciones que da H19 */}
@@ -674,6 +770,17 @@ export default function MapaTracker({
               className="text-lg px-2"
             >
               🗑
+            </button>
+          </div>
+        </div>
+      )}
+
+      {errorGuardado && (
+        <div className="absolute z-[1100] left-2 right-2 bottom-44">
+          <div className="rounded-xl bg-red-600 text-white px-3 py-2 text-sm shadow-xl flex items-center gap-2">
+            <span className="flex-1">{errorGuardado}</span>
+            <button type="button" onClick={() => setErrorGuardado(null)} className="px-2">
+              ×
             </button>
           </div>
         </div>
@@ -808,6 +915,33 @@ export default function MapaTracker({
               No hay plan cargado para {round.courseName}. Solo La Lucila lo tiene.
             </p>
           )}
+        </Sheet>
+      )}
+
+      {panel === "putts" && (
+        <Sheet onClose={() => setPanel("none")} title="¿Cuántos putts?">
+          <div className="space-y-3">
+            <p className="text-xs text-neutral-500">
+              Poné la cantidad ahora; las distancias en pasos se completan al salir del
+              hoyo, en el panel de datos.
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => void guardarCantidadPutts(n)}
+                  className={`rounded-xl py-4 text-lg font-bold ${
+                    (infoBase?.puttsFt?.length ?? -1) === n
+                      ? "bg-green-600 text-white"
+                      : "bg-neutral-100"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
         </Sheet>
       )}
 
@@ -1048,6 +1182,39 @@ export default function MapaTracker({
         </Sheet>
       )}
 
+    </div>
+  );
+}
+
+// Cartel de una pierna del plan: distancia grande arriba, palo con su carry abajo.
+function Pierna({
+  yds,
+  club,
+  carries,
+  y,
+}: {
+  yds: number;
+  club: string | null;
+  carries: ClubCarry[];
+  y: number | null;
+}) {
+  if (y == null) return null;
+  const carry = club ? carries.find((c) => c.club === club)?.carryYds : null;
+  return (
+    <div
+      className="absolute z-[1000] left-0 pointer-events-none"
+      style={{ top: y, transform: "translateY(-50%)" }}
+    >
+      <div className="bg-neutral-900 text-white pl-3 pr-4 py-1 rounded-r-lg shadow-lg">
+        <span className="text-3xl font-black tabular-nums leading-none">{yds}</span>
+        <span className="text-[10px] align-top ml-0.5">yd</span>
+      </div>
+      {club && (
+        <div className="bg-indigo-600 text-white text-[11px] font-bold pl-3 pr-3 py-0.5 rounded-r-md shadow-lg inline-block mt-0.5">
+          {club}
+          {carry != null ? ` (${Math.round(carry)}yd)` : ""}
+        </div>
+      )}
     </div>
   );
 }

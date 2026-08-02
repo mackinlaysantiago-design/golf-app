@@ -321,6 +321,11 @@ model RoundHole {
   recoveryMode           Boolean? // ¿estuviste en problemas y jugaste solo para volver?
   // Journaling — diagnóstico de putts fallados (Sprint 5)
   puttAnalysis           String? // PACE | LINE | BOTH | OTHER — solo para 3-putts o miss <4ft
+  // Posición real de la bandera ese día. El centro del green de CourseMapPoint es fijo;
+  // el pin se mueve todas las semanas, y de él dependen todas las distancias del hoyo.
+  pinLat                 Float?
+  pinLng                 Float?
+
   // Bunker tracking por hoyo (Round Assessment Card)
   bunkerShots            Int? // # tiros desde bunker en este hoyo
   bunkerUpAndDown        Boolean? // true si pasó del bunker al hoyo en 2 tiros

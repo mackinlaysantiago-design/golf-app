@@ -66,25 +66,6 @@ function shotIcon(club: string, yds: string | null) {
   });
 }
 
-// Etiqueta de una pierna del plan: la distancia grande y el palo abajo, como H19.
-function legIcon(dist: string, club: string | null) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="transform:translate(-100%,-50%);margin-left:-14px;text-align:right">
-      <div style="background:#111827;color:#fff;font-weight:800;font-size:17px;
-        padding:2px 9px;border-radius:6px;display:inline-block;white-space:nowrap">${esc(dist)}</div>
-      ${
-        club
-          ? `<div style="background:#4f46e5;color:#fff;font-weight:700;font-size:10px;
-             padding:2px 8px;border-radius:5px;margin-top:2px;display:inline-block;
-             white-space:nowrap">${esc(club)}</div>`
-          : ""
-      }
-    </div>`,
-    iconSize: [0, 0],
-  });
-}
-
 export default function MapaHoyo({
   green,
   userLat,
@@ -93,13 +74,13 @@ export default function MapaHoyo({
   originLng,
   targetLat,
   targetLng,
-  clubHastaTarget,
-  clubTargetAlGreen,
   caminadoDesdeLat,
   caminadoDesdeLng,
   shots,
   onMoveTarget,
   onMoveOrigin,
+  onMovePin,
+  onLegsY,
   onMoveShot,
   onTapShot,
 }: {
@@ -111,9 +92,6 @@ export default function MapaHoyo({
   originLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
-  /** Palo que cubre cada pierna del plan: hasta el círculo, y del círculo al green. */
-  clubHastaTarget: string | null;
-  clubTargetAlGreen: string | null;
   /** Desde dónde venís caminando (el último tiro): se dibuja el rastro punteado.
    *  Van como primitivos: un objeto nuevo por render redibujaría todo el mapa. */
   caminadoDesdeLat: number | null;
@@ -122,6 +100,11 @@ export default function MapaHoyo({
   onMoveTarget: (lat: number, lng: number) => void;
   /** Mover la PELOTA: de dónde sale el próximo tiro. */
   onMoveOrigin: (lat: number, lng: number) => void;
+  /** Mover la BANDERA: la posición real del pin ese día. */
+  onMovePin: (lat: number, lng: number) => void;
+  /** Altura en pantalla del medio de cada pierna, para que los carteles del borde
+   *  izquierdo suban y bajen con el objetivo. */
+  onLegsY: (y: { uno: number | null; dos: number | null }) => void;
   onMoveShot: (id: string, lat: number, lng: number) => void;
   onTapShot: (id: string) => void;
 }) {
@@ -289,14 +272,16 @@ export default function MapaHoyo({
     const greenPt: L.LatLngTuple | null =
       green.centerLat != null && green.centerLng != null ? [green.centerLat, green.centerLng] : null;
 
-    if (origin && greenPt) {
+    // Dos tramos: de la pelota al objetivo y del objetivo al green. Si movés el
+    // objetivo al costado la línea se quiebra, que es lo que querés ver cuando el
+    // plan es un dogleg o un bailout — no una recta obligada al green.
+    const plan: L.LatLngTuple[] = [];
+    if (origin) plan.push(origin);
+    if (targetLat != null && targetLng != null) plan.push([targetLat, targetLng]);
+    if (greenPt) plan.push(greenPt);
+    if (plan.length >= 2) {
       add(
-        L.polyline([origin, greenPt], {
-          color: "#ffffff",
-          weight: 2,
-          opacity: 0.9,
-          interactive: false,
-        }),
+        L.polyline(plan, { color: "#ffffff", weight: 2, opacity: 0.9, interactive: false }),
       );
     }
 
@@ -312,7 +297,10 @@ export default function MapaHoyo({
           fillOpacity: 0.12,
         }),
       );
-      aro.on("mousedown", () => undefined); // circleMarker no arrastra: va un marker invisible encima
+      const centro = add(
+        L.circleMarker([targetLat, targetLng], { radius: 2, color: "#fff", fillOpacity: 1 }),
+      );
+      // circleMarker no se arrastra: va un marker invisible encima que sí lo hace.
       const asa = add(
         L.marker([targetLat, targetLng], {
           icon: L.divIcon({
@@ -324,73 +312,37 @@ export default function MapaHoyo({
           zIndexOffset: 400,
         }),
       );
-      // El objetivo corre SOBRE la línea, no por cualquier lado: así las dos piernas
-      // (hasta el círculo y del círculo al green) siempre suman el largo del hoyo, que
-      // es lo que hace útil el plan. Lo que se arrastra se proyecta sobre el segmento.
-      const sobreLaLinea = (ll: L.LatLng): L.LatLng => {
-        if (!origin || !greenPt) return ll;
-        const [oLat, oLng] = origin;
-        const [gLat, gLng] = greenPt;
-        // Proyección en un plano local: a escala de un hoyo el error es despreciable.
-        const kx = Math.cos((oLat * Math.PI) / 180);
-        const vx = (gLng - oLng) * kx;
-        const vy = gLat - oLat;
-        const wx = (ll.lng - oLng) * kx;
-        const wy = ll.lat - oLat;
-        const len2 = vx * vx + vy * vy;
-        if (len2 < 1e-12) return ll;
-        const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
-        return L.latLng(oLat + vy * t, oLng + (gLng - oLng) * t);
-      };
       asa.on("drag", () => {
-        const ll = sobreLaLinea(asa.getLatLng());
+        const ll = asa.getLatLng();
         aro.setLatLng(ll);
         centro.setLatLng(ll); // si no, el puntito queda clavado hasta que soltás
       });
       asa.on("dragend", () => {
-        const ll = sobreLaLinea(asa.getLatLng());
-        asa.setLatLng(ll);
+        const ll = asa.getLatLng();
         onMoveTarget(ll.lat, ll.lng);
       });
-      const centro = add(
-        L.circleMarker([targetLat, targetLng], { radius: 2, color: "#fff", fillOpacity: 1 }),
-      );
 
-      const hastaElAro = Math.round(yardsBetween(origin[0], origin[1], targetLat, targetLng));
-      add(
-        L.marker([targetLat, targetLng], {
-          icon: legIcon(`${hastaElAro} yd`, clubHastaTarget),
-          interactive: false,
-        }),
-      );
-      if (greenPt) {
-        const delAroAlGreen = Math.round(
-          yardsBetween(targetLat, targetLng, greenPt[0], greenPt[1]),
-        );
-        const medio: L.LatLngTuple = [
-          (targetLat + greenPt[0]) / 2,
-          (targetLng + greenPt[1]) / 2,
-        ];
-        add(
-          L.marker(medio, {
-            icon: legIcon(`${delAroAlGreen} yd`, clubTargetAlGreen),
-            interactive: false,
-          }),
-        );
-      }
     }
 
+    // La bandera se arrastra: el pin cambia todas las semanas y de él dependen TODAS
+    // las distancias del hoyo. El centro del green del mapa de la cancha es fijo.
     if (green.centerLat != null && green.centerLng != null) {
-      add(
-        L.circleMarker([green.centerLat, green.centerLng], {
-          radius: 7,
-          color: "#fff",
-          weight: 2,
-          fillColor: "#22c55e",
-          fillOpacity: 1,
-          interactive: false,
+      const bandera = add(
+        L.marker([green.centerLat, green.centerLng], {
+          icon: L.divIcon({
+            className: "",
+            html: `<div style="transform:translate(-8px,-26px);font-size:22px;
+              filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))">⛳</div>`,
+            iconSize: [0, 0],
+          }),
+          draggable: true,
+          zIndexOffset: 300,
         }),
       );
+      bandera.on("dragend", () => {
+        const ll = bandera.getLatLng();
+        onMovePin(ll.lat, ll.lng);
+      });
     }
 
     // Recorrido de tiros ya registrados: línea AZUL (lo jugado), contra la línea
@@ -530,11 +482,42 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, clubHastaTarget, clubTargetAlGreen, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveTarget, onMoveShot, onMoveOrigin, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, shots, onMoveTarget, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
 
   // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
   // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe
   // al pager y mantiene el zoom de dos dedos.
+  // Alturas de los carteles: se recalculan al dibujar y mientras movés o hacés zoom.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const medio = (a: L.LatLngTuple, b: L.LatLngTuple): L.LatLngTuple => [
+      (a[0] + b[0]) / 2,
+      (a[1] + b[1]) / 2,
+    ];
+    const recalcular = () => {
+      const o: L.LatLngTuple | null =
+        originLat != null && originLng != null ? [originLat, originLng] : null;
+      const t: L.LatLngTuple | null =
+        targetLat != null && targetLng != null ? [targetLat, targetLng] : null;
+      const g: L.LatLngTuple | null =
+        green.centerLat != null && green.centerLng != null
+          ? [green.centerLat, green.centerLng]
+          : null;
+      const yDe = (p: L.LatLngTuple | null) =>
+        p ? map.latLngToContainerPoint(L.latLng(p[0], p[1])).y : null;
+      onLegsY({
+        uno: o && t ? yDe(medio(o, t)) : null,
+        dos: t && g ? yDe(medio(t, g)) : null,
+      });
+    };
+    recalcular();
+    map.on("move zoom moveend zoomend", recalcular);
+    return () => {
+      map.off("move zoom moveend zoomend", recalcular);
+    };
+  }, [originLat, originLng, targetLat, targetLng, green, onLegsY]);
+
   return (
     <div
       ref={containerRef}
