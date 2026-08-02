@@ -68,6 +68,10 @@ export default function MapaTracker({
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [target, setTarget] = useState<{ lat: number; lng: number } | null>(null);
   const [shots, setShots] = useState<MapaShot[]>([]);
+  // Hasta que no se sepa cuántos tiros tiene el hoyo no se puede decidir si estás en
+  // el tee. Sin esto, tocar "Registrar golpe" en los primeros segundos guardaba el
+  // tiro desde el tee en un hoyo que ya tenía tiros.
+  const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
   const [panel, setPanel] = useState<"none" | "holes" | "plan" | "cierre" | "shot" | "tiros">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
@@ -148,15 +152,26 @@ export default function MapaTracker({
   const loadShots = useCallback(async () => {
     if (!info?.roundHoleId) {
       setShots([]);
+      setShotsListos(true); // hoyo sin RoundHole = sin tiros, y eso ya se sabe
       return;
     }
-    const res = await fetch(`/api/shots?roundHoleId=${info.roundHoleId}`);
-    if (!res.ok) return;
-    const d = (await res.json()) as { shots: MapaShot[] };
-    setShots(d.shots);
+    try {
+      const res = await fetch(`/api/shots?roundHoleId=${info.roundHoleId}`);
+      if (res.ok) {
+        const d = (await res.json()) as { shots: MapaShot[] };
+        setShots(d.shots);
+      }
+    } catch {
+      // Sin señal en la cancha. Se sigue: dejar el botón trabado para siempre sería
+      // peor que registrar con la posición aproximada, que después se corrige
+      // arrastrando la pelota.
+    } finally {
+      setShotsListos(true);
+    }
   }, [info?.roundHoleId]);
 
   useEffect(() => {
+    setShotsListos(false);
     void loadShots();
   }, [loadShots]);
 
@@ -221,7 +236,7 @@ export default function MapaTracker({
   async function registrarGolpe() {
     // Alcanza con tener el origen: en el tee sale de las coordenadas del hoyo, así
     // que se puede registrar el drive aunque el GPS todavía no haya enganchado.
-    if (!origen || busy) return;
+    if (!origen || busy || !shotsListos) return;
     setBusy(true);
     try {
       const res = await fetch("/api/shots", {
@@ -411,15 +426,17 @@ export default function MapaTracker({
       <div className="absolute z-[1000] left-2 bottom-28">
         <button
           type="button"
-          disabled={!origen || busy}
+          disabled={!origen || busy || !shotsListos}
           onClick={() => void registrarGolpe()}
           className="rounded-2xl px-4 py-3 text-left shadow-xl disabled:opacity-50"
           style={{ background: "#4f46e5", color: "#fff" }}
         >
           <div className="font-bold text-sm">⛳ Registrar golpe</div>
           <div className="text-[11px] opacity-90">
-            {!origen
-              ? "esperando señal de GPS…"
+            {!shotsListos
+              ? "cargando los tiros del hoyo…"
+              : !origen
+                ? "esperando señal de GPS…"
               : `${dTarget ?? "—"} yd · ${sugerido?.club ?? "sin dato"}${
                   origenManual
                     ? " · pelota a mano"
