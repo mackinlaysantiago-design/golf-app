@@ -119,6 +119,7 @@ export default async function MapaPage({
         enterSzYds: round.enterSzYds,
         tournamentMode: round.tournamentMode,
         noDistanceDevice: round.noDistanceDevice,
+        cerrada: round.closedAt != null,
         clubSuggestion: round.clubSuggestion,
         windEnabled: round.windEnabled,
         meRoundPlayerId: me.id,

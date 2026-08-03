@@ -60,6 +60,7 @@ export type RoundMapa = {
   tournamentMode: boolean;
   /** Regla Local G-5: el torneo prohíbe medidores, así que ni las distancias van. */
   noDistanceDevice: boolean;
+  cerrada: boolean;
   clubSuggestion: boolean;
   windEnabled: boolean;
   meRoundPlayerId: string;
@@ -620,6 +621,26 @@ export default function MapaTracker({
   // Hoyo al que hay que saltar apenas guardes el actual.
   const [pendienteHoyo, setPendienteHoyo] = useState<number | null>(null);
   const [avisados, setAvisados] = useState<Set<number>>(() => new Set());
+  const [confirmarCierre, setConfirmarCierre] = useState(false);
+  // Mismo criterio que el semáforo: completo = score Y putts. Antes el contador usaba
+  // este y el aviso de cierre miraba solo el score, así que te dejaba cerrar sin
+  // avisarte de los hoyos a los que les faltaban putts.
+  const hoyosIncompletos = holes.filter((h) => !(h.score != null && h.puttsCargados));
+
+  async function terminarRonda() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/rondas/${round.id}/close`, { method: "POST" });
+      if (!res.ok) throw new Error(String(res.status));
+      // Sin setBusy(false) en el camino feliz: la navegación tarda y el botón se
+      // volvería a habilitar antes de que cambie la pantalla.
+      router.push(`/rondas/${round.id}/resumen`);
+    } catch {
+      setErrorGuardado("No se pudo cerrar la ronda. Probá de nuevo.");
+      setConfirmarCierre(false);
+      setBusy(false);
+    }
+  }
   const [panelDatos, setPanelDatos] = useState(false);
   const irAPanel = useCallback((i: 0 | 1) => setPanelDatos(i === 1), []);
 
@@ -996,7 +1017,13 @@ export default function MapaTracker({
               );
             })}
           </div>
-          <div className="flex items-center gap-3 mt-3 text-[10px] text-neutral-500">
+          <div className="mt-3 text-xs text-neutral-600">
+            <b>
+              {holes.length - hoyosIncompletos.length} de {holes.length}
+            </b>{" "}
+            hoyos completos
+          </div>
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-neutral-500">
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-green-600 inline-block" /> completo
             </span>
@@ -1006,6 +1033,65 @@ export default function MapaTracker({
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-neutral-100 border border-neutral-300 inline-block" /> sin cargar
             </span>
+          </div>
+
+          {/* Terminar la ronda desde acá: es la vista donde ves de un golpe si te falta
+              algún hoyo. Pide confirmar porque cerrar en medio de la vuelta molesta;
+              igual se puede reabrir desde el resumen. */}
+          <div className="mt-4 pt-3 border-t border-neutral-200">
+            {round.cerrada ? (
+              <div className="text-center text-sm text-neutral-500">
+                Esta ronda ya está cerrada.{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => router.push(`/rondas/${round.id}/resumen`)}
+                >
+                  Ver el resumen
+                </button>
+              </div>
+            ) : confirmarCierre ? (
+              <div className="space-y-2">
+                <p className="text-sm text-center">
+                  ¿Terminar la ronda?
+                  {hoyosIncompletos.length > 0 && (
+                    <span className="block text-xs text-amber-700 mt-1">
+                      Te {hoyosIncompletos.length === 1 ? "queda" : "quedan"}{" "}
+                      {hoyosIncompletos.length}{" "}
+                      {hoyosIncompletos.length === 1 ? "hoyo" : "hoyos"} sin completar:{" "}
+                      {hoyosIncompletos.map((h) => h.number).join(", ")}.
+                    </span>
+                  )}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmarCierre(false)}
+                    className="flex-1 rounded-xl py-2.5 font-semibold bg-neutral-100"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void terminarRonda()}
+                    className="flex-1 rounded-xl py-2.5 font-bold text-white disabled:opacity-50"
+                    style={{ background: "#16a34a" }}
+                  >
+                    Sí, terminar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmarCierre(true)}
+                className="w-full rounded-xl py-3 font-bold text-white"
+                style={{ background: "#16a34a" }}
+              >
+                🏁 Terminar ronda
+              </button>
+            )}
           </div>
         </Sheet>
       )}
