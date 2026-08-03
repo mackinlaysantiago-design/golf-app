@@ -917,13 +917,13 @@ export default function MapaTracker({
           <section className="absolute inset-0 z-[1150] bg-white flex flex-col">
             <div className="flex-1 overflow-hidden">
           <DatosHoyo
-            // La key incluye la cantidad de putts guardada: si la cargás desde el mapa
-            // ("Añadir putts"), el panel se vuelve a montar y aparecen los inputs para
-            // completar los pasos. Sin esto el panel seguía con el estado del momento en
-            // que entraste al hoyo y no mostraba nada.
+            // key solo por hoyo: el panel se monta al abrirse (panelDatos), así que
+            // cada apertura ya arranca fresca con lo guardado. Meter los putts en la
+            // key remontaba el panel cuando el refresh post-guardado traía los datos
+            // nuevos — y el remonte pisaba lo que estabas tipeando en ese momento.
             // No alcanza con un efecto: el objeto de props cambia en cada pulso de GPS y
             // te borraría lo que estás tipeando.
-            key={`${hole}:${(infoBase?.puttsFt ?? []).length}`}
+            key={hole}
             round={round}
             hole={hole}
             par={info?.par ?? null}
@@ -964,12 +964,10 @@ export default function MapaTracker({
             onSaved={(h) => {
               setCerrados((prev) => new Set(prev).add(h));
               router.refresh();
-              // Si veníamos de tocar "siguiente hoyo", ahora sí saltamos.
-              if (pendienteHoyo != null) {
-                setHole(pendienteHoyo);
-                setPendienteHoyo(null);
-                irAPanel(0);
-              }
+              // NADA de saltar de hoyo acá: guardar también lo dispara salir de la
+              // hoja, y saltar pisaba la intención del botón que tocaste ("Volver al
+              // mapa" te dejaba en otro hoyo). El salto pendiente vive en el botón
+              // "Hoyo N →", que es quien lo pide.
             }}
           />
             </div>

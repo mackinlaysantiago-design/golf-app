@@ -108,7 +108,12 @@ export default function DatosHoyo({
 
   // Un solo lugar para "el usuario tocó algo": son seis controles y olvidarse un
   // setter en uno solo hace que salir de la hoja se coma justo ese dato.
+  // El contador existe porque los inputs NO se bloquean durante un guardado en vuelo:
+  // si tipeás mientras la señal está lenta, el guardado que termina no incluye eso y
+  // no puede marcar la hoja como limpia ni sacarte de la pantalla.
+  const cambios = useRef(0);
   const tocado = () => {
+    cambios.current++;
     setGuardado(false);
     setModificado(true);
     setDejarSalir(false);
@@ -128,8 +133,12 @@ export default function DatosHoyo({
       accion();
       return;
     }
+    const antes = cambios.current;
     const ok = await guardar();
     if (ok) {
+      // Si tipeaste algo MIENTRAS se guardaba, eso no viajó: no te saco de la
+      // pantalla con datos nuevos sin guardar. Salís de nuevo cuando termines.
+      if (cambios.current !== antes) return;
       accion();
       return;
     }
@@ -148,6 +157,9 @@ export default function DatosHoyo({
   }
 
   async function guardarAhora(): Promise<boolean> {
+    // Lo que viaja en el PUT es lo que había HASTA acá: si entra un cambio durante
+    // el vuelo, este guardado no puede dejar la hoja en verde.
+    const snapshot = cambios.current;
     setBusy(true);
     try {
       const entries: Record<string, unknown>[] = [
@@ -173,10 +185,14 @@ export default function DatosHoyo({
         body: JSON.stringify({ entries }),
       });
       if (res.ok) {
-        setGuardado(true);
-        // Sin esto, guardar a mano y salir enseguida disparaba un segundo PUT al pedo
-        // — y si justo se cortaba la señal te frenaba con los datos ya guardados.
-        setModificado(false);
+        // La hoja queda limpia solo si no tipeaste nada durante el vuelo. Sin el
+        // setModificado(false), guardar a mano y salir enseguida disparaba un segundo
+        // PUT al pedo — y si justo se cortaba la señal te frenaba con los datos ya
+        // guardados.
+        if (cambios.current === snapshot) {
+          setGuardado(true);
+          setModificado(false);
+        }
         setError(null);
         onSaved(hole);
         return true;
