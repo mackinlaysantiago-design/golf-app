@@ -45,13 +45,19 @@ export function deriveSmFromShots(
   const penaltyStrokes = ordenados.filter((s) => s.lie === LIE_PENALIDAD).length;
   const score = ordenados.length + puttCount + penaltyStrokes;
 
-  // Tiros pegados desde AFUERA de la scoring zone. Un tiro sin distancia (GPS que
-  // no fijó) se cuenta como afuera: es lo más probable y no inventa un dato mejor
-  // del que hay.
-  const afuera = ordenados.filter(
-    (s) => s.distanceToTargetYds == null || s.distanceToTargetYds > enterSzYds,
+  // Primer tiro pegado ya desde ADENTRO de la zona. Un tiro sin distancia (GPS que no
+  // fijó) se toma como afuera: es lo más probable y no inventa un dato mejor del que hay.
+  const iAdentro = ordenados.findIndex(
+    (s) => s.distanceToTargetYds != null && s.distanceToTargetYds <= enterSzYds,
   );
-  const strokesToEnterSz = afuera.length;
+
+  // Golpes que te llevó ENTRAR a la zona: los que pegaste antes del primero de adentro,
+  // más las penalidades de ese tramo. NO es "todos los tiros pegados desde afuera": si
+  // entrás a la zona y después la sacás afuera con un chunk, ese tiro no cuenta para
+  // entrar — ya habías entrado. Contarlo inflaba el número y bajaba Inside SZ.
+  const antesDeEntrar = iAdentro >= 0 ? ordenados.slice(0, iAdentro) : ordenados;
+  const strokesToEnterSz =
+    antesDeEntrar.length + antesDeEntrar.filter((s) => s.lie === LIE_PENALIDAD).length;
 
   // distanceInRegYds = distancia al hoyo cuando entraste a la scoring zone, con la
   // convención que Santi viene usando hace 15 rondas: **0 significa que llegaste al
@@ -60,9 +66,7 @@ export function deriveSmFromShots(
   //
   // Entonces: si algún tiro se pegó ya desde adentro de la zona, esa es la distancia.
   // Si no hubo ninguno, entraste llegando al green → 0.
-  const primeroAdentro = ordenados.find(
-    (s) => s.distanceToTargetYds != null && s.distanceToTargetYds <= enterSzYds,
-  );
+  const primeroAdentro = iAdentro >= 0 ? ordenados[iAdentro] : undefined;
   const ultimo = ordenados[ordenados.length - 1];
   const llegoAlGreen = ultimo.lie === "Green" || ultimo.lie === "En el hoyo";
   const distanceInRegYds = primeroAdentro

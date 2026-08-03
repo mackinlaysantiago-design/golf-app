@@ -349,6 +349,15 @@ export default function MapaTracker({
       ? Math.round(yardsBetween(origen.lat, origen.lng, target.lat, target.lng))
       : dCenter;
 
+  // Lo que te falta AL PIN desde la pelota. Es distinto de la distancia al círculo:
+  // si apuntás a un layup, al círculo hay 200 y al pin 380. Las stats del método
+  // (Enter SZ, Inside SZ, distancia REG) se calculan contra el HOYO, así que es este
+  // el número que hay que guardar en el tiro.
+  const dPinDesdeLaPelota =
+    origen && centerLat != null && centerLng != null
+      ? Math.round(yardsBetween(origen.lat, origen.lng, centerLat, centerLng))
+      : null;
+
   // En el tee manda el plan de cancha: por distancia el automático diría Driver en
   // el 1 y tu plan dice 4i porque con driver te pasás. Del segundo golpe en adelante
   // manda el cálculo por carry medido.
@@ -459,7 +468,8 @@ export default function MapaTracker({
           targetLat: target?.lat ?? null,
           targetLng: target?.lng ?? null,
           club: sugerido?.club ?? null,
-          distanceToTargetYds: dTarget,
+          // Al PIN, no al círculo: de acá salen Enter SZ / Inside SZ / distancia REG.
+          distanceToTargetYds: dPinDesdeLaPelota,
           gpsAccuracyM: accM,
         }),
       });
