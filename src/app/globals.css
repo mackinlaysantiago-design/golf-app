@@ -161,3 +161,15 @@ body {
 .gf-fadeup-2 { animation-delay: 120ms; }
 .gf-fadeup-3 { animation-delay: 180ms; }
 .gf-fadeup-4 { animation-delay: 240ms; }
+
+
+/* Marcadores arrastrables del mapa de cancha.
+   El contenedor del mapa lleva `touch-action: pan-x pinch-zoom` para que el deslizar
+   horizontal se lo quede el pager (mapa ↔ datos). Los marcadores heredaban `auto`, así
+   que el navegador se quedaba el gesto y Leaflet nunca recibía el arrastre: no se podía
+   mover ni la bandera, ni la pelota, ni el círculo del objetivo con el dedo.
+   `none` hace que el marcador se quede su propio gesto; el resto del mapa sigue pasando
+   el swipe al pager. */
+.leaflet-marker-draggable {
+  touch-action: none;
+}
