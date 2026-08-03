@@ -778,7 +778,7 @@ export default function MapaTracker({
         <button
           type="button"
           onClick={() => setPanel("salida")}
-          className="absolute z-[1000] left-2 bottom-[104px] rounded-full bg-black/60 text-white text-[10px] px-2.5 py-1 backdrop-blur"
+          className="absolute z-[1000] left-2 bottom-[172px] rounded-full bg-black/60 text-white text-[10px] px-2.5 py-1 backdrop-blur"
         >
           salida: {origenManual ? "movida" : "estándar"} ▾
         </button>
