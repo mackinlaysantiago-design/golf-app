@@ -237,8 +237,11 @@ export default function MapaTracker({
   // loadShots dejaba los tiros del hoyo anterior en pantalla si el camino de cambio
   // no alteraba el roundHoleId a tiempo — pasó en cancha: el hoyo 2 mostraba el drive
   // del hoyo 1 y la app creía que ya no estabas en el tee.
+  // Limpieza visual inmediata al cambiar de hoyo. NO toca el contador de pedidos: este
+  // efecto también corre al montar, y ahí invalidaba el fetch que el efecto de arriba
+  // acababa de lanzar — el hoyo se quedaba sin sus tiros para siempre. La staleness ya
+  // la resuelve el contador dentro de loadShots, que se incrementa en cada llamada.
   useEffect(() => {
-    pedidoRef.current++; // invalida lo que esté en vuelo del hoyo anterior
     setShots([]);
     setShotsListos(false);
   }, [hole]);
