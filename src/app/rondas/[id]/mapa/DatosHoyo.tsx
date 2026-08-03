@@ -13,7 +13,7 @@
 // remontando, no con un efecto — un efecto que dependa de `guardados` corre en cada
 // pulso de GPS (es un objeto nuevo por render) y te borra lo que estás tipeando.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RoundMapa } from "./MapaTracker";
 import type { MapaShot } from "./MapaHoyo";
 import { SM_KEYS } from "@/lib/sm-keys";
@@ -48,6 +48,7 @@ export default function DatosHoyo({
   onHoyo,
   pendiente,
   onSiguiente,
+  onVolver,
 }: {
   round: RoundMapa;
   hole: number;
@@ -58,6 +59,7 @@ export default function DatosHoyo({
   /** Hoyo al que ibas cuando tocaste "siguiente" en el mapa, si había uno. */
   pendiente: number | null;
   onSiguiente: () => void;
+  onVolver: () => void;
   /** Para navegar entre hojas de datos sin volver al mapa. */
   hoyos: { number: number; completo: boolean; aMedias: boolean }[];
   onHoyo: (n: number) => void;
@@ -76,6 +78,18 @@ export default function DatosHoyo({
   // Arranca en verde si el hoyo ya está guardado y todavía no tocaste nada.
   const [guardado, setGuardado] = useState(guardados.score != null);
   const [error, setError] = useState<string | null>(null);
+  // Con señal lenta en la cancha es normal tocar dos veces: sin esta guarda salían dos
+  // guardados y dos navegaciones encimadas. El estado `busy` no alcanza porque React
+  // no lo aplica antes del segundo toque. Guarda la promesa y no un booleano para que
+  // el segundo toque espere el resultado del primero en vez de leerlo como un fallo.
+  const enVuelo = useRef<Promise<boolean> | null>(null);
+  // Modificado ≠ "sin guardar": un hoyo vacío arranca sin score y no hay NADA que
+  // guardar hasta que toques algo. Sin esto, salir de un hoyo que ni miraste
+  // disparaba un guardado al pedo.
+  const [modificado, setModificado] = useState(false);
+  // Salida de emergencia: si el guardado falla (sin señal en la cancha) no se puede
+  // dejar al jugador encerrado en la pantalla.
+  const [dejarSalir, setDejarSalir] = useState(false);
 
   const otrosJugadores = round.players.filter((p) => !p.isMe);
   const dPutts = derivePutts(puttsFt, round.onePuttCircleFt);
@@ -92,13 +106,48 @@ export default function DatosHoyo({
     round.enterSzYds,
   );
 
+  // Un solo lugar para "el usuario tocó algo": son seis controles y olvidarse un
+  // setter en uno solo hace que salir de la hoja se coma justo ese dato.
+  const tocado = () => {
+    setGuardado(false);
+    setModificado(true);
+    setDejarSalir(false);
+  };
+
   const commit = (next: number[]) => {
     setDraft({});
     setPuttsFt(next);
-    setGuardado(false);
+    tocado();
   };
 
-  async function guardar() {
+  // Salir de la hoja guarda lo que haya sin guardar. Antes te ibas al mapa a tocar
+  // "Terminar ronda" y perdías las distancias de los putts, las keys y el DECADE:
+  // eran estado local hasta que tocabas Guardar.
+  async function salirGuardando(accion: () => void) {
+    if (!modificado || dejarSalir) {
+      accion();
+      return;
+    }
+    const ok = await guardar();
+    if (ok) {
+      accion();
+      return;
+    }
+    // Falló: no te saco con los datos sin guardar, pero habilito salir igual para no
+    // dejarte encerrado si la señal no vuelve.
+    setDejarSalir(true);
+  }
+
+  function guardar(): Promise<boolean> {
+    if (!enVuelo.current) {
+      enVuelo.current = guardarAhora().finally(() => {
+        enVuelo.current = null;
+      });
+    }
+    return enVuelo.current;
+  }
+
+  async function guardarAhora(): Promise<boolean> {
     setBusy(true);
     try {
       const entries: Record<string, unknown>[] = [
@@ -125,13 +174,18 @@ export default function DatosHoyo({
       });
       if (res.ok) {
         setGuardado(true);
+        // Sin esto, guardar a mano y salir enseguida disparaba un segundo PUT al pedo
+        // — y si justo se cortaba la señal te frenaba con los datos ya guardados.
+        setModificado(false);
         setError(null);
         onSaved(hole);
-      } else {
-        setError(`No se pudo guardar (${res.status}). Los datos siguen acá, probá de nuevo.`);
+        return true;
       }
+      setError(`No se pudo guardar (${res.status}). Los datos siguen acá, probá de nuevo.`);
+      return false;
     } catch {
       setError("No se pudo guardar: sin conexión. Los datos siguen acá, probá de nuevo.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -146,13 +200,23 @@ export default function DatosHoyo({
   const siguiente = iActual >= 0 && iActual < hoyos.length - 1 ? hoyos[iActual + 1] : null;
 
   return (
-    <div className="h-full overflow-y-auto bg-white px-4 pt-4 pb-40">
+    <div className="h-full overflow-y-auto bg-white px-4 pt-2 pb-40">
+      <div className="-mx-4 px-2 pb-2 mb-2 border-b border-neutral-200">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void salirGuardando(onVolver)}
+          className="rounded-full bg-neutral-900 text-white text-sm font-semibold px-4 py-2 disabled:opacity-50"
+        >
+          {busy ? "Guardando…" : "‹ Volver al mapa"}
+        </button>
+      </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
           aria-label="Hoyo anterior"
-          disabled={!anterior}
-          onClick={() => anterior && onHoyo(anterior.number)}
+          disabled={!anterior || busy}
+          onClick={() => anterior && void salirGuardando(() => onHoyo(anterior.number))}
           className="text-2xl px-2 disabled:opacity-25"
         >
           ‹
@@ -166,8 +230,8 @@ export default function DatosHoyo({
         <button
           type="button"
           aria-label="Hoyo siguiente"
-          disabled={!siguiente}
-          onClick={() => siguiente && onHoyo(siguiente.number)}
+          disabled={!siguiente || busy}
+          onClick={() => siguiente && void salirGuardando(() => onHoyo(siguiente.number))}
           className="text-2xl px-2 disabled:opacity-25"
         >
           ›
@@ -180,7 +244,8 @@ export default function DatosHoyo({
           <button
             key={h.number}
             type="button"
-            onClick={() => onHoyo(h.number)}
+            disabled={busy}
+            onClick={() => void salirGuardando(() => onHoyo(h.number))}
             className={`shrink-0 w-8 h-8 rounded-lg text-xs font-bold ${
               h.number === hole
                 ? "bg-indigo-600 text-white"
@@ -270,7 +335,7 @@ export default function DatosHoyo({
                   const next = [...puttsFt];
                   next[i] = Number.isFinite(n) && n > 0 ? n * 3 : 0;
                   setPuttsFt(next);
-                  setGuardado(false);
+                  tocado();
                 }}
                 onBlur={() =>
                   setDraft((dd) => {
@@ -308,7 +373,7 @@ export default function DatosHoyo({
                   value={otros[p.id] ?? ""}
                   onChange={(e) => {
                     setOtros((o) => ({ ...o, [p.id]: e.target.value }));
-                    setGuardado(false);
+                    tocado();
                   }}
                 />
               </label>
@@ -328,7 +393,7 @@ export default function DatosHoyo({
               type="button"
               onClick={() => {
                 setPin(pin === p.key ? null : p.key);
-                setGuardado(false);
+                tocado();
               }}
               className={`rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5 ${pin === p.key ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}
             >
@@ -343,7 +408,7 @@ export default function DatosHoyo({
             type="button"
             onClick={() => {
               setRecovery(recovery ? null : true);
-              setGuardado(false);
+              tocado();
             }}
             className={`rounded-lg px-3 py-1.5 text-xs ${recovery ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}
           >
@@ -365,7 +430,7 @@ export default function DatosHoyo({
                     ? prev.filter((x) => x !== k.id)
                     : [...prev, k.id].sort((a, b) => a - b),
                 );
-                setGuardado(false);
+                tocado();
               }}
               className={`rounded-lg px-2 py-1.5 text-[11px] ${keys.includes(k.id) ? "bg-amber-500 text-white" : "bg-neutral-100"}`}
             >
@@ -376,7 +441,15 @@ export default function DatosHoyo({
       </section>
 
       {error && (
-        <p className="mt-4 rounded-lg bg-red-50 text-red-700 px-3 py-2 text-sm">{error}</p>
+        <div className="mt-4 rounded-lg bg-red-50 text-red-700 px-3 py-2 text-sm">
+          <p>{error}</p>
+          {dejarSalir && (
+            <p className="mt-1 text-xs">
+              Podés volver a intentar con Guardar, o salir igual —perdiendo lo que
+              cargaste— tocando de nuevo el botón con el que quisiste salir.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Guardar y avanzar son DOS acciones separadas: antes "guardar" era la única
@@ -384,18 +457,19 @@ export default function DatosHoyo({
       <div className="mt-5 flex gap-2">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !modificado}
           onClick={() => void guardar()}
           className="flex-1 rounded-xl py-3 font-bold text-white disabled:opacity-50"
           style={{ background: guardado ? "#16a34a" : "#4f46e5" }}
         >
-          {guardado ? "Guardado ✓" : "Guardar"}
+          {guardado ? "Guardado ✓" : modificado ? "Guardar" : "Sin cambios"}
         </button>
         {(pendiente != null || siguiente) && (
           <button
             type="button"
-            onClick={onSiguiente}
-            className="flex-1 rounded-xl py-3 font-bold bg-neutral-900 text-white"
+            disabled={busy}
+            onClick={() => void salirGuardando(onSiguiente)}
+            className="flex-1 rounded-xl py-3 font-bold bg-neutral-900 text-white disabled:opacity-50"
           >
             Hoyo {pendiente ?? siguiente?.number} →
           </button>

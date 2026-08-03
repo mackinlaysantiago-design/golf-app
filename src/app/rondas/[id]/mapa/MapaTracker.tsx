@@ -915,18 +915,6 @@ export default function MapaTracker({
 
         {panelDatos && (
           <section className="absolute inset-0 z-[1150] bg-white flex flex-col">
-            <div className="flex items-center px-2 py-2 border-b border-neutral-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setPendienteHoyo(null);
-                  setPanelDatos(false);
-                }}
-                className="rounded-full bg-neutral-900 text-white text-sm font-semibold px-4 py-2"
-              >
-                ‹ Volver al mapa
-              </button>
-            </div>
             <div className="flex-1 overflow-hidden">
           <DatosHoyo
             // La key incluye la cantidad de putts guardada: si la cargás desde el mapa
@@ -961,6 +949,10 @@ export default function MapaTracker({
               if (n >= 1 && n <= 18) setHole(n);
             }}
             pendiente={pendienteHoyo}
+            onVolver={() => {
+              setPendienteHoyo(null);
+              setPanelDatos(false);
+            }}
             onSiguiente={() => {
               const n = pendienteHoyo ?? hole + 1;
               setPendienteHoyo(null);
