@@ -66,6 +66,29 @@ const GREEN_VACIO: MapaGreen = {
 };
 const LIES = ["Calle", "Green", "Rough", "Bunker", "Antegreen", "Penalización", "En el hoyo"];
 const UNDO_MS = 6000;
+// La fila de estado va acá arriba; los carteles de yardas se mantienen por debajo para
+// no quedar tapados, y por encima del botón de registrar.
+const ESTADO_TOP = 92;
+
+// Cabeza de palo. H19 usa este ícono en el botón de registrar; un emoji de bandera
+// ahí confundía, porque la bandera es el pin del green.
+function CabezaDePalo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M14.5 2.5 8.2 15.1"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.6 14.2c-2.6.5-4.6 2-4.6 3.6 0 1.6 2 2.7 4.8 2.7 3.4 0 6.2-1.3 6.2-2.9 0-1.4-2.2-2.6-5.2-3.2Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+const PIERNA_MIN_Y = ESTADO_TOP + 34;
 
 export default function MapaTracker({
   round,
@@ -208,8 +231,12 @@ export default function MapaTracker({
   const loadShots = useCallback(async () => {
     const miPedido = ++pedidoRef.current;
     const vigente = () => pedidoRef.current === miPedido;
+    // Limpiar y cargar en la MISMA función. Tenerlo en dos efectos separados hacía que
+    // el orden importara: en un hoyo sin tiros esto marcaba "listo" sincrónicamente y
+    // el otro efecto, declarado después, lo devolvía a "cargando" para siempre.
+    setShots([]);
+    setShotsListos(false);
     if (!info?.roundHoleId) {
-      setShots([]);
       setShotsListos(true); // hoyo sin RoundHole = sin tiros, y eso ya se sabe
       return;
     }
@@ -237,14 +264,6 @@ export default function MapaTracker({
   // loadShots dejaba los tiros del hoyo anterior en pantalla si el camino de cambio
   // no alteraba el roundHoleId a tiempo — pasó en cancha: el hoyo 2 mostraba el drive
   // del hoyo 1 y la app creía que ya no estabas en el tee.
-  // Limpieza visual inmediata al cambiar de hoyo. NO toca el contador de pedidos: este
-  // efecto también corre al montar, y ahí invalidaba el fetch que el efecto de arriba
-  // acababa de lanzar — el hoyo se quedaba sin sus tiros para siempre. La staleness ya
-  // la resuelve el contador dentro de loadShots, que se incrementa en cada llamada.
-  useEffect(() => {
-    setShots([]);
-    setShotsListos(false);
-  }, [hole]);
 
   useEffect(() => {
     if (!undo) return;
@@ -665,45 +684,42 @@ export default function MapaTracker({
         <Pierna yds={dTarget} club={clubHastaTarget} carries={carries} y={legsY.uno} />
       )}
 
-      {/* Estado GPS */}
-      <div className="absolute z-[1000] left-2 top-24 pointer-events-none">
-        <div className="rounded-full bg-black/60 text-white text-[10px] px-2 py-1 backdrop-blur">
+      {/* Estado: UNA sola fila compacta arriba. Antes iban apilados en la izquierda y
+          se comían la columna de las yardas, que es lo único que mirás pegando. */}
+      <div
+        className="absolute z-[1000] left-2 right-2 pointer-events-none flex flex-wrap gap-1"
+        style={{ top: ESTADO_TOP }}
+      >
+        <span className="rounded-full bg-black/60 text-white text-[10px] px-2 py-0.5 backdrop-blur">
           {gpsError
             ? `GPS: ${gpsError}`
             : accM == null
               ? "buscando GPS…"
               : dCenter != null && dCenter > 1200
-                ? `estás a ${(dCenter * 0.0009144).toFixed(1)} km de la cancha`
+                ? `a ${(dCenter * 0.0009144).toFixed(1)} km de la cancha`
                 : `GPS ±${Math.round(accM)} m`}
-        </div>
+        </span>
+        {/* Doble candado a propósito: el viento ya viene apagado por windEnabled, pero
+            acá se vuelve a chequear el modo torneo. Es la Regla 4.3a(1) y la segunda
+            infracción es descalificación — no es un lugar para confiar en un solo flag. */}
+        {viento && !round.tournamentMode && (
+          <span className="rounded-full bg-black/60 text-white text-[10px] px-2 py-0.5 backdrop-blur">
+            {Math.round(viento.speed)} km/h {viento.cardinal} ·{" "}
+            {Math.abs(viento.head) < 1
+              ? "sin componente"
+              : viento.head > 0
+                ? `${Math.round(viento.head)} en contra`
+                : `${Math.round(-viento.head)} a favor`}
+            {viento.cross >= 1 && ` · ${Math.round(viento.cross)} ${viento.crossSide}`}
+          </span>
+        )}
+        {round.tournamentMode && (
+          <span className="rounded-full bg-red-600 text-white text-[10px] font-bold px-2 py-0.5">
+            TORNEO
+          </span>
+        )}
       </div>
 
-      {/* Viento — solo fuera de torneo (Regla 4.3a(1)) */}
-      {viento && (
-        <div className="absolute z-[1000] left-2 top-36 pointer-events-none">
-          <div className="rounded-xl bg-black/65 text-white px-2.5 py-1.5 backdrop-blur text-[11px] leading-tight">
-            <div className="font-bold">
-              {Math.round(viento.speed)} km/h {viento.cardinal}
-            </div>
-            <div className="opacity-90">
-              {Math.abs(viento.head) < 1
-                ? "sin componente"
-                : viento.head > 0
-                  ? `${Math.round(viento.head)} en contra`
-                  : `${Math.round(-viento.head)} a favor`}
-              {viento.cross >= 1 && ` · ${Math.round(viento.cross)} de ${viento.crossSide}`}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {round.tournamentMode && (
-        <div className="absolute z-[1000] left-2 top-36 pointer-events-none">
-          <div className="rounded-full bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 shadow">
-            MODO TORNEO · sin palo ni viento
-          </div>
-        </div>
-      )}
 
       {/* Registrar golpe — o putts, si la pelota ya está en el green */}
       <div className="absolute z-[1000] left-2 bottom-28">
@@ -711,14 +727,17 @@ export default function MapaTracker({
           <button
             type="button"
             onClick={() => setPanel("putts")}
-            className="rounded-2xl px-4 py-3 text-left shadow-xl"
+            className="rounded-full pl-3 pr-4 py-2 flex items-center gap-2 shadow-xl"
             style={{ background: "#16a34a", color: "#fff" }}
           >
-            <div className="font-bold text-sm">⛳ Añadir putts</div>
-            <div className="text-[11px] opacity-90">
+            <CabezaDePalo />
+            <div className="text-left leading-tight">
+            <div className="font-bold text-sm">Añadir putts</div>
+            <div className="text-[10px] opacity-90">
               {infoBase?.puttsFt?.length
                 ? `${infoBase.puttsFt.length} cargado${infoBase.puttsFt.length === 1 ? "" : "s"}`
                 : "estás en el green"}
+            </div>
             </div>
           </button>
         ) : (
@@ -726,24 +745,29 @@ export default function MapaTracker({
           type="button"
           disabled={!origen || busy || !shotsListos}
           onClick={() => void registrarGolpe()}
-          className="rounded-2xl px-4 py-3 text-left shadow-xl disabled:opacity-50"
+          className="rounded-full pl-3 pr-4 py-2 flex items-center gap-2 shadow-xl disabled:opacity-50"
           style={{ background: "#4f46e5", color: "#fff" }}
         >
-          <div className="font-bold text-sm">⛳ Registrar golpe</div>
-          <div className="text-[11px] opacity-90">
+          <CabezaDePalo />
+          <div className="text-left leading-tight">
+            <div className="font-bold text-sm">
+              {desdeElTiro != null ? `${desdeElTiro} yd` : "Registrar"}
+            </div>
+          <div className="text-[10px] opacity-90">
             {!shotsListos
               ? "cargando los tiros del hoyo…"
               : !origen
                 ? "esperando señal de GPS…"
               : round.noDistanceDevice
                 ? "marcá dónde está la pelota"
-                : `${desdeElTiro != null ? `${desdeElTiro} yd caminados · ` : ""}${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
+                : `${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
                     ? " · pelota a mano"
                     : sugerido?.fuente === "plan"
                       ? " · desde el tee"
                       : ""
                 }`}
+          </div>
           </div>
         </button>
         )}
@@ -1212,11 +1236,13 @@ function Pierna({
   y: number | null;
 }) {
   if (y == null) return null;
+  // Clamp: nunca detrás de la fila de estado ni tapado por el botón de registrar.
+  const yy = Math.max(PIERNA_MIN_Y, Math.min(y, typeof window === "undefined" ? y : window.innerHeight - 195));
   const carry = club ? carries.find((c) => c.club === club)?.carryYds : null;
   return (
     <div
       className="absolute z-[1000] left-0 pointer-events-none"
-      style={{ top: y, transform: "translateY(-50%)" }}
+      style={{ top: yy, transform: "translateY(-50%)" }}
     >
       <div className="bg-neutral-900 text-white pl-3 pr-4 py-1 rounded-r-lg shadow-lg">
         <span className="text-3xl font-black tabular-nums leading-none">{yds}</span>
