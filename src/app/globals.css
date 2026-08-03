@@ -169,3 +169,15 @@ body {
 .leaflet-marker-draggable {
   touch-action: none;
 }
+
+
+/* Mientras arrastrás un marcador del mapa, el ícono crece: sin eso no sabés si lo
+   agarraste o estás moviendo el dedo al vacío.
+   OJO: el scale NO puede ir en el elemento del marcador — Leaflet usa su `transform`
+   para posicionarlo y el ícono saltaría al origen del mapa. Va en el visual interno. */
+.gf-visual {
+  transition: transform 0.12s ease-out;
+}
+.gf-agarrando .gf-visual {
+  transform: scale(1.35);
+}

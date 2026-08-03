@@ -46,6 +46,27 @@ const LEJOS_YDS = 1200;
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// Área de agarre para un marcador que se arrastra. El visual queda chico (22 px) y con
+// el dedo eso no se puede tomar: la guía de Apple pide 44. Se envuelve en una caja
+// transparente de 48 centrada en el punto, así el ícono se ve igual pero el dedo tiene
+// dónde agarrarlo.
+const AGARRE = 48;
+function conAgarre(visual: string, anclaje: "centro" | "pie" = "centro") {
+  // "pie": la bandera se dibuja con el mástil apoyado abajo, así que el punto exacto
+  // del pin es la BASE del ícono, no su centro. Centrarla desplazaría el pin ~13 px,
+  // y de ese punto salen todas las distancias del hoyo.
+  const dy = anclaje === "pie" ? AGARRE : AGARRE / 2;
+  const align = anclaje === "pie" ? "flex-end" : "center";
+  return `<div style="width:${AGARRE}px;height:${AGARRE}px;transform:translate(-${AGARRE / 2}px,-${dy}px);
+    display:flex;align-items:${align};justify-content:center"><div class="gf-visual">${visual}</div></div>`;
+}
+
+/** Marca el marcador mientras lo arrastrás, para que se note que lo agarraste. */
+function avisarAgarre(m: L.Marker) {
+  m.on("dragstart", () => m.getElement()?.classList.add("gf-agarrando"));
+  m.on("dragend", () => m.getElement()?.classList.remove("gf-agarrando"));
+}
+
 // Chapita del tiro, con la forma de H19: círculo azul con el palo pegado a una
 // pastilla blanca con las yardas. Va en la punta donde llegó el tiro.
 function shotIcon(club: string, yds: string | null) {
@@ -333,15 +354,18 @@ export default function MapaHoyo({
       const bandera = add(
         L.marker([green.centerLat, green.centerLng], {
           icon: L.divIcon({
-            className: "",
-            html: `<div style="transform:translate(-8px,-26px);font-size:22px;
-              filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))">⛳</div>`,
+            className: "gf-arrastrable",
+            html: conAgarre(
+              `<div style="font-size:26px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))">⛳</div>`,
+              "pie",
+            ),
             iconSize: [0, 0],
           }),
           draggable: true,
           zIndexOffset: 300,
         }),
       );
+      avisarAgarre(bandera);
       bandera.on("dragend", () => {
         const ll = bandera.getLatLng();
         onMovePin(ll.lat, ll.lng);
@@ -363,15 +387,17 @@ export default function MapaHoyo({
       const tee = add(
         L.marker([placed[0].fromLat!, placed[0].fromLng!], {
           icon: L.divIcon({
-            className: "",
-            html: `<div style="width:12px;height:12px;border-radius:50%;background:#4f46e5;
-              border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);
-              transform:translate(-6px,-6px)"></div>`,
+            className: "gf-arrastrable",
+            html: conAgarre(
+              `<div style="width:14px;height:14px;border-radius:50%;background:#4f46e5;
+                border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,
+            ),
             iconSize: [0, 0],
           }),
           draggable: true,
         }),
       );
+      avisarAgarre(tee);
       tee.on("dragend", () => {
         const ll = tee.getLatLng();
         onMoveShot(placed[0].id, ll.lat, ll.lng);
@@ -444,20 +470,24 @@ export default function MapaHoyo({
       // En el tiro de salida el marcador es el TEE; después es la pelota. Los dos se
       // arrastran, pero se ven distinto para saber qué estás moviendo.
       const iconoOrigen = esTee
-        ? `<div style="transform:translate(-11px,-11px);width:22px;height:22px;border-radius:6px;
-             background:#fff;border:2px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
-             display:flex;align-items:center;justify-content:center;font-size:13px;
+        ? `<div style="width:26px;height:26px;border-radius:7px;background:#fff;
+             border:2px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
+             display:flex;align-items:center;justify-content:center;font-size:15px;
              line-height:1">🏌</div>`
-        : `<div style="width:18px;height:18px;border-radius:50%;background:#fff;
-             border:3px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6);
-             transform:translate(-9px,-9px)"></div>`;
+        : `<div style="width:20px;height:20px;border-radius:50%;background:#fff;
+             border:3px solid #4f46e5;box-shadow:0 1px 6px rgba(0,0,0,.6)"></div>`;
       const bola = add(
         L.marker(origin, {
-          icon: L.divIcon({ className: "", html: iconoOrigen, iconSize: [0, 0] }),
+          icon: L.divIcon({
+            className: "gf-arrastrable",
+            html: conAgarre(iconoOrigen),
+            iconSize: [0, 0],
+          }),
           draggable: true,
           zIndexOffset: 500,
         }),
       );
+      avisarAgarre(bola);
       bola.on("dragend", () => {
         const ll = bola.getLatLng();
         onMoveOrigin(ll.lat, ll.lng);
