@@ -619,6 +619,7 @@ export default function MapaTracker({
   const [cerrados, setCerrados] = useState<Set<number>>(() => new Set());
   // Hoyo al que hay que saltar apenas guardes el actual.
   const [pendienteHoyo, setPendienteHoyo] = useState<number | null>(null);
+  const [avisados, setAvisados] = useState<Set<number>>(() => new Set());
   const [panelDatos, setPanelDatos] = useState(false);
   const irAPanel = useCallback((i: 0 | 1) => setPanelDatos(i === 1), []);
 
@@ -629,7 +630,11 @@ export default function MapaTracker({
     // cerraste. Si estás mirando hoyos para ver dónde pegar, se navega derecho.
     // Si el hoyo tiene tiros y todavía no lo guardaste, en vez de un modal te lleva
     // al panel de datos deslizando. Ahí guardás y volvés al mapa con el hoyo nuevo.
-    if (n > hole && shots.length > 0 && !cerrados.has(hole)) {
+    // El aviso sale UNA vez por hoyo: si ya te mandé al panel y volviste al mapa sin
+    // guardar, la próxima vez que toques siguiente avanzás. Antes quedabas en un lazo
+    // del que no había salida.
+    if (n > hole && shots.length > 0 && !cerrados.has(hole) && !avisados.has(hole)) {
+      setAvisados((prev) => new Set(prev).add(hole));
       setPendienteHoyo(n);
       irAPanel(1);
       setPanel("none");
@@ -892,7 +897,10 @@ export default function MapaTracker({
             <div className="flex items-center px-2 py-2 border-b border-neutral-200">
               <button
                 type="button"
-                onClick={() => setPanelDatos(false)}
+                onClick={() => {
+                  setPendienteHoyo(null);
+                  setPanelDatos(false);
+                }}
                 className="rounded-full bg-neutral-900 text-white text-sm font-semibold px-4 py-2"
               >
                 ‹ Volver al mapa
@@ -930,6 +938,15 @@ export default function MapaTracker({
             // Navegar entre hojas de datos NO te devuelve al mapa: te quedás completando.
             onHoyo={(n) => {
               if (n >= 1 && n <= 18) setHole(n);
+            }}
+            pendiente={pendienteHoyo}
+            onSiguiente={() => {
+              const n = pendienteHoyo ?? hole + 1;
+              setPendienteHoyo(null);
+              // Guarda de rango también acá: el botón no debería aparecer en el último
+              // hoyo, pero no quiero que dependa de eso.
+              if (holes.some((h) => h.number === n)) setHole(n);
+              setPanelDatos(false);
             }}
             onSaved={(h) => {
               setCerrados((prev) => new Set(prev).add(h));

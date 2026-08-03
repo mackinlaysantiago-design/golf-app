@@ -46,6 +46,8 @@ export default function DatosHoyo({
   onSaved,
   hoyos,
   onHoyo,
+  pendiente,
+  onSiguiente,
 }: {
   round: RoundMapa;
   hole: number;
@@ -53,6 +55,9 @@ export default function DatosHoyo({
   shots: MapaShot[];
   guardados: DatosGuardados;
   onSaved: (hole: number) => void;
+  /** Hoyo al que ibas cuando tocaste "siguiente" en el mapa, si había uno. */
+  pendiente: number | null;
+  onSiguiente: () => void;
   /** Para navegar entre hojas de datos sin volver al mapa. */
   hoyos: { number: number; completo: boolean; aMedias: boolean }[];
   onHoyo: (n: number) => void;
@@ -374,15 +379,28 @@ export default function DatosHoyo({
         <p className="mt-4 rounded-lg bg-red-50 text-red-700 px-3 py-2 text-sm">{error}</p>
       )}
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void guardar()}
-        className="mt-5 w-full rounded-xl py-3 font-bold text-white disabled:opacity-50"
-        style={{ background: guardado ? "#16a34a" : "#4f46e5" }}
-      >
-        {guardado ? "Guardado ✓" : "Guardar el hoyo"}
-      </button>
+      {/* Guardar y avanzar son DOS acciones separadas: antes "guardar" era la única
+          forma de pasar de hoyo, y si volvías al mapa sin guardar quedabas trabado. */}
+      <div className="mt-5 flex gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void guardar()}
+          className="flex-1 rounded-xl py-3 font-bold text-white disabled:opacity-50"
+          style={{ background: guardado ? "#16a34a" : "#4f46e5" }}
+        >
+          {guardado ? "Guardado ✓" : "Guardar"}
+        </button>
+        {(pendiente != null || siguiente) && (
+          <button
+            type="button"
+            onClick={onSiguiente}
+            className="flex-1 rounded-xl py-3 font-bold bg-neutral-900 text-white"
+          >
+            Hoyo {pendiente ?? siguiente?.number} →
+          </button>
+        )}
+      </div>
     </div>
   );
 }
