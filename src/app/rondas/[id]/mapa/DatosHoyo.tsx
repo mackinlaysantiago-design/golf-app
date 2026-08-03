@@ -44,6 +44,8 @@ export default function DatosHoyo({
   shots,
   guardados,
   onSaved,
+  hoyos,
+  onHoyo,
 }: {
   round: RoundMapa;
   hole: number;
@@ -51,6 +53,9 @@ export default function DatosHoyo({
   shots: MapaShot[];
   guardados: DatosGuardados;
   onSaved: (hole: number) => void;
+  /** Para navegar entre hojas de datos sin volver al mapa. */
+  hoyos: { number: number; completo: boolean; aMedias: boolean }[];
+  onHoyo: (n: number) => void;
 }) {
   const [puttsFt, setPuttsFt] = useState<number[]>(guardados.puttsFt);
   const [draft, setDraft] = useState<Record<number, string>>({});
@@ -129,12 +134,62 @@ export default function DatosHoyo({
 
   const vsPar = sm && par != null ? sm.score - par : null;
 
+  // Por índice y no por hole±1: una ronda de solo Vuelta empieza en el 10, y así el
+  // recorrido no depende de que los números sean contiguos.
+  const iActual = hoyos.findIndex((h) => h.number === hole);
+  const anterior = iActual > 0 ? hoyos[iActual - 1] : null;
+  const siguiente = iActual >= 0 && iActual < hoyos.length - 1 ? hoyos[iActual + 1] : null;
+
   return (
     <div className="h-full overflow-y-auto bg-white px-4 pt-4 pb-40">
-      <h2 className="font-black text-xl">
-        Hoyo {hole}
-        {par != null && <span className="text-neutral-400 font-normal text-sm"> · par {par}</span>}
-      </h2>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Hoyo anterior"
+          disabled={!anterior}
+          onClick={() => anterior && onHoyo(anterior.number)}
+          className="text-2xl px-2 disabled:opacity-25"
+        >
+          ‹
+        </button>
+        <h2 className="font-black text-xl flex-1 text-center">
+          Hoyo {hole}
+          {par != null && (
+            <span className="text-neutral-400 font-normal text-sm"> · par {par}</span>
+          )}
+        </h2>
+        <button
+          type="button"
+          aria-label="Hoyo siguiente"
+          disabled={!siguiente}
+          onClick={() => siguiente && onHoyo(siguiente.number)}
+          className="text-2xl px-2 disabled:opacity-25"
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Tira de hoyos con el semáforo: se salta directo al que falta completar. */}
+      <div className="flex gap-1 overflow-x-auto mt-2 pb-1 -mx-1 px-1">
+        {hoyos.map((h) => (
+          <button
+            key={h.number}
+            type="button"
+            onClick={() => onHoyo(h.number)}
+            className={`shrink-0 w-8 h-8 rounded-lg text-xs font-bold ${
+              h.number === hole
+                ? "bg-indigo-600 text-white"
+                : h.completo
+                  ? "bg-green-600 text-white"
+                  : h.aMedias
+                    ? "bg-amber-400 text-neutral-900"
+                    : "bg-neutral-100 text-neutral-500"
+            }`}
+          >
+            {h.number}
+          </button>
+        ))}
+      </div>
 
       {/* Lo que sale solo de los tiros: lectura, sin inputs. */}
       <section className="mt-3 rounded-xl bg-neutral-100 p-3">

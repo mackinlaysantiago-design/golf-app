@@ -852,7 +852,13 @@ export default function MapaTracker({
 
         <section className="w-full h-full shrink-0 snap-start bg-white">
           <DatosHoyo
-            key={hole}
+            // La key incluye la cantidad de putts guardada: si la cargás desde el mapa
+            // ("Añadir putts"), el panel se vuelve a montar y aparecen los inputs para
+            // completar los pasos. Sin esto el panel seguía con el estado del momento en
+            // que entraste al hoyo y no mostraba nada.
+            // No alcanza con un efecto: el objeto de props cambia en cada pulso de GPS y
+            // te borraría lo que estás tipeando.
+            key={`${hole}:${(infoBase?.puttsFt ?? []).length}`}
             round={round}
             hole={hole}
             par={info?.par ?? null}
@@ -864,6 +870,18 @@ export default function MapaTracker({
               scoresOtros: infoBase?.scoresOtros ?? {},
               pinColor: infoBase?.pinColor ?? null,
               recoveryMode: infoBase?.recoveryMode ?? null,
+            }}
+            hoyos={holes.map((h) => {
+              const completo = h.score != null && h.puttsCargados;
+              return {
+                number: h.number,
+                completo,
+                aMedias: !completo && (h.tiros > 0 || h.score != null || h.puttsCargados),
+              };
+            })}
+            // Navegar entre hojas de datos NO te devuelve al mapa: te quedás completando.
+            onHoyo={(n) => {
+              if (n >= 1 && n <= 18) setHole(n);
             }}
             onSaved={(h) => {
               setCerrados((prev) => new Set(prev).add(h));
