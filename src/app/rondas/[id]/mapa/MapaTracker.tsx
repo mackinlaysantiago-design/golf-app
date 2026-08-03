@@ -15,7 +15,12 @@ import dynamic from "next/dynamic";
 import { yardsBetween } from "@/lib/geo";
 import { suggestClub, type ClubCarry } from "@/lib/shot-gps";
 import { holePlan } from "@/lib/plan-cancha";
-import { readCurrentHole, writeCurrentHole } from "@/lib/currentHole";
+import {
+  readCurrentHole,
+  writeCurrentHole,
+  readBolaManual,
+  writeBolaManual,
+} from "@/lib/currentHole";
 import { useWind } from "@/lib/use-wind";
 import { bearingDeg, windComponents, cardinalFromDeg } from "@/lib/wind-math";
 import { deviationIsMeaningful } from "@/lib/shot-geometry";
@@ -215,9 +220,9 @@ export default function MapaTracker({
   const centerLng = infoBase?.green.centerLng ?? null;
   useEffect(() => {
     setTarget(centerLat != null && centerLng != null ? { lat: centerLat, lng: centerLng } : null);
-    setOrigenManual(null);
+    setOrigenManual(readBolaManual(round.id, hole));
     setObjetivoTocado(false);
-  }, [hole, centerLat, centerLng]);
+  }, [round.id, hole, centerLat, centerLng]);
 
 
 
@@ -476,6 +481,7 @@ export default function MapaTracker({
         setHoleIdNuevo((m) => ({ ...m, [hole]: d.roundHoleId }));
       }
       setOrigenManual(null);
+      writeBolaManual(round.id, hole, null);
       // Si se cerró el tiro anterior, ya se sabe CUÁNTO midió. Recién ahí se puede
       // sugerir con qué palo lo pegaste — por la distancia, no por la que te faltaba.
       // Se abre la confirmación de ese tiro: aceptás el palo o lo cambiás, y marcás
@@ -534,13 +540,14 @@ export default function MapaTracker({
   const handleMoveOrigin = useCallback(
     (la: number, ln: number) => {
       setOrigenManual({ lat: la, lng: ln });
+      writeBolaManual(round.id, hole, { lat: la, lng: ln });
       // En el tee la posición es del HOYO y tiene que quedar guardada: antes era solo
       // estado local, así que salías del hoyo y la salida volvía sola al mapa de la
       // cancha. Del segundo golpe en adelante la pelota es transitoria (el próximo
       // tiro la fija), así que ahí no se guarda nada.
       if (enElTee) guardarSalida(la, ln);
     },
-    [enElTee, guardarSalida],
+    [enElTee, guardarSalida, round.id, hole],
   );
   const handleMovePin = useCallback(
     (la: number, ln: number) => {
@@ -1044,6 +1051,7 @@ export default function MapaTracker({
               type="button"
               onClick={() => {
                 setOrigenManual(null);
+                writeBolaManual(round.id, hole, null);
                 guardarSalida(null, null);
                 setPanel("none");
               }}
@@ -1058,6 +1066,7 @@ export default function MapaTracker({
               onClick={() => {
                 if (lat != null && lng != null) {
                   setOrigenManual({ lat, lng });
+                  writeBolaManual(round.id, hole, { lat, lng });
                   guardarSalida(lat, lng);
                 }
                 setPanel("none");
