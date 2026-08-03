@@ -38,6 +38,8 @@ export default async function MapaPage({
               recoveryMode: true,
               pinLat: true,
               pinLng: true,
+              teeLat: true,
+              teeLng: true,
               _count: { select: { shots: true } },
             },
           },
@@ -93,8 +95,9 @@ export default async function MapaPage({
           .map((rp) => [rp.id, rp.holes.find((x) => x.holeNumber === h.number)?.score ?? null]),
       ),
       green: {
-        teeLat: mp?.teeLat ?? null,
-        teeLng: mp?.teeLng ?? null,
+        // Si corriste la salida ese día, manda esa; si no, la del mapa de la cancha.
+        teeLat: mio?.teeLat ?? mp?.teeLat ?? null,
+        teeLng: mio?.teeLng ?? mp?.teeLng ?? null,
         // Si movieron la bandera ese día, manda el pin: de él dependen todas las
         // distancias. Si no, el centro del green del mapa de la cancha.
         centerLat: mio?.pinLat ?? mp?.centerLat ?? null,

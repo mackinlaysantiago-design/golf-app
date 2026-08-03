@@ -325,6 +325,10 @@ model RoundHole {
   // el pin se mueve todas las semanas, y de él dependen todas las distancias del hoyo.
   pinLat                 Float?
   pinLng                 Float?
+  // Salida real de ese día. Si las marcas del tee están adelantadas o atrasadas
+  // respecto del mapa de la cancha, se corrige acá y queda guardado para el hoyo.
+  teeLat                 Float?
+  teeLng                 Float?
 
   // Bunker tracking por hoyo (Round Assessment Card)
   bunkerShots            Int? // # tiros desde bunker en este hoyo

@@ -509,9 +509,39 @@ export default function MapaTracker({
     setTarget({ lat: la, lng: ln });
     setObjetivoTocado(true);
   }, []);
-  const handleMoveOrigin = useCallback((la: number, ln: number) => {
-    setOrigenManual({ lat: la, lng: ln });
-  }, []);
+  // Acepta null para volver a la salida estándar: misma función, mismo manejo de error.
+  const guardarSalida = useCallback(
+    (la: number | null, ln: number | null) => {
+      void fetch(`/api/rondas/${round.id}/hoyos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: [
+            { roundPlayerId: round.meRoundPlayerId, holeNumber: hole, teeLat: la, teeLng: ln },
+          ],
+        }),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          setErrorGuardado(null);
+          router.refresh();
+        })
+        .catch(() => setErrorGuardado("No se pudo guardar la salida. Probá de nuevo."));
+    },
+    [round.id, round.meRoundPlayerId, hole, router],
+  );
+
+  const handleMoveOrigin = useCallback(
+    (la: number, ln: number) => {
+      setOrigenManual({ lat: la, lng: ln });
+      // En el tee la posición es del HOYO y tiene que quedar guardada: antes era solo
+      // estado local, así que salías del hoyo y la salida volvía sola al mapa de la
+      // cancha. Del segundo golpe en adelante la pelota es transitoria (el próximo
+      // tiro la fija), así que ahí no se guarda nada.
+      if (enElTee) guardarSalida(la, ln);
+    },
+    [enElTee, guardarSalida],
+  );
   const handleMovePin = useCallback(
     (la: number, ln: number) => {
       void fetch(`/api/rondas/${round.id}/hoyos`, {
@@ -572,11 +602,8 @@ export default function MapaTracker({
   const [cerrados, setCerrados] = useState<Set<number>>(() => new Set());
   // Hoyo al que hay que saltar apenas guardes el actual.
   const [pendienteHoyo, setPendienteHoyo] = useState<number | null>(null);
-  const pagerRef = useRef<HTMLDivElement>(null);
-  const irAPanel = useCallback((i: 0 | 1) => {
-    const el = pagerRef.current;
-    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
-  }, []);
+  const [panelDatos, setPanelDatos] = useState(false);
+  const irAPanel = useCallback((i: 0 | 1) => setPanelDatos(i === 1), []);
 
 
   function irAHoyo(n: number) {
@@ -600,17 +627,10 @@ export default function MapaTracker({
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
-      {/* Pager horizontal: mapa ↔ datos. El mapa no se arrastra, así que el deslizar
-          al costado se lo queda esto (patrón H19). scroll-snap nativo: sin gestos a
-          mano, con la inercia del sistema. */}
-      <div
-        ref={pagerRef}
-        className="h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
-        // overscrollBehaviorX: sin esto, deslizar de vuelta al mapa desde el borde
-        // dispara el gesto "atrás" de Safari y te saca de la pantalla.
-        style={{ scrollbarWidth: "none", overscrollBehaviorX: "contain" }}
-      >
-        <section className="relative w-full h-full shrink-0 snap-start">
+      {/* Sin deslizar entre pantallas: Safari se quedaba el gesto y te sacaba de la
+          página. Los datos se abren y se cierran con botón. */}
+      <div className="h-full w-full">
+        <section className="relative w-full h-full">
       <MapaHoyo
         green={info?.green ?? GREEN_VACIO}
         userLat={lat}
@@ -850,7 +870,18 @@ export default function MapaTracker({
 
         </section>
 
-        <section className="w-full h-full shrink-0 snap-start bg-white">
+        {panelDatos && (
+          <section className="absolute inset-0 z-[1150] bg-white flex flex-col">
+            <div className="flex items-center px-2 py-2 border-b border-neutral-200">
+              <button
+                type="button"
+                onClick={() => setPanelDatos(false)}
+                className="rounded-full bg-neutral-900 text-white text-sm font-semibold px-4 py-2"
+              >
+                ‹ Volver al mapa
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
           <DatosHoyo
             // La key incluye la cantidad de putts guardada: si la cargás desde el mapa
             // ("Añadir putts"), el panel se vuelve a montar y aparecen los inputs para
@@ -894,7 +925,9 @@ export default function MapaTracker({
               }
             }}
           />
-        </section>
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Hojas */}
@@ -1011,6 +1044,7 @@ export default function MapaTracker({
               type="button"
               onClick={() => {
                 setOrigenManual(null);
+                guardarSalida(null, null);
                 setPanel("none");
               }}
               className={`w-full text-left rounded-xl p-3 ${!origenManual ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
@@ -1022,7 +1056,10 @@ export default function MapaTracker({
               type="button"
               disabled={!gpsEnLaCancha}
               onClick={() => {
-                if (lat != null && lng != null) setOrigenManual({ lat, lng });
+                if (lat != null && lng != null) {
+                  setOrigenManual({ lat, lng });
+                  guardarSalida(lat, lng);
+                }
                 setPanel("none");
               }}
               className="w-full text-left rounded-xl p-3 bg-neutral-100 disabled:opacity-40"
