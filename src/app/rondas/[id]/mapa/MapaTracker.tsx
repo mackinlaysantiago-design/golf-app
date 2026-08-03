@@ -199,7 +199,15 @@ export default function MapaTracker({
 
 
   // Tiros del hoyo.
+  // Contador de pedidos: si cambiás de hoyo mientras el fetch del anterior está en
+  // vuelo, la respuesta vieja llega DESPUÉS de haber limpiado y vuelve a pintar los
+  // tiros del hoyo que dejaste. Eso era el "queda bien y después chisporrotea y vuelve
+  // a quedar conectado con el tiro anterior". Solo se acepta la respuesta del último
+  // pedido.
+  const pedidoRef = useRef(0);
   const loadShots = useCallback(async () => {
+    const miPedido = ++pedidoRef.current;
+    const vigente = () => pedidoRef.current === miPedido;
     if (!info?.roundHoleId) {
       setShots([]);
       setShotsListos(true); // hoyo sin RoundHole = sin tiros, y eso ya se sabe
@@ -209,14 +217,14 @@ export default function MapaTracker({
       const res = await fetch(`/api/shots?roundHoleId=${info.roundHoleId}`);
       if (res.ok) {
         const d = (await res.json()) as { shots: MapaShot[] };
-        setShots(d.shots);
+        if (vigente()) setShots(d.shots);
       }
     } catch {
       // Sin señal en la cancha. Se sigue: dejar el botón trabado para siempre sería
       // peor que registrar con la posición aproximada, que después se corrige
       // arrastrando la pelota.
     } finally {
-      setShotsListos(true);
+      if (vigente()) setShotsListos(true);
     }
   }, [info?.roundHoleId]);
 
@@ -230,6 +238,7 @@ export default function MapaTracker({
   // no alteraba el roundHoleId a tiempo — pasó en cancha: el hoyo 2 mostraba el drive
   // del hoyo 1 y la app creía que ya no estabas en el tee.
   useEffect(() => {
+    pedidoRef.current++; // invalida lo que esté en vuelo del hoyo anterior
     setShots([]);
     setShotsListos(false);
   }, [hole]);
