@@ -689,6 +689,11 @@ export default function MapaTracker({
         onMoveOrigin={handleMoveOrigin}
         onMovePin={handleMovePin}
         esTee={enElTee}
+        // El ball marker se oculta cuando origin === GPS en vivo: el punto azul
+        // ya lo representa y tener dos círculos superpuestos moviéndose confundía
+        // al usuario (parecía que el tiro registrado se movía con él).
+        // Se muestra solo en el tee o cuando la pelota fue puesta a mano.
+        showBallMarker={enElTee || origenManual != null || gpsEnLaCancha == null}
         onLegsY={setLegsY}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}

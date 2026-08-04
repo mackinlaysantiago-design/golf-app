@@ -96,6 +96,7 @@ export default function MapaHoyo({
   targetLat,
   targetLng,
   esTee,
+  showBallMarker = true,
   caminadoDesdeLat,
   caminadoDesdeLng,
   shots,
@@ -116,6 +117,9 @@ export default function MapaHoyo({
   targetLng: number | null;
   /** El tiro de salida: el marcador del origen es el TEE, no la pelota. */
   esTee: boolean;
+  /** Ocultar el marcador de la pelota (se usa cuando origin === GPS en vivo y el
+   *  punto azul del GPS ya lo representa, para evitar dos círculos superpuestos). */
+  showBallMarker?: boolean;
   /** Desde dónde venís caminando (el último tiro): se dibuja el rastro punteado.
    *  Van como primitivos: un objeto nuevo por render redibujaría todo el mapa. */
   caminadoDesdeLat: number | null;
@@ -464,10 +468,12 @@ export default function MapaHoyo({
       );
     }
 
-    // La PELOTA: de dónde sale el próximo tiro. Es arrastrable porque el GPS no
-    // siempre sirve — reconstruyendo un hoyo desde el sillón, o con señal mala en
-    // cancha, hay que poder decir "la bola está acá" y que el tiro salga de ahí.
-    if (origin) {
+    // La PELOTA: de dónde sale el próximo tiro. Se oculta cuando el origen ES el GPS
+    // en vivo (showBallMarker=false): el punto azul de abajo ya está en la misma
+    // posición y dos círculos superpuestos confundían — parecía que el tiro registrado
+    // se movía con el jugador. Se muestra en el tee (icono de golfista) o cuando el
+    // origen fue puesto a mano (GPS no disponible o arrastrado a dedo).
+    if (origin && showBallMarker) {
       // En el tiro de salida el marcador es el TEE; después es la pelota. Los dos se
       // arrastran, pero se ven distinto para saber qué estás moviendo.
       const iconoOrigen = esTee
