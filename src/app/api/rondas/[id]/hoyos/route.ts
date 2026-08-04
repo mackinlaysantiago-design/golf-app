@@ -108,7 +108,17 @@ export async function PUT(
     const shots = shotsPorHoyo.get(`${e.roundPlayerId}__${e.holeNumber}`);
     if (shots?.length) {
       const sm = deriveSmFromShots(shots, out.putts ?? 0, round.enterSzYds);
-      if (sm) out = { ...out, ...sm };
+      if (sm) {
+        // GPS llena los nulos, pero NO pisa valores que el usuario editó explícitamente
+        out = {
+          ...out,
+          strokesToEnterSz:  out.strokesToEnterSz  ?? sm.strokesToEnterSz,
+          strokesInsideSz:   out.strokesInsideSz   ?? sm.strokesInsideSz,
+          distanceInRegYds:  out.distanceInRegYds  ?? sm.distanceInRegYds,
+          score:             out.score             ?? sm.score,
+          penaltyStrokes:    out.penaltyStrokes     ?? sm.penaltyStrokes,
+        };
+      }
     }
     return out;
   });
