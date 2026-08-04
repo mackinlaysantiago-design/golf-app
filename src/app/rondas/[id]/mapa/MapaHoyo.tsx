@@ -411,13 +411,14 @@ export default function MapaHoyo({
     for (let i = 0; i < placed.length; i++) {
       const s = placed[i];
       const siguiente = placed[i + 1];
-      // Sin tiro siguiente, la punta es tu posición actual. Si tampoco hay `origin`
-      // no se sabe dónde cayó, y dibujar la chapita en la salida del propio tiro la
-      // encimaría al nodo anterior (o al tee) tapándolo. Se omite: en la práctica
-      // solo pasa en canchas sin coordenadas cargadas, donde el mapa no sirve igual.
+      // Sin tiro siguiente el tiro está abierto: no dibujamos la chapita porque su
+      // posición sería `origin` (el GPS en vivo), que se mueve con cada pulso de GPS
+      // y parecería que el tiro registrado se mueve. El ball marker blanco ya está en
+      // `origin` y cumple esa función. La chapita aparece recién cuando se registra
+      // el siguiente tiro y el punto queda fijo.
       const llegada: L.LatLngTuple | null = siguiente
         ? [siguiente.fromLat!, siguiente.fromLng!]
-        : origin;
+        : null;
       if (!llegada) continue;
 
       const m = add(
