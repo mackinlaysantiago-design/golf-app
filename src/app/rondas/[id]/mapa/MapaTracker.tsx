@@ -456,6 +456,19 @@ export default function MapaTracker({
     // que se puede registrar el drive aunque el GPS todavía no haya enganchado.
     if (!origen || busy || !shotsListos) return;
     setBusy(true);
+    // Capturar GPS y posición antes de los awaits: pueden cambiar entre llamadas.
+    const snapshotOrigen = origen;
+    const snapshotGps = gpsEnLaCancha;
+    const wasEnElTee = enElTee;
+    // Si al presionar el primer tiro el GPS ubica al jugador a más de 30 yardas
+    // del tee, está al lado de la pelota (ya pegó). Cerramos automáticamente el
+    // tiro con un segundo POST para que la confirmación aparezca en UN SOLO toque,
+    // igual que para todos los tiros siguientes. Si está en el tee, flujo normal.
+    const distDesdeTee =
+      snapshotGps && teePos
+        ? yardsBetween(snapshotGps.lat, snapshotGps.lng, teePos.lat, teePos.lng)
+        : 0;
+    const cierreAutomatico = wasEnElTee && !!snapshotGps && distDesdeTee > 30;
     try {
       const res = await fetch("/api/shots", {
         method: "POST",
@@ -464,8 +477,8 @@ export default function MapaTracker({
           roundHoleId: info?.roundHoleId ?? undefined,
           roundPlayerId: info?.roundHoleId ? undefined : round.meRoundPlayerId,
           holeNumber: info?.roundHoleId ? undefined : hole,
-          lat: origen.lat,
-          lng: origen.lng,
+          lat: snapshotOrigen.lat,
+          lng: snapshotOrigen.lng,
           targetLat: target?.lat ?? null,
           targetLng: target?.lng ?? null,
           club: sugerido?.club ?? null,
@@ -480,26 +493,22 @@ export default function MapaTracker({
         closed: MapaShot | null;
         roundHoleId: string;
       };
-      // El tiro se pinta con lo que devolvió el server, sin depender de un refetch
-      // que puede no tener todavía el id del hoyo.
-      setShots((prev) => {
-        const conCierre = d.closed
-          ? prev.map((s) => (s.id === d.closed!.id ? d.closed! : s))
-          : prev;
-        return [...conCierre, d.shot];
-      });
       if (!infoBase?.roundHoleId) {
         setHoleIdNuevo((m) => ({ ...m, [hole]: d.roundHoleId }));
       }
       setOrigenManual(null);
       writeBolaManual(round.id, hole, null);
-      // Si se cerró el tiro anterior, ya se sabe CUÁNTO midió. Recién ahí se puede
-      // sugerir con qué palo lo pegaste — por la distancia, no por la que te faltaba.
-      // Se abre la confirmación de ese tiro: aceptás el palo o lo cambiás, y marcás
-      // dónde quedó la pelota.
+
       if (d.closed) {
-        // La sugerencia acá es por la distancia MEDIDA, no por la que te faltaba
-        // antes de pegar. Es la forma de deducir con qué palo pegaste.
+        // Flujo normal (tiros 2, 3, …): el tiro anterior quedó cerrado.
+        // El tiro se pinta con lo que devolvió el server, sin depender de un refetch
+        // que puede no tener todavía el id del hoyo.
+        setShots((prev) => {
+          const conCierre = prev.map((s) => (s.id === d.closed!.id ? d.closed! : s));
+          return [...conCierre, d.shot];
+        });
+        // La sugerencia es por la distancia MEDIDA, no por la que te faltaba antes
+        // de pegar: así se deduce con qué palo pegaste.
         const porDistancia =
           round.clubSuggestion && d.closed.shotLengthYds != null
             ? (suggestClub(d.closed.shotLengthYds, carries)?.pick.club ?? null)
@@ -510,7 +519,58 @@ export default function MapaTracker({
         }
         setConfirmar(cerrado);
         setPanel("confirmar");
+      } else if (cierreAutomatico) {
+        // Primer tiro del hoyo presionado desde la calle: cerrarlo de inmediato
+        // con un segundo POST para que la confirmación aparezca en un solo toque.
+        const dPinDesdeAqui =
+          centerLat != null && centerLng != null
+            ? Math.round(yardsBetween(snapshotGps!.lat, snapshotGps!.lng, centerLat, centerLng))
+            : null;
+        const res2 = await fetch("/api/shots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roundHoleId: d.roundHoleId,
+            lat: snapshotGps!.lat,
+            lng: snapshotGps!.lng,
+            targetLat: target?.lat ?? null,
+            targetLng: target?.lng ?? null,
+            club: null,
+            distanceToTargetYds: dPinDesdeAqui,
+            gpsAccuracyM: accM,
+          }),
+        });
+        if (res2.ok) {
+          const d2 = (await res2.json()) as {
+            shot: MapaShot;
+            closed: MapaShot | null;
+            roundHoleId: string;
+          };
+          if (d2.closed) {
+            setShots([d2.closed, d2.shot]);
+            const porDistancia =
+              round.clubSuggestion && d2.closed.shotLengthYds != null
+                ? (suggestClub(d2.closed.shotLengthYds, carries)?.pick.club ?? null)
+                : null;
+            const cerrado = porDistancia ? { ...d2.closed, club: porDistancia } : d2.closed;
+            if (porDistancia && porDistancia !== d2.closed.club) {
+              void patchShot(d2.closed.id, { club: porDistancia });
+            }
+            setConfirmar(cerrado);
+            setPanel("confirmar");
+            return;
+          }
+        }
+        // Fallback si el segundo POST falla: toast del primer tiro.
+        setShots((prev) => [...prev, d.shot]);
+        setUndo({
+          id: d.shot.id,
+          label: `${d.shot.club ?? "tiro"} · ${dTarget ?? "?"} yd`,
+          until: Date.now() + UNDO_MS,
+        });
       } else {
+        // Primer tiro presionado desde el tee, o GPS no disponible: toast normal.
+        setShots((prev) => [...prev, d.shot]);
         setUndo({
           id: d.shot.id,
           label: `${d.shot.club ?? "tiro"} · ${dTarget ?? "?"} yd`,
