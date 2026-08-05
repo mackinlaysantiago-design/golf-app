@@ -156,8 +156,9 @@ export default function MapaTracker({
   // En la cancha la señal se corta: si un guardado falla hay que decirlo, si no creés
   // que quedó cargado y no quedó.
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
-  // ID del shot "fantasma" creado por el doble-POST del primer tiro. Si el drive
-  // termina en el green, se borra al confirmar para que el botón de putts aparezca.
+  // ID del tiro ancla: el nuevo tiro abierto que se crea en cada Registrar.
+  // Si el tiro confirmado termina en el green, el ancla se borra para que aparezca
+  // el botón de putts — no hay más tiros regulares desde el green.
   const [ghostShotId, setGhostShotId] = useState<string | null>(null);
 
   // El RoundHole se crea recién con el primer tiro, así que su id llega en la
@@ -521,6 +522,7 @@ export default function MapaTracker({
         if (porDistancia && porDistancia !== d.closed.club) {
           void patchShot(d.closed.id, { club: porDistancia });
         }
+        setGhostShotId(d.shot.id);
         setConfirmar(cerrado);
         setPanel("confirmar");
       } else if (cierreAutomatico) {
@@ -1322,8 +1324,8 @@ export default function MapaTracker({
             <button
               type="button"
               onClick={() => {
-                // Si el tiro terminó en el green y hay un shot fantasma del
-                // doble-POST, borrarlo: lo que sigue son putts, no más tiros.
+                // Si el tiro terminó en el green, borrar el tiro ancla:
+                // lo que sigue son putts, no más tiros regulares.
                 if (confirmar.lie === "Green" && ghostShotId) {
                   void borrarShot(ghostShotId);
                 }
