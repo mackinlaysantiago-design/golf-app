@@ -15,6 +15,7 @@ const PatchSchema = z.object({
   targetLng: z.number().nullable().optional(),
   club: z.string().max(20).nullable().optional(),
   lie: z.string().max(20).nullable().optional(),
+  penaltyType: z.string().max(10).nullable().optional(),
   distanceToTargetYds: z.number().int().nullable().optional(),
 });
 
@@ -32,6 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(body.targetLng !== undefined && { targetLng: body.targetLng }),
         ...(body.club !== undefined && { club: body.club }),
         ...(body.lie !== undefined && { lie: body.lie }),
+        ...(body.penaltyType !== undefined && { penaltyType: body.penaltyType }),
         ...(body.distanceToTargetYds !== undefined && {
           distanceToTargetYds: body.distanceToTargetYds,
         }),

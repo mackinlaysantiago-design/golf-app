@@ -21,6 +21,7 @@ const SHOT_SELECT = {
   targetLng: true,
   club: true,
   lie: true,
+  penaltyType: true,
   result: true,
   distanceToTargetYds: true,
   shotLengthYds: true,

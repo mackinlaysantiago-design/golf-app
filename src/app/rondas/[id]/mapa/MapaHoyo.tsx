@@ -18,6 +18,7 @@ export type MapaShot = {
   targetLng: number | null;
   club: string | null;
   lie: string | null;
+  penaltyType: string | null;
   shotLengthYds: number | null;
   distanceToTargetYds: number | null;
   lateralDeviationYds: number | null;

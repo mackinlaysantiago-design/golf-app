@@ -366,6 +366,7 @@ model RoundShot {
   target       String? // texto libre: "centro", "layup", "bandera"
   intendedShot String? // opcional: FADE | DRAW | PUNCH | STOCK
   lie          String? // TEE | FAIRWAY | ROUGH | BUNKER | GREEN | RECOVERY
+  penaltyType  String? // OB | AGUA | OTRO — solo cuando lie = Penalización
 
   // Autoevaluación (el diferencial)
   decisionQuality  String? // GOOD | BAD

@@ -70,7 +70,7 @@ export type RoundMapa = {
 const GREEN_VACIO: MapaGreen = {
   teeLat: null, teeLng: null, centerLat: null, centerLng: null, frontLat: null, frontLng: null,
 };
-const LIES = ["Calle", "Green", "Rough", "Bunker", "Antegreen", "Penalización", "En el hoyo"];
+const LIES = ["Calle", "Calle adj.", "Green", "Rough", "Monte", "Bunker", "Antegreen", "Penalización", "En el hoyo"];
 const UNDO_MS = 6000;
 // La fila de estado va acá arriba; los carteles de yardas se mantienen por debajo para
 // no quedar tapados, y por encima del botón de registrar.
@@ -1321,6 +1321,28 @@ export default function MapaTracker({
                 ))}
               </div>
             </div>
+            {confirmar.lie === "Penalización" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                  ¿Qué tipo de multa?
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {["OB", "Agua", "Otro"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setConfirmar({ ...confirmar, penaltyType: t });
+                        void patchShot(confirmar.id, { penaltyType: t });
+                      }}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs ${confirmar.penaltyType === t ? "bg-red-600 text-white" : "bg-neutral-100"}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -1456,6 +1478,25 @@ export default function MapaTracker({
                 ))}
               </div>
             </div>
+            {editando.lie === "Penalización" && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                  Tipo de multa
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {["OB", "Agua", "Otro"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => void patchShot(editando.id, { penaltyType: t })}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs ${editando.penaltyType === t ? "bg-red-600 text-white" : "bg-neutral-100"}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => void borrarShot(editando.id)}
