@@ -156,6 +156,9 @@ export default function MapaTracker({
   // En la cancha la señal se corta: si un guardado falla hay que decirlo, si no creés
   // que quedó cargado y no quedó.
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  // ID del shot "fantasma" creado por el doble-POST del primer tiro. Si el drive
+  // termina en el green, se borra al confirmar para que el botón de putts aparezca.
+  const [ghostShotId, setGhostShotId] = useState<string | null>(null);
 
   // El RoundHole se crea recién con el primer tiro, así que su id llega en la
   // respuesta del POST y no en las props hasta el próximo render del server.
@@ -223,6 +226,7 @@ export default function MapaTracker({
     setTarget(centerLat != null && centerLng != null ? { lat: centerLat, lng: centerLng } : null);
     setOrigenManual(readBolaManual(round.id, hole));
     setObjetivoTocado(false);
+    setGhostShotId(null);
   }, [round.id, hole, centerLat, centerLng]);
 
 
@@ -548,6 +552,9 @@ export default function MapaTracker({
           };
           if (d2.closed) {
             setShots([d2.closed, d2.shot]);
+            // Guardar el id del fantasma: si el drive termina en el green,
+            // se borra al confirmar para que aparezca el botón de putts.
+            setGhostShotId(d2.shot.id);
             const porDistancia =
               round.clubSuggestion && d2.closed.shotLengthYds != null
                 ? (suggestClub(d2.closed.shotLengthYds, carries)?.pick.club ?? null)
@@ -667,6 +674,7 @@ export default function MapaTracker({
   async function borrarShot(id: string) {
     await fetch(`/api/shots/${id}`, { method: "DELETE" });
     setUndo((u) => (u?.id === id ? null : u));
+    if (id === ghostShotId) setGhostShotId(null);
     setEditingShot(null);
     // Si venías de la lista, quedate en la lista: puede haber más de un tiro para borrar.
     setPanel((p) => (p === "shot" ? "none" : p));
@@ -1314,6 +1322,12 @@ export default function MapaTracker({
             <button
               type="button"
               onClick={() => {
+                // Si el tiro terminó en el green y hay un shot fantasma del
+                // doble-POST, borrarlo: lo que sigue son putts, no más tiros.
+                if (confirmar.lie === "Green" && ghostShotId) {
+                  void borrarShot(ghostShotId);
+                }
+                setGhostShotId(null);
                 setPanel("none");
                 setConfirmar(null);
               }}
