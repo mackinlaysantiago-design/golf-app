@@ -181,6 +181,14 @@ function attachLongPressDrag(
   el.style.webkitUserSelect = "none";
   el.style.userSelect = "none";
   (el.style as CSSStyleDeclaration & { webkitTouchCallout?: string }).webkitTouchCallout = "none";
+  // El mapa arranca su propio paneo escuchando mousedown/touchstart (eventos VIEJOS,
+  // no pointerdown) directo en su contenedor — cortar solo el pointerdown de acá no
+  // alcanzaba, esos otros dos seguían llegando y ganaban la carrera contra el
+  // mantener-apretado (reportado dos veces por Santi 22/08). Esta es la función que
+  // trae Leaflet específicamente para esto: la usan sus propios controles (botones
+  // de zoom, etc.) para que tocarlos no mueva el mapa de abajo.
+  L.DomEvent.disableClickPropagation(el);
+  L.DomEvent.on(el, "touchstart", L.DomEvent.stopPropagation);
   el.addEventListener("pointerdown", onDown);
   el.addEventListener("pointermove", onMove);
   el.addEventListener("pointerup", onUp);
