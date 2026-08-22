@@ -94,7 +94,6 @@ function CabezaDePalo({ size = 18 }: { size?: number }) {
     </svg>
   );
 }
-const PIERNA_MIN_Y = ESTADO_TOP + 34;
 
 export default function MapaTracker({
   round,
@@ -147,12 +146,6 @@ export default function MapaTracker({
   const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
   // Una vez que movés el círculo, deja de reacomodarse solo.
   const [objetivoTocado, setObjetivoTocado] = useState(false);
-  // Altura en pantalla del medio de cada pierna: los carteles quedan pegados al borde
-  // izquierdo pero suben y bajan siguiendo su tramo, como en H19.
-  const [legsY, setLegsY] = useState<{ uno: number | null; dos: number | null }>({
-    uno: null,
-    dos: null,
-  });
   // En la cancha la señal se corta: si un guardado falla hay que decirlo, si no creés
   // que quedó cargado y no quedó.
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
@@ -409,25 +402,6 @@ export default function MapaTracker({
     // objetivo todo el tiempo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objetivoTocado, origen?.lat, origen?.lng, centerLat, centerLng, enElTee, plan, carries]);
-
-  // Los dos palos del plan: el de ahora (hasta el círculo) y el de después (del
-  // círculo al green). Es la decisión de los dos tiros juntos, que es de lo que se
-  // trata DECADE.
-  const dTargetAlGreen =
-    target && centerLat != null && centerLng != null
-      ? Math.round(yardsBetween(target.lat, target.lng, centerLat, centerLng))
-      : null;
-  const clubHastaTarget = !round.clubSuggestion
-    ? null
-    : enElTee && plan
-      ? plan.teeClub
-      : dTarget != null
-        ? (suggestClub(dTarget, carries)?.pick.club ?? null)
-        : null;
-  const clubTargetAlGreen =
-    !round.clubSuggestion || dTargetAlGreen == null || dTargetAlGreen < 5
-      ? null
-      : (suggestClub(dTargetAlGreen, carries)?.pick.club ?? null);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
 
@@ -764,7 +738,6 @@ export default function MapaTracker({
         // al usuario (parecía que el tiro registrado se movía con él).
         // Se muestra solo en el tee o cuando la pelota fue puesta a mano.
         showBallMarker={enElTee || origenManual != null || gpsEnLaCancha == null}
-        onLegsY={setLegsY}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}
       />
@@ -812,15 +785,8 @@ export default function MapaTracker({
         <RailBtn label="⚙️" title="Setup" onClick={() => router.push(`/rondas/${round.id}?vista=cards`)} />
       </div>
 
-      {/* Las dos piernas del plan, pegadas al borde izquierdo. Van como chrome y no
-          como marcadores del mapa: así nunca se pisan entre ellas ni con el círculo,
-          que es exactamente lo que hace H19. */}
-      {!round.noDistanceDevice && dTargetAlGreen != null && dTargetAlGreen >= 5 && (
-        <Pierna yds={dTargetAlGreen} club={clubTargetAlGreen} carries={carries} y={legsY.dos} />
-      )}
-      {!round.noDistanceDevice && dTarget != null && (
-        <Pierna yds={dTarget} club={clubHastaTarget} carries={carries} y={legsY.uno} />
-      )}
+      {/* Pedido de Santi (22/08): sin piernas de plan en el mapa — el palo sugerido
+          sigue calculándose en el background y aparece en la hoja de confirmar tiro. */}
 
       {/* Estado: UNA sola fila compacta arriba. Antes iban apilados en la izquierda y
           se comían la columna de las yardas, que es lo único que mirás pegando. */}
@@ -1511,41 +1477,6 @@ export default function MapaTracker({
         </Sheet>
       )}
 
-    </div>
-  );
-}
-
-// Cartel de una pierna del plan: distancia grande arriba, palo con su carry abajo.
-function Pierna({
-  yds,
-  club,
-  carries,
-  y,
-}: {
-  yds: number;
-  club: string | null;
-  carries: ClubCarry[];
-  y: number | null;
-}) {
-  if (y == null) return null;
-  // Clamp: nunca detrás de la fila de estado ni tapado por el botón de registrar.
-  const yy = Math.max(PIERNA_MIN_Y, Math.min(y, typeof window === "undefined" ? y : window.innerHeight - 195));
-  const carry = club ? carries.find((c) => c.club === club)?.carryYds : null;
-  return (
-    <div
-      className="absolute z-[1000] left-0 pointer-events-none"
-      style={{ top: yy, transform: "translateY(-50%)" }}
-    >
-      <div className="bg-neutral-900 text-white pl-3 pr-4 py-1 rounded-r-lg shadow-lg">
-        <span className="text-3xl font-black tabular-nums leading-none">{yds}</span>
-        <span className="text-[10px] align-top ml-0.5">yd</span>
-      </div>
-      {club && (
-        <div className="bg-indigo-600 text-white text-[11px] font-bold pl-3 pr-3 py-0.5 rounded-r-md shadow-lg inline-block mt-0.5">
-          {club}
-          {carry != null ? ` (${Math.round(carry)}yd)` : ""}
-        </div>
-      )}
     </div>
   );
 }

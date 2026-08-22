@@ -70,22 +70,107 @@ function avisarAgarre(m: L.Marker) {
 
 // Chapita del tiro, con la forma de H19: círculo azul con el palo pegado a una
 // pastilla blanca con las yardas. Va en la punta donde llegó el tiro.
+// Padding invisible alrededor de la chapita: el badge visual mide 26px, pero el área
+// que se puede TOCAR para mantener apretado y arrastrar mide ~48px (mínimo recomendado
+// ~44px). El translate compensa el padding para que el badge quede anclado al mismo
+// punto del mapa que antes.
+const SHOT_TOUCH_PAD = 11;
+
 function shotIcon(club: string, yds: string | null) {
   const pastilla = yds
     ? `<div style="background:#fff;color:#111;font-weight:800;font-size:12px;
          padding:3px 8px 3px 14px;margin-left:-10px;border-radius:0 12px 12px 0;
          box-shadow:0 1px 5px rgba(0,0,0,.45)">${esc(yds)}</div>`
     : "";
+  const offset = SHOT_TOUCH_PAD + 13;
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;align-items:center;transform:translate(-13px,-13px)">
-      <div style="min-width:26px;height:26px;padding:0 5px;border-radius:13px;background:#4f46e5;
+    html: `<div style="display:flex;align-items:center;padding:${SHOT_TOUCH_PAD}px;transform:translate(-${offset}px,-${offset}px)">
+      <div class="gf-shot-badge" style="min-width:26px;height:26px;padding:0 5px;border-radius:13px;background:#4f46e5;
         color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;
-        font-weight:800;font-size:11px;box-shadow:0 1px 5px rgba(0,0,0,.5);position:relative;z-index:2"
+        font-weight:800;font-size:11px;box-shadow:0 1px 5px rgba(0,0,0,.5);position:relative;z-index:2;
+        transition:transform .15s, box-shadow .15s"
         >${esc(club)}</div>${pastilla}
     </div>`,
     iconSize: [0, 0],
   });
+}
+
+// Mantener apretado ~450ms antes de que el marker se pueda arrastrar: así un toque
+// normal (para editar el tiro) o el gesto de mover el mapa no se confunden con
+// "quiero corregir la posición". Reemplaza el drag nativo de Leaflet, que arranca
+// apenas tocás y competía con el paneo del mapa.
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
+
+function attachLongPressDrag(
+  map: L.Map,
+  marker: L.Marker,
+  onMoved: (lat: number, lng: number) => void,
+) {
+  const el = marker.getElement();
+  if (!el) return;
+  const badge = el.querySelector<HTMLElement>(".gf-shot-badge");
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let armed = false;
+  let start: { x: number; y: number } | null = null;
+
+  const setArmed = (v: boolean) => {
+    armed = v;
+    if (badge) {
+      badge.style.transform = v ? "scale(1.3)" : "scale(1)";
+      badge.style.boxShadow = v
+        ? "0 0 0 4px rgba(79,70,229,.4), 0 1px 5px rgba(0,0,0,.5)"
+        : "0 1px 5px rgba(0,0,0,.5)";
+    }
+  };
+  const clearTimer = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  const onDown = (ev: PointerEvent) => {
+    start = { x: ev.clientX, y: ev.clientY };
+    clearTimer();
+    timer = setTimeout(() => {
+      setArmed(true);
+      try {
+        el.setPointerCapture?.(ev.pointerId);
+      } catch {
+        // Algunos navegadores tiran InvalidPointerId si el puntero ya cambió de
+        // estado justo al cumplirse el timeout — no es crítico, seguimos igual.
+      }
+    }, LONG_PRESS_MS);
+  };
+  const onMove = (ev: PointerEvent) => {
+    if (!start) return;
+    if (!armed) {
+      const d = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
+      if (d > LONG_PRESS_MOVE_TOLERANCE_PX) {
+        // Se movió antes de que se arme el drag: es un gesto de paneo, no de corregir.
+        clearTimer();
+        start = null;
+      }
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const ll = map.mouseEventToLatLng(ev as unknown as MouseEvent);
+    marker.setLatLng(ll);
+  };
+  const onUp = () => {
+    clearTimer();
+    if (armed) {
+      const ll = marker.getLatLng();
+      onMoved(ll.lat, ll.lng);
+    }
+    setArmed(false);
+    start = null;
+  };
+  el.style.touchAction = "none";
+  el.addEventListener("pointerdown", onDown);
+  el.addEventListener("pointermove", onMove);
+  el.addEventListener("pointerup", onUp);
+  el.addEventListener("pointercancel", onUp);
 }
 
 export default function MapaHoyo({
@@ -104,7 +189,6 @@ export default function MapaHoyo({
   onMoveTarget,
   onMoveOrigin,
   onMovePin,
-  onLegsY,
   onMoveShot,
   onTapShot,
 }: {
@@ -131,9 +215,6 @@ export default function MapaHoyo({
   onMoveOrigin: (lat: number, lng: number) => void;
   /** Mover la BANDERA: la posición real del pin ese día. */
   onMovePin: (lat: number, lng: number) => void;
-  /** Altura en pantalla del medio de cada pierna, para que los carteles del borde
-   *  izquierdo suban y bajen con el objetivo. */
-  onLegsY: (y: { uno: number | null; dos: number | null }) => void;
   onMoveShot: (id: string, lat: number, lng: number) => void;
   onTapShot: (id: string) => void;
 }) {
@@ -294,64 +375,10 @@ export default function MapaHoyo({
       }
     }
 
-    // La línea del plan: de la pelota al CENTRO DEL GREEN, con el círculo del objetivo
-    // en el medio. Como en H19, se muestran las DOS piernas del plan — hasta el círculo
-    // y del círculo al green — cada una con el palo que la cubre. Eso es DECADE: el
-    // tiro de ahora y el de después, decididos juntos.
-    const greenPt: L.LatLngTuple | null =
-      green.centerLat != null && green.centerLng != null ? [green.centerLat, green.centerLng] : null;
-
-    // Dos tramos: de la pelota al objetivo y del objetivo al green. Si movés el
-    // objetivo al costado la línea se quiebra, que es lo que querés ver cuando el
-    // plan es un dogleg o un bailout — no una recta obligada al green.
-    const plan: L.LatLngTuple[] = [];
-    if (origin) plan.push(origin);
-    if (targetLat != null && targetLng != null) plan.push([targetLat, targetLng]);
-    if (greenPt) plan.push(greenPt);
-    if (plan.length >= 2) {
-      add(
-        L.polyline(plan, { color: "#ffffff", weight: 2, opacity: 0.9, interactive: false }),
-      );
-    }
-
-    if (origin && targetLat != null && targetLng != null) {
-      // Círculo grande y transparente: se arrastra para mover el objetivo.
-      const aro = add(
-        L.circleMarker([targetLat, targetLng], {
-          radius: 26,
-          color: "#fff",
-          weight: 3,
-          opacity: 0.95,
-          fillColor: "#fff",
-          fillOpacity: 0.12,
-        }),
-      );
-      const centro = add(
-        L.circleMarker([targetLat, targetLng], { radius: 2, color: "#fff", fillOpacity: 1 }),
-      );
-      // circleMarker no se arrastra: va un marker invisible encima que sí lo hace.
-      const asa = add(
-        L.marker([targetLat, targetLng], {
-          icon: L.divIcon({
-            className: "",
-            html: '<div style="width:56px;height:56px;transform:translate(-28px,-28px)"></div>',
-            iconSize: [0, 0],
-          }),
-          draggable: true,
-          zIndexOffset: 400,
-        }),
-      );
-      asa.on("drag", () => {
-        const ll = asa.getLatLng();
-        aro.setLatLng(ll);
-        centro.setLatLng(ll); // si no, el puntito queda clavado hasta que soltás
-      });
-      asa.on("dragend", () => {
-        const ll = asa.getLatLng();
-        onMoveTarget(ll.lat, ll.lng);
-      });
-
-    }
+    // Pedido de Santi (22/08): nada de línea "hacia adelante" (pelota→green) ni
+    // círculo de objetivo arrastrable — solo el punto de dónde estás parado y, atrás
+    // tuyo, el camino ya jugado (más abajo). El target sigue existiendo en el estado
+    // (para el cálculo de palo sugerido en el background), simplemente no se dibuja.
 
     // La bandera se arrastra: el pin cambia todas las semanas y de él dependen TODAS
     // las distancias del hoyo. El centro del green del mapa de la cancha es fijo.
@@ -432,20 +459,15 @@ export default function MapaHoyo({
             s.club?.split(" ")[0] ?? String(s.shotNumber),
             s.shotLengthYds != null ? String(s.shotLengthYds) : null,
           ),
-          // Solo se arrastra si hay un tiro siguiente cuya posición corregir; la
-          // punta del último tiro es tu posición GPS actual y no se mueve a mano.
-          draggable: !!siguiente,
         }),
       );
-      // Leaflet dispara `click` junto con `dragend` al soltar un marker. Sin esta
-      // guarda, corregir la posición de un tiro te abría la hoja de edición encima.
+      // Mantener apretado para corregir la posición (si seguiste caminando y te
+      // olvidaste de marcar el tiro, lo corrés hacia atrás). Un toque normal, corto,
+      // abre la hoja de edición del tiro.
       let arrastrando = false;
-      m.on("dragstart", () => {
+      attachLongPressDrag(map, m, (lat, lng) => {
         arrastrando = true;
-      });
-      m.on("dragend", () => {
-        const ll = m.getLatLng();
-        if (siguiente) onMoveShot(siguiente.id, ll.lat, ll.lng);
+        if (siguiente) onMoveShot(siguiente.id, lat, lng);
         setTimeout(() => {
           arrastrando = false;
         }, 200);
@@ -528,40 +550,6 @@ export default function MapaHoyo({
       layersRef.current = [];
     };
   }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, esTee, shots, onMoveTarget, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
-
-  // touch-action: Leaflet le pone `none` al contenedor y se comería el deslizar
-  // horizontal, dejando el pager congelado. `pan-x pinch-zoom` deja pasar el swipe
-  // al pager y mantiene el zoom de dos dedos.
-  // Alturas de los carteles: se recalculan al dibujar y mientras movés o hacés zoom.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const medio = (a: L.LatLngTuple, b: L.LatLngTuple): L.LatLngTuple => [
-      (a[0] + b[0]) / 2,
-      (a[1] + b[1]) / 2,
-    ];
-    const recalcular = () => {
-      const o: L.LatLngTuple | null =
-        originLat != null && originLng != null ? [originLat, originLng] : null;
-      const t: L.LatLngTuple | null =
-        targetLat != null && targetLng != null ? [targetLat, targetLng] : null;
-      const g: L.LatLngTuple | null =
-        green.centerLat != null && green.centerLng != null
-          ? [green.centerLat, green.centerLng]
-          : null;
-      const yDe = (p: L.LatLngTuple | null) =>
-        p ? map.latLngToContainerPoint(L.latLng(p[0], p[1])).y : null;
-      onLegsY({
-        uno: o && t ? yDe(medio(o, t)) : null,
-        dos: t && g ? yDe(medio(t, g)) : null,
-      });
-    };
-    recalcular();
-    map.on("move zoom moveend zoomend", recalcular);
-    return () => {
-      map.off("move zoom moveend zoomend", recalcular);
-    };
-  }, [originLat, originLng, targetLat, targetLng, green, onLegsY]);
 
   return (
     <div
