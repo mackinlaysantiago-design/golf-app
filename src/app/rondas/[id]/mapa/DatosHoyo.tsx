@@ -96,8 +96,12 @@ export default function DatosHoyo({
   const circlePasos = Math.max(1, Math.round(round.onePuttCircleFt / 3));
 
   // El mismo cálculo que hace el server al guardar: lo que ves acá es lo que queda.
+  // El último tiro de la lista puede estar todavía ABIERTO (el "ancla": el origen
+  // del próximo golpe, sin lie porque todavía no se pegó). No es un golpe jugado —
+  // contarlo infla el score mientras el hoyo está en curso.
+  const shotsCerrados = shots.filter((s) => s.lie != null);
   const sm = deriveSmFromShots(
-    shots.map((s) => ({
+    shotsCerrados.map((s) => ({
       shotNumber: s.shotNumber,
       distanceToTargetYds: s.distanceToTargetYds,
       lie: s.lie,
@@ -305,7 +309,7 @@ export default function DatosHoyo({
                 "—"
               )}
             </Dato>
-            <Dato label="Tiros">{shots.length}</Dato>
+            <Dato label="Tiros">{shotsCerrados.length}</Dato>
           </div>
         ) : (
           <p className="text-sm text-neutral-500">

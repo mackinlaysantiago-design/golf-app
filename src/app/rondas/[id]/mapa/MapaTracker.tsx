@@ -1311,8 +1311,11 @@ export default function MapaTracker({
                     key={l}
                     type="button"
                     onClick={() => {
-                      setConfirmar({ ...confirmar, lie: l });
-                      void patchShot(confirmar.id, { lie: l });
+                      // Cambiar el lie invalida el tipo de multa anterior: si no se
+                      // limpia acá queda un penaltyType pegado en la DB para
+                      // siempre, sin forma de sacarlo desde la UI.
+                      setConfirmar({ ...confirmar, lie: l, penaltyType: null });
+                      void patchShot(confirmar.id, { lie: l, penaltyType: null });
                     }}
                     className={`rounded-lg px-2.5 py-1.5 text-xs ${confirmar.lie === l ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
                   >
@@ -1470,7 +1473,7 @@ export default function MapaTracker({
                   <button
                     key={l}
                     type="button"
-                    onClick={() => void patchShot(editando.id, { lie: l })}
+                    onClick={() => void patchShot(editando.id, { lie: l, penaltyType: null })}
                     className={`rounded-lg px-2.5 py-1.5 text-xs ${editando.lie === l ? "bg-indigo-600 text-white" : "bg-neutral-100"}`}
                   >
                     {l}

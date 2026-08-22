@@ -4,10 +4,10 @@ import RondaTracker from "./RondaTracker";
 
 export const dynamic = "force-dynamic";
 
-// Desde 02/08/2026 la vista de cancha por defecto es el mapa a pantalla completa
-// (/rondas/[id]/mapa). Esta pantalla —el scroll de cards— sigue viva en
-// ?vista=cards para poder comparar las dos en la cancha antes de decidir.
-// Para restaurarla como default: sacar el redirect de acá.
+// Desde 22/08/2026 el default vuelve a ser cards: el mapa (/rondas/[id]/mapa)
+// tiene bugs de shot tracking en revisión. El mapa sigue disponible con
+// ?vista=mapa (o el FAB 🗺️ de esta pantalla) mientras se arregla.
+// Para volver a poner el mapa como default: invertir esta condición.
 export default async function RondaPage({
   params,
   searchParams,
@@ -18,7 +18,7 @@ export default async function RondaPage({
   const { id } = await params;
   const { vista } = await searchParams;
 
-  if (vista !== "cards") redirect(`/rondas/${id}/mapa`);
+  if (vista === "mapa") redirect(`/rondas/${id}/mapa`);
 
   const round = await prisma.round.findUnique({
     where: { id },

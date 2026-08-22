@@ -105,7 +105,11 @@ export async function PUT(
     if (e.puttDistancesFt != null) {
       out = { ...out, ...derivePutts(e.puttDistancesFt, round.onePuttCircleFt) };
     }
-    const shots = shotsPorHoyo.get(`${e.roundPlayerId}__${e.holeNumber}`);
+    // El último tiro puede estar ABIERTO (el "ancla" del próximo golpe, sin lie
+    // porque todavía no se pegó). No es un golpe jugado: no cuenta para el score.
+    const shots = shotsPorHoyo
+      .get(`${e.roundPlayerId}__${e.holeNumber}`)
+      ?.filter((s) => s.lie != null);
     if (shots?.length) {
       const sm = deriveSmFromShots(shots, out.putts ?? 0, round.enterSzYds);
       if (sm) {
