@@ -481,14 +481,21 @@ export default function MapaHoyo({
     for (let i = 0; i < placed.length; i++) {
       const s = placed[i];
       const siguiente = placed[i + 1];
-      // Sin tiro siguiente el tiro está abierto: no dibujamos la chapita porque su
-      // posición sería `origin` (el GPS en vivo), que se mueve con cada pulso de GPS
-      // y parecería que el tiro registrado se mueve. El ball marker blanco ya está en
-      // `origin` y cumple esa función. La chapita aparece recién cuando se registra
-      // el siguiente tiro y el punto queda fijo.
+      // Sin tiro siguiente PERO todavía sin lie: está abierto, es el ancla del
+      // próximo golpe — no dibujamos la chapita porque su posición sería `origin`
+      // (el GPS en vivo), que se mueve con cada pulso y parecería que el tiro
+      // registrado se mueve solo. El ball marker blanco ya cumple esa función.
+      //
+      // Sin tiro siguiente PERO YA con lie: es el último tiro del hoyo, confirmado
+      // (llegaste al green, vas a putts — nunca va a haber "tiro siguiente" que le
+      // dé posición). Antes se quedaba sin marca para siempre aunque estuviera bien
+      // cargado (bug reportado 22/08). Se dibuja en el pin del día: es lo más cerca
+      // que se sabe de dónde terminó, sin inventar una posición que no se midió.
       const llegada: L.LatLngTuple | null = siguiente
         ? [siguiente.fromLat!, siguiente.fromLng!]
-        : null;
+        : s.lie != null && green.centerLat != null && green.centerLng != null
+          ? [green.centerLat, green.centerLng]
+          : null;
       if (!llegada) continue;
 
       const m = add(
@@ -501,15 +508,18 @@ export default function MapaHoyo({
       );
       // Mantener apretado para corregir la posición (si seguiste caminando y te
       // olvidaste de marcar el tiro, lo corrés hacia atrás). Un toque normal, corto,
-      // abre la hoja de edición del tiro.
+      // abre la hoja de edición del tiro. El último tiro del hoyo (sin siguiente) no
+      // se arrastra: no hay qué corregir, su posición es la del pin del día.
       let arrastrando = false;
-      attachLongPressDrag(map, m, (lat, lng) => {
-        arrastrando = true;
-        if (siguiente) onMoveShot(siguiente.id, lat, lng);
-        setTimeout(() => {
-          arrastrando = false;
-        }, 200);
-      });
+      if (siguiente) {
+        attachLongPressDrag(map, m, (lat, lng) => {
+          arrastrando = true;
+          onMoveShot(siguiente.id, lat, lng);
+          setTimeout(() => {
+            arrastrando = false;
+          }, 200);
+        });
+      }
       m.on("click", () => {
         if (!arrastrando) onTapShot(s.id);
       });
