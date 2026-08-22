@@ -58,6 +58,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             dev?.shotLengthYds ??
             Math.round(yardsBetween(from.lat, from.lng, landed.lat, landed.lng)),
           lateralDeviationYds: dev?.lateralYds ?? null,
+          landedLat: body.landedLat,
+          landedLng: body.landedLng,
         },
       });
     }

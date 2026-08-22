@@ -14,6 +14,10 @@ export type MapaShot = {
   shotNumber: number;
   fromLat: number | null;
   fromLng: number | null;
+  /** Dónde cayó ESTE tiro. Solo se guarda para el último tiro de un hoyo (los demás
+   *  lo tienen implícito: es el `fromLat/Lng` del tiro siguiente). */
+  landedLat: number | null;
+  landedLng: number | null;
   targetLat: number | null;
   targetLng: number | null;
   club: string | null;
@@ -430,13 +434,17 @@ export default function MapaHoyo({
       // Sin tiro siguiente PERO YA con lie: es el último tiro del hoyo, confirmado
       // (llegaste al green, vas a putts — nunca va a haber "tiro siguiente" que le
       // dé posición). Antes se quedaba sin marca para siempre aunque estuviera bien
-      // cargado (bug reportado 22/08). Se dibuja en el pin del día: es lo más cerca
-      // que se sabe de dónde terminó, sin inventar una posición que no se midió.
+      // cargado (bug reportado 22/08). "🏁 llegué al green" guarda landedLat/Lng con
+      // la posición real (dónde estaba parada la pelota al cerrar el tiro) — se usa
+      // esa. Si es un tiro viejo de antes de este fix y no la tiene, se cae al pin
+      // del día como aproximación, mejor que nada.
       const llegada: L.LatLngTuple | null = siguiente
         ? [siguiente.fromLat!, siguiente.fromLng!]
-        : s.lie != null && green.centerLat != null && green.centerLng != null
-          ? [green.centerLat, green.centerLng]
-          : null;
+        : s.landedLat != null && s.landedLng != null
+          ? [s.landedLat, s.landedLng]
+          : s.lie != null && green.centerLat != null && green.centerLng != null
+            ? [green.centerLat, green.centerLng]
+            : null;
       if (!llegada) continue;
 
       const m = add(

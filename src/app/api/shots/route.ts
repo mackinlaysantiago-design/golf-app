@@ -17,6 +17,8 @@ const SHOT_SELECT = {
   shotNumber: true,
   fromLat: true,
   fromLng: true,
+  landedLat: true,
+  landedLng: true,
   targetLat: true,
   targetLng: true,
   club: true,

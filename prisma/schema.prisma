@@ -353,6 +353,12 @@ model RoundShot {
   fromLng             Float?
   distanceToTargetYds Int? // distancia al green/target al pegar (GPS)
   shotLengthYds       Int? // largo del tiro = pos previa → esta (calculado)
+  // Dónde cayó ESTE tiro. Normalmente implícito (es el `from` del tiro siguiente) —
+  // pero el ÚLTIMO tiro de un hoyo no tiene un tiro siguiente que se lo dé (vas a
+  // putts). Sin esto, la chapita del último tiro no tenía dónde dibujarse y quedaba
+  // clavada en el pin como aproximación (22/08).
+  landedLat Float?
+  landedLng Float?
   // PLAN del tiro: a dónde apuntabas cuando decidiste el palo. Con esto y la posición
   // final (que es el `from` del tiro siguiente) se separa DECISIÓN de EJECUCIÓN:
   // "apuntaste al centro con 7i y saliste 20 a la izquierda y 15 corto".
