@@ -199,6 +199,7 @@ export default function MapaHoyo({
   onMovePin,
   onMoveShot,
   onTapShot,
+  onTapMap,
   clubBounds,
 }: {
   green: MapaGreen;
@@ -225,6 +226,9 @@ export default function MapaHoyo({
   onMovePin: (lat: number, lng: number) => void;
   onMoveShot: (id: string, lat: number, lng: number) => void;
   onTapShot: (id: string) => void;
+  /** Tocar el mapa vacío = "la pelota cayó acá": registra el tiro ahí directo
+   *  (pedido de Santi 22/08 — un solo toque, sin depender de GPS en vivo). */
+  onTapMap: (lat: number, lng: number) => void;
   /** Puntos (tee/green) de TODOS los hoyos de la ronda — arma el límite de paneo:
    *  te podés mover libre por toda la cancha, no solo por el hoyo actual. */
   clubBounds: { lat: number; lng: number }[];
@@ -233,6 +237,8 @@ export default function MapaHoyo({
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.Layer[]>([]);
   const fittedHoleRef = useRef<string | null>(null);
+  const onTapMapRef = useRef(onTapMap);
+  onTapMapRef.current = onTapMap;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -251,10 +257,15 @@ export default function MapaHoyo({
     const cancelled = { current: false };
     void attachSatelliteLayer(map, cancelled);
     map.setView([-35.0129, -63.0088], 17);
-    // Pedido de Santi (22/08): nada de "tocar cualquier parte vacía del mapa mueve
-    // la pelota" — eso terminaba moviendo cosas sin querer mientras solo estaba
-    // mirando el mapa. La pelota se mueve SOLO agarrándola a ella directamente
-    // (es arrastrable, igual que la bandera), más abajo en este mismo efecto.
+    // Tocar el mapa vacío = "la pelota cayó acá", registra el tiro directo ahí
+    // (pedido de Santi 22/08). Un toque genuino (Leaflet ya lo distingue de un
+    // arrastre/paneo) — si el toque empezó sobre un marker, ese ya tiene su propio
+    // gesto (arrastrarlo o editarlo), no se pisa acá.
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      const target = (e.originalEvent?.target as HTMLElement) ?? null;
+      if (target?.closest(".leaflet-marker-icon, .leaflet-interactive")) return;
+      onTapMapRef.current(e.latlng.lat, e.latlng.lng);
+    });
     return () => {
       cancelled.current = true;
       map.remove();

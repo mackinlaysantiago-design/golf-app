@@ -472,24 +472,39 @@ export default function MapaTracker({
       setErrorGuardado("No se pudieron guardar los putts. Probá de nuevo.");
     }
   }
-  async function registrarGolpe() {
+  // `tocado`: cuando el tiro se dispara por un toque directo en el mapa (pedido de
+  // Santi 22/08 — tocar un punto = "la pelota cayó ahí", sin depender de caminar con
+  // GPS y apretar el botón). Ese punto YA es la posición real: no hace falta la
+  // heurística de "cierre automático" que intenta adivinar si ya pegaste.
+  async function registrarGolpe(tocado?: { lat: number; lng: number }) {
     // Alcanza con tener el origen: en el tee sale de las coordenadas del hoyo, así
     // que se puede registrar el drive aunque el GPS todavía no haya enganchado.
-    if (!origen || busy || !shotsListos) return;
+    // En el tee, el punto tocado es dónde CAYÓ el drive, no de dónde salió (eso es
+    // el tee, fijo) — el toque cierra el tiro, no lo abre ahí. Para el segundo tiro
+    // en adelante el punto tocado SÍ es el origen (ahí sale el próximo, y de paso
+    // cierra el anterior — mismo mecanismo que ya usa el server).
+    const origenEfectivo = tocado && !enElTee ? tocado : origen;
+    if (!origenEfectivo || busy || !shotsListos) return;
     setBusy(true);
     // Capturar GPS y posición antes de los awaits: pueden cambiar entre llamadas.
-    const snapshotOrigen = origen;
+    const snapshotOrigen = origenEfectivo;
     const snapshotGps = gpsEnLaCancha;
     const wasEnElTee = enElTee;
     // Si al presionar el primer tiro el GPS ubica al jugador a más de 30 yardas
     // del tee, está al lado de la pelota (ya pegó). Cerramos automáticamente el
     // tiro con un segundo POST para que la confirmación aparezca en UN SOLO toque,
     // igual que para todos los tiros siguientes. Si está en el tee, flujo normal.
+    // Con un toque directo esto no aplica: el punto tocado YA es la posición.
     const distDesdeTee =
-      snapshotGps && teePos
+      !tocado && snapshotGps && teePos
         ? yardsBetween(snapshotGps.lat, snapshotGps.lng, teePos.lat, teePos.lng)
         : 0;
-    const cierreAutomatico = wasEnElTee && !!snapshotGps && distDesdeTee > 30;
+    // Con toque directo en el tee, el punto tocado ES dónde cayó el drive: cierra
+    // en un solo toque igual que el flujo GPS, sin necesitar el umbral de 30 yardas
+    // (el toque no tiene el "por ahí todavía no pegaste" que sí tiene el GPS).
+    const puntoDeCierre = tocado ?? snapshotGps;
+    const cierreAutomatico =
+      wasEnElTee && !!puntoDeCierre && (tocado != null || distDesdeTee > 30);
     try {
       const res = await fetch("/api/shots", {
         method: "POST",
@@ -504,7 +519,13 @@ export default function MapaTracker({
           targetLng: target?.lng ?? null,
           club: sugerido?.club ?? null,
           // Al PIN, no al círculo: de acá salen Enter SZ / Inside SZ / distancia REG.
-          distanceToTargetYds: dPinDesdeLaPelota,
+          // Con toque directo, dPinDesdeLaPelota está calculado con el GPS en vivo
+          // (reactivo), no con el punto real de este POST (snapshotOrigen) — hay
+          // que recalcularlo acá.
+          distanceToTargetYds:
+            centerLat != null && centerLng != null
+              ? Math.round(yardsBetween(snapshotOrigen.lat, snapshotOrigen.lng, centerLat, centerLng))
+              : dPinDesdeLaPelota,
           gpsAccuracyM: accM,
         }),
       });
@@ -542,19 +563,20 @@ export default function MapaTracker({
         setConfirmar(cerrado);
         setPanel("confirmar");
       } else if (cierreAutomatico) {
-        // Primer tiro del hoyo presionado desde la calle: cerrarlo de inmediato
-        // con un segundo POST para que la confirmación aparezca en un solo toque.
+        // Primer tiro del hoyo presionado desde la calle (o tocado directo en el
+        // mapa): cerrarlo de inmediato con un segundo POST para que la confirmación
+        // aparezca en un solo toque.
         const dPinDesdeAqui =
           centerLat != null && centerLng != null
-            ? Math.round(yardsBetween(snapshotGps!.lat, snapshotGps!.lng, centerLat, centerLng))
+            ? Math.round(yardsBetween(puntoDeCierre!.lat, puntoDeCierre!.lng, centerLat, centerLng))
             : null;
         const res2 = await fetch("/api/shots", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             roundHoleId: d.roundHoleId,
-            lat: snapshotGps!.lat,
-            lng: snapshotGps!.lng,
+            lat: puntoDeCierre!.lat,
+            lng: puntoDeCierre!.lng,
             targetLat: target?.lat ?? null,
             targetLng: target?.lng ?? null,
             club: null,
@@ -844,6 +866,11 @@ export default function MapaTracker({
         showBallMarker={enElTee || origenManual != null || gpsEnLaCancha == null}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}
+        onTapMap={(lat, lng) => {
+          // enElGreen: no hay tiro que registrar, es momento de putts, no de mapa.
+          if (enElGreen || busy || !shotsListos || panel !== "none") return;
+          void registrarGolpe({ lat, lng });
+        }}
         clubBounds={clubBounds}
       />
 
