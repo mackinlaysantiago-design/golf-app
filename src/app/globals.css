@@ -165,9 +165,15 @@ body {
 
 /* Marcadores arrastrables del mapa de cancha: se quedan su propio gesto para que el
    navegador no lo interprete como scroll y Leaflet reciba el arrastre. Sin esto no se
-   podía mover con el dedo ni la bandera, ni la pelota, ni el círculo del objetivo. */
-.leaflet-marker-draggable {
+   podía mover con el dedo ni la bandera, ni la pelota, ni el círculo del objetivo.
+   touch-action solo tapa el scroll — mantener apretado SIN esto además dispara el
+   menú nativo de "seleccionar/copiar" del navegador y se come el gesto (22/08). */
+.leaflet-marker-draggable,
+.gf-arrastrable {
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 

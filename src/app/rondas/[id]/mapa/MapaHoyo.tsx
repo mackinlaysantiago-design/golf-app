@@ -166,7 +166,12 @@ function attachLongPressDrag(
     setArmed(false);
     start = null;
   };
+  // touchAction tapa el scroll; los otros dos evitan que mantener apretado dispare el
+  // menú nativo de "seleccionar/copiar" del navegador en vez de armar el drag (22/08).
   el.style.touchAction = "none";
+  el.style.webkitUserSelect = "none";
+  el.style.userSelect = "none";
+  (el.style as CSSStyleDeclaration & { webkitTouchCallout?: string }).webkitTouchCallout = "none";
   el.addEventListener("pointerdown", onDown);
   el.addEventListener("pointermove", onMove);
   el.addEventListener("pointerup", onUp);
@@ -539,7 +544,12 @@ export default function MapaHoyo({
     <div
       ref={containerRef}
       className="absolute inset-0"
-      style={{ touchAction: "pan-x pinch-zoom" }}
+      style={{
+        touchAction: "pan-x pinch-zoom",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+      }}
     />
   );
 }
