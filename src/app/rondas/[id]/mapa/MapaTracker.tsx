@@ -159,6 +159,30 @@ export default function MapaTracker({
   // Sin esto, el primer tiro de cada hoyo desaparecía del mapa (loadShots veía
   // roundHoleId null y limpiaba la lista) y volvías a tocar, duplicando tiros.
   const [holeIdNuevo, setHoleIdNuevo] = useState<Record<number, string>>({});
+  // Pedido de Santi (22/08): el mapa se puede mover libre con el dedo, no queda
+  // anclado al hoyo actual — pero tampoco se va "para cualquier lado": el límite es
+  // un cuadrado que agarra los tees/greens de TODOS los hoyos de la ronda (el club
+  // entero), así podés marcar un tiro que cayó en el fairway de al lado.
+  const clubBounds = useMemo(() => {
+    const pts: { lat: number; lng: number }[] = [];
+    const push = (lat: number | null, lng: number | null) => {
+      if (lat != null && lng != null) pts.push({ lat, lng });
+    };
+    for (const h of holes) {
+      push(h.green.teeLat, h.green.teeLng);
+      push(h.green.frontLat, h.green.frontLng);
+      push(h.green.centerLat, h.green.centerLng);
+    }
+    return pts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    holes
+      .map(
+        (h) =>
+          `${h.green.teeLat},${h.green.teeLng},${h.green.frontLat},${h.green.frontLng},${h.green.centerLat},${h.green.centerLng}`,
+      )
+      .join("|"),
+  ]);
   const infoBase = holes.find((h) => h.number === hole);
   // useMemo obligatorio: si `info` fuera un objeto nuevo en cada render, el efecto
   // que fija el target correría siempre y te pisaría el objetivo que moviste a dedo.
@@ -740,6 +764,7 @@ export default function MapaTracker({
         showBallMarker={enElTee || origenManual != null || gpsEnLaCancha == null}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}
+        clubBounds={clubBounds}
       />
 
       {/* Barra de distancias */}

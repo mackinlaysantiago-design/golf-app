@@ -191,6 +191,7 @@ export default function MapaHoyo({
   onMovePin,
   onMoveShot,
   onTapShot,
+  clubBounds,
 }: {
   green: MapaGreen;
   userLat: number | null;
@@ -217,6 +218,9 @@ export default function MapaHoyo({
   onMovePin: (lat: number, lng: number) => void;
   onMoveShot: (id: string, lat: number, lng: number) => void;
   onTapShot: (id: string) => void;
+  /** Puntos (tee/green) de TODOS los hoyos de la ronda — arma el límite de paneo:
+   *  te podés mover libre por toda la cancha, no solo por el hoyo actual. */
+  clubBounds: { lat: number; lng: number }[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -230,9 +234,9 @@ export default function MapaHoyo({
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
-      // El mapa NO se arrastra: queda anclado al hoyo y el deslizar horizontal se lo
-      // queda el pager (mapa ↔ datos), como en H19. Zoom y tap siguen andando.
-      dragging: false,
+      // Pedido de Santi (22/08): se puede mover libre con el dedo (por si un tiro
+      // cayó en otro fairway) — el límite es el cuadrado de todo el club, más abajo.
+      dragging: true,
       // El encuadre entra el hoyo entero, así que no hace falta pan para ver nada.
       touchZoom: true,
       doubleClickZoom: true,
@@ -290,58 +294,33 @@ export default function MapaHoyo({
     }
   }, [green, puntosDelHoyo]);
 
-  // El mapa queda ANCLADO al hoyo: se hace zoom y se toca, pero no te podés ir
-  // caminando hasta el hoyo de al lado (pedido de Santi — "me voy siempre para algún
-  // lado raro"). El margen es generoso para que entre un tiro bien errado y para que
-  // se pueda arrastrar un nodo afuera de la calle.
-  //
-  // El límite se calcula SOLO con los puntos firmes del hoyo (tee, green y los tiros
-  // ya guardados). Si entraran el target o el GPS vivo, moverías el objetivo y el
-  // mapa se re-encerraría abajo del dedo en cada arrastre.
-  const puntosFirmes = useMemo(() => {
-    const pts: L.LatLngTuple[] = [];
-    const push = (la: number | null, ln: number | null) => {
-      if (la != null && ln != null) pts.push([la, ln]);
-    };
-    push(green.teeLat, green.teeLng);
-    push(green.frontLat, green.frontLng);
-    push(green.centerLat, green.centerLng);
-    // Los tiros entran salvo los que quedaron con la posición disparatada (guardados
-    // con el GPS lejos de la cancha). Si entraran, un solo tiro malo estiraría el
-    // límite kilómetros y el anclaje al hoyo dejaría de servir. Esos se editan y se
-    // borran desde la lista de tiros, que no depende del mapa.
-    for (const sh of shots) {
-      if (sh.fromLat == null || sh.fromLng == null) continue;
-      if (
-        green.centerLat != null &&
-        green.centerLng != null &&
-        yardsBetween(sh.fromLat, sh.fromLng, green.centerLat, green.centerLng) > LEJOS_YDS
-      ) {
-        continue;
-      }
-      pts.push([sh.fromLat, sh.fromLng]);
-    }
-    return pts;
-  }, [green, shots]);
+  // El mapa se puede mover libre con el dedo (pedido de Santi 22/08 — un tiro puede
+  // caer en el fairway de al lado y tenés que poder marcarlo ahí), pero no "para
+  // cualquier lado": el límite es el cuadrado que arma el tee/green de TODOS los
+  // hoyos de la ronda, el club entero.
+  const puntosClub: L.LatLngTuple[] = useMemo(
+    () => clubBounds.map((p): L.LatLngTuple => [p.lat, p.lng]),
+    [clubBounds],
+  );
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     // Con menos de dos puntos distintos el bounds es degenerado: getBoundsZoom
     // devuelve Infinity y setMinZoom(Infinity) deja el mapa muerto. Mejor sin límite.
-    const distintos = new Set(puntosFirmes.map((p) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`));
+    const distintos = new Set(puntosClub.map((p) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`));
     if (distintos.size < 2) {
       map.setMaxBounds(null as unknown as L.LatLngBounds); // null = sin límite (API de Leaflet)
       map.setMinZoom(1);
       return;
     }
-    const limite = L.latLngBounds(puntosFirmes).pad(0.6);
+    const limite = L.latLngBounds(puntosClub).pad(0.15);
     map.setMaxBounds(limite);
     map.options.maxBoundsViscosity = 1.0; // tope duro, no elástico
-    // Tampoco se puede alejar más allá del hoyo: si no, "no moverse" no sirve de nada.
+    // Tampoco se puede alejar más allá del club: si no, "no moverse" no sirve de nada.
     const zoomMin = map.getBoundsZoom(limite);
     map.setMinZoom(Number.isFinite(zoomMin) ? Math.max(1, Math.min(zoomMin, 18)) : 1);
-  }, [puntosFirmes]);
+  }, [puntosClub]);
 
   // Todo lo dibujable se rehace junto: son pocas capas y así no quedan restos.
   useEffect(() => {
