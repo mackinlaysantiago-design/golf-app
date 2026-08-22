@@ -133,6 +133,11 @@ function attachLongPressDrag(
     timer = null;
   };
   const onDown = (ev: PointerEvent) => {
+    // Cortar el gesto para el mapa DESDE EL PRIMER INSTANTE: si no, mientras se
+    // espera a que se arme el mantener-apretado, Leaflet ve el mismo touchmove y
+    // arranca su propio paneo del mapa (dragging:true) — competían por el mismo
+    // toque y ganaba el mapa, arrastrándose en vez de mover la chapita.
+    ev.stopPropagation();
     start = { x: ev.clientX, y: ev.clientY };
     clearTimer();
     timer = setTimeout(() => {
