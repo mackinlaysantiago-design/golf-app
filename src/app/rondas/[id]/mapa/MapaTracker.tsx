@@ -851,6 +851,7 @@ export default function MapaTracker({
         userLng={lng}
         originLat={origen?.lat ?? null}
         originLng={origen?.lng ?? null}
+        origenEsReal={enElTee || origenManual != null || gpsEnLaCancha != null}
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
         shots={shots}

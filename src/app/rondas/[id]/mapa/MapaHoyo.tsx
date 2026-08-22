@@ -188,6 +188,7 @@ export default function MapaHoyo({
   userLng,
   originLat,
   originLng,
+  origenEsReal,
   targetLat,
   targetLng,
   esTee,
@@ -208,6 +209,10 @@ export default function MapaHoyo({
   /** De dónde sale el tiro que estás planificando: el TEE en el drive, tu GPS después. */
   originLat: number | null;
   originLng: number | null;
+  /** false cuando `origin` es un punto adivinado (sin GPS de cancha y todavía sin
+   *  plantar la pelota a mano) — no extiende el rastro azul hacia ahí, sería mostrar
+   *  como "caminando" un punto que no significa nada real. */
+  origenEsReal: boolean;
   targetLat: number | null;
   targetLng: number | null;
   /** El tiro de salida: el marcador del origen es el TEE, no la pelota. */
@@ -403,7 +408,7 @@ export default function MapaHoyo({
     const placed = shots.filter((s) => s.fromLat != null && s.fromLng != null);
     if (placed.length > 0) {
       const path: L.LatLngTuple[] = placed.map((s) => [s.fromLat!, s.fromLng!]);
-      if (origin) path.push(origin);
+      if (origin && origenEsReal) path.push(origin);
       add(L.polyline(path, { color: "#4f46e5", weight: 3, opacity: 0.85, interactive: false }));
     }
 
