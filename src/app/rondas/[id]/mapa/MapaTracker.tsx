@@ -144,8 +144,6 @@ export default function MapaTracker({
   // Pelota puesta a mano. Se limpia al cambiar de hoyo y al registrar un tiro: cada
   // tiro nuevo vuelve a decidir de dónde sale según el GPS.
   const [origenManual, setOrigenManual] = useState<{ lat: number; lng: number } | null>(null);
-  // Una vez que movés el círculo, deja de reacomodarse solo.
-  const [objetivoTocado, setObjetivoTocado] = useState(false);
   // En la cancha la señal se corta: si un guardado falla hay que decirlo, si no creés
   // que quedó cargado y no quedó.
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
@@ -243,7 +241,6 @@ export default function MapaTracker({
   useEffect(() => {
     setTarget(centerLat != null && centerLng != null ? { lat: centerLat, lng: centerLng } : null);
     setOrigenManual(readBolaManual(round.id, hole));
-    setObjetivoTocado(false);
     setGhostShotId(null);
   }, [round.id, hole, centerLat, centerLng]);
 
@@ -409,10 +406,10 @@ export default function MapaTracker({
 
   // El círculo arranca donde LLEGA el palo con el que vas a pegar: en el tee del 1 el
   // plan dice 4i, así que el objetivo cae a 188 yd y el resto queda para el approach.
-  // Si el green está más cerca que eso, el objetivo es el green. Se recalcula solo
-  // hasta que lo movés a mano.
+  // Si el green está más cerca que eso, el objetivo es el green. Ya no se mueve a
+  // mano (esa parte de la UI se sacó 22/08): se recalcula siempre solo.
   useEffect(() => {
-    if (objetivoTocado || !origen || centerLat == null || centerLng == null) return;
+    if (!origen || centerLat == null || centerLng == null) return;
     const green = { lat: centerLat, lng: centerLng };
     const alGreen = yardsBetween(origen.lat, origen.lng, green.lat, green.lng);
     const planClub = enElTee && plan ? carries.find((c) => c.club === plan.teeClub) : undefined;
@@ -425,7 +422,7 @@ export default function MapaTracker({
     // `origen` cambia con cada tick de GPS; se compara por valor para no re-fijar el
     // objetivo todo el tiempo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objetivoTocado, origen?.lat, origen?.lng, centerLat, centerLng, enElTee, plan, carries]);
+  }, [origen?.lat, origen?.lng, centerLat, centerLng, enElTee, plan, carries]);
 
   // ── Acciones ───────────────────────────────────────────────────────────────
 
@@ -589,10 +586,6 @@ export default function MapaTracker({
     }
   }
 
-  const handleMoveTarget = useCallback((la: number, ln: number) => {
-    setTarget({ lat: la, lng: ln });
-    setObjetivoTocado(true);
-  }, []);
   // Acepta null para volver a la salida estándar: misma función, mismo manejo de error.
   const guardarSalida = useCallback(
     (la: number | null, ln: number | null) => {
@@ -753,7 +746,6 @@ export default function MapaTracker({
         shots={shots}
         caminadoDesdeLat={gpsEnLaCancha ? (ultimoTiro?.fromLat ?? null) : null}
         caminadoDesdeLng={gpsEnLaCancha ? (ultimoTiro?.fromLng ?? null) : null}
-        onMoveTarget={handleMoveTarget}
         onMoveOrigin={handleMoveOrigin}
         onMovePin={handleMovePin}
         esTee={enElTee}
@@ -889,6 +881,8 @@ export default function MapaTracker({
                 ? "esperando señal de GPS…"
               : round.noDistanceDevice
                 ? "marcá dónde está la pelota"
+              : gpsEnLaCancha == null && !origenManual && !enElTee
+                ? "sin GPS de cancha · tocá el mapa donde cayó"
                 : `${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
                     ? " · pelota a mano"

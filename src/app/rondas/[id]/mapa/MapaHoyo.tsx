@@ -186,7 +186,6 @@ export default function MapaHoyo({
   caminadoDesdeLat,
   caminadoDesdeLng,
   shots,
-  onMoveTarget,
   onMoveOrigin,
   onMovePin,
   onMoveShot,
@@ -211,7 +210,6 @@ export default function MapaHoyo({
   caminadoDesdeLat: number | null;
   caminadoDesdeLng: number | null;
   shots: MapaShot[];
-  onMoveTarget: (lat: number, lng: number) => void;
   /** Mover la PELOTA: de dónde sale el próximo tiro. */
   onMoveOrigin: (lat: number, lng: number) => void;
   /** Mover la BANDERA: la posición real del pin ese día. */
@@ -225,8 +223,8 @@ export default function MapaHoyo({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.Layer[]>([]);
-  const onMoveTargetRef = useRef(onMoveTarget);
-  onMoveTargetRef.current = onMoveTarget;
+  const onMoveOriginRef = useRef(onMoveOrigin);
+  onMoveOriginRef.current = onMoveOrigin;
   const fittedHoleRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -246,10 +244,12 @@ export default function MapaHoyo({
     const cancelled = { current: false };
     void attachSatelliteLayer(map, cancelled);
     map.setView([-35.0129, -63.0088], 17);
-    // Tocar el mapa = mover a dónde apuntás. No crea tiros: el tiro se registra
+    // Tocar el mapa = marcar ahí dónde está/cayó la pelota (pedido de Santi 22/08:
+    // sirve para corregir un GPS impreciso en cancha Y para cargar tiros de memoria
+    // estando lejos de la cancha, sin GPS real). No crea tiros: el tiro se registra
     // con el botón, para que un toque accidental no ensucie la ronda.
     map.on("click", (e: L.LeafletMouseEvent) =>
-      onMoveTargetRef.current(e.latlng.lat, e.latlng.lng),
+      onMoveOriginRef.current(e.latlng.lat, e.latlng.lng),
     );
     return () => {
       cancelled.current = true;
@@ -528,7 +528,7 @@ export default function MapaHoyo({
       layersRef.current.forEach((l) => map.removeLayer(l));
       layersRef.current = [];
     };
-  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, esTee, shots, onMoveTarget, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
+  }, [green, userLat, userLng, originLat, originLng, targetLat, targetLng, caminadoDesdeLat, caminadoDesdeLng, esTee, shots, onMoveShot, onMoveOrigin, onMovePin, onTapShot]);
 
   return (
     <div
