@@ -670,14 +670,15 @@ export default function MapaTracker({
         ),
       );
       setOrigenManual({ lat: la, lng: ln });
+      // Guardado local (sobrevive a salir del hoyo y volver, en ESTE dispositivo):
+      // marcar dónde está la pelota para ESTE tiro, nada más. Pedido de Santi
+      // (22/08): mantener apretado en el tee estaba, de paso, pisando la salida
+      // OFICIAL del hoyo (guardada en la base, afecta a futuras rondas) — eran dos
+      // cosas mezcladas. Mover la salida de verdad es una acción aparte y
+      // deliberada: el botón "salida: estándar ▾" que abre su propia hoja.
       writeBolaManual(round.id, hole, { lat: la, lng: ln });
-      // En el tee la posición es del HOYO y tiene que quedar guardada: antes era solo
-      // estado local, así que salías del hoyo y la salida volvía sola al mapa de la
-      // cancha. Del segundo golpe en adelante la pelota es transitoria (el próximo
-      // tiro la fija), así que ahí no se guarda nada.
-      if (enElTee) guardarSalida(la, ln);
     },
-    [enElTee, guardarSalida, round.id, hole, origenManual],
+    [hole, origenManual, round.id],
   );
   const handleMovePin = useCallback(
     (la: number, ln: number) => {
