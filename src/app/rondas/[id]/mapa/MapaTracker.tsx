@@ -139,6 +139,20 @@ export default function MapaTracker({
   const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar" | "salida" | "putts">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
+  // Historial de acciones de posición para poder deshacer un arrastre/toque
+  // accidental (pasó el 22/08: un toque sin querer "rompió" el camino de tiros del
+  // hoyo 1 — el toque mueve la pelota a mano, y eso queda hasta que registrás el
+  // próximo tiro o lo corregís vos). No expira solo como el toast de arriba: puede
+  // pasar un rato hasta que notás que algo se movió.
+  type AccionPosicion =
+    | { tipo: "moveShot"; shotId: string; prevLat: number; prevLng: number }
+    | {
+        tipo: "moveOrigin";
+        hole: number;
+        prev: { lat: number; lng: number } | null;
+        eraElTee: boolean;
+      };
+  const [historialPosiciones, setHistorialPosiciones] = useState<AccionPosicion[]>([]);
   // Tiro recién cerrado, esperando que confirmes palo y lie.
   const [confirmar, setConfirmar] = useState<MapaShot | null>(null);
   // Pelota puesta a mano. Se limpia al cambiar de hoyo y al registrar un tiro: cada
@@ -610,6 +624,11 @@ export default function MapaTracker({
 
   const handleMoveOrigin = useCallback(
     (la: number, ln: number) => {
+      setHistorialPosiciones((h) =>
+        [...h, { tipo: "moveOrigin" as const, hole, prev: origenManual, eraElTee: enElTee }].slice(
+          -10,
+        ),
+      );
       setOrigenManual({ lat: la, lng: ln });
       writeBolaManual(round.id, hole, { lat: la, lng: ln });
       // En el tee la posición es del HOYO y tiene que quedar guardada: antes era solo
@@ -618,7 +637,7 @@ export default function MapaTracker({
       // tiro la fija), así que ahí no se guarda nada.
       if (enElTee) guardarSalida(la, ln);
     },
-    [enElTee, guardarSalida, round.id, hole],
+    [enElTee, guardarSalida, round.id, hole, origenManual],
   );
   const handleMovePin = useCallback(
     (la: number, ln: number) => {
@@ -659,10 +678,38 @@ export default function MapaTracker({
 
   const handleMoveShot = useCallback(
     (id: string, la: number, ln: number) => {
+      const actual = shots.find((s) => s.id === id);
+      if (actual?.fromLat != null && actual?.fromLng != null) {
+        setHistorialPosiciones((prev) =>
+          [
+            ...prev,
+            { tipo: "moveShot" as const, shotId: id, prevLat: actual.fromLat!, prevLng: actual.fromLng! },
+          ].slice(-10),
+        );
+      }
       void patchShot(id, { fromLat: la, fromLng: ln });
     },
-    [patchShot],
+    [patchShot, shots],
   );
+
+  const deshacerUltimaPosicion = useCallback(() => {
+    if (historialPosiciones.length === 0) return;
+    const ultimo = historialPosiciones[historialPosiciones.length - 1];
+    if (ultimo.tipo === "moveShot") {
+      void patchShot(ultimo.shotId, { fromLat: ultimo.prevLat, fromLng: ultimo.prevLng });
+    } else {
+      // Si seguís en el mismo hoyo, se ve al toque; si no, igual queda bien
+      // guardado en localStorage para cuando vuelvas a ese hoyo.
+      if (ultimo.hole === hole) setOrigenManual(ultimo.prev);
+      writeBolaManual(round.id, ultimo.hole, ultimo.prev);
+      // La salida del tee también se había guardado en la DB (no solo local): si no
+      // se revierte acá, deshacer "se ve" bien pero el hoyo queda con la salida vieja.
+      if (ultimo.eraElTee && ultimo.hole === hole) {
+        guardarSalida(ultimo.prev?.lat ?? null, ultimo.prev?.lng ?? null);
+      }
+    }
+    setHistorialPosiciones((h) => h.slice(0, -1));
+  }, [patchShot, guardarSalida, hole, round.id, historialPosiciones]);
 
   async function borrarShot(id: string) {
     await fetch(`/api/shots/${id}`, { method: "DELETE" });
@@ -799,6 +846,17 @@ export default function MapaTracker({
           onClick={() => setPanel(panel === "tiros" ? "none" : "tiros")}
         />
         <RailBtn label="📝" title="Datos del hoyo" onClick={() => irAPanel(1)} />
+        <RailBtn
+          label="↩️"
+          title={
+            historialPosiciones.length > 0
+              ? `Deshacer (${historialPosiciones.length})`
+              : "Nada para deshacer"
+          }
+          activeBg="rgba(79,70,229,.92)"
+          disabled={historialPosiciones.length === 0}
+          onClick={deshacerUltimaPosicion}
+        />
         <RailBtn label="⚙️" title="Setup" onClick={() => router.push(`/rondas/${round.id}?vista=cards`)} />
       </div>
 
@@ -1505,20 +1563,32 @@ function RailBtn({
   title,
   onClick,
   highlight,
+  activeBg,
+  disabled,
 }: {
   label: string;
   title: string;
   onClick: () => void;
+  /** Rojo — reservado para avisos de peligro (ej. el plan del hoyo). */
   highlight?: boolean;
+  /** Un color de "activo" que no sea rojo, para acciones disponibles sin ser alarma. */
+  activeBg?: string;
+  disabled?: boolean;
 }) {
+  const bg = disabled
+    ? "rgba(17,24,39,.82)"
+    : highlight
+      ? "rgba(220,38,38,.92)"
+      : (activeBg ?? "rgba(17,24,39,.82)");
   return (
     <button
       type="button"
       title={title}
       aria-label={title}
+      disabled={disabled}
       onClick={onClick}
-      className="w-11 h-11 rounded-xl text-lg shadow-lg backdrop-blur flex items-center justify-center"
-      style={{ background: highlight ? "rgba(220,38,38,.92)" : "rgba(17,24,39,.82)" }}
+      className="w-11 h-11 rounded-xl text-lg shadow-lg backdrop-blur flex items-center justify-center disabled:opacity-30"
+      style={{ background: bg }}
     >
       {label}
     </button>
