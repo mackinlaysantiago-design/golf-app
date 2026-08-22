@@ -136,6 +136,12 @@ export default function MapaTracker({
   // tiro desde el tee en un hoyo que ya tenía tiros.
   const [shotsListos, setShotsListos] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Guarda SINCRÓNICA aparte de `busy`: el navegador puede disparar el 'click' del
+  // mapa DOS veces para un mismo toque en pantallas táctiles (mouse-emulado +
+  // touch), casi en el mismo tick — el estado de React (`busy`) no llega a
+  // actualizarse entre uno y otro, así que el segundo toque se cuela igual.
+  // Pasó el 22/08: un toque, dos tiros. Un ref cambia al toque, no espera al render.
+  const registrandoRef = useRef(false);
   const [panel, setPanel] = useState<"none" | "holes" | "plan" | "shot" | "tiros" | "confirmar" | "salida" | "putts">("none");
   const [editingShot, setEditingShot] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ id: string; label: string; until: number } | null>(null);
@@ -484,7 +490,8 @@ export default function MapaTracker({
     // en adelante el punto tocado SÍ es el origen (ahí sale el próximo, y de paso
     // cierra el anterior — mismo mecanismo que ya usa el server).
     const origenEfectivo = tocado && !enElTee ? tocado : origen;
-    if (!origenEfectivo || busy || !shotsListos) return;
+    if (!origenEfectivo || busy || !shotsListos || registrandoRef.current) return;
+    registrandoRef.current = true;
     setBusy(true);
     // Capturar GPS y posición antes de los awaits: pueden cambiar entre llamadas.
     const snapshotOrigen = origenEfectivo;
@@ -626,6 +633,7 @@ export default function MapaTracker({
       }
     } finally {
       setBusy(false);
+      registrandoRef.current = false;
     }
   }
 
