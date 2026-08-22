@@ -1457,8 +1457,19 @@ export default function MapaTracker({
               type="button"
               onClick={() => {
                 // Si el tiro terminó en el green, borrar el tiro ancla:
-                // lo que sigue son putts, no más tiros regulares.
+                // lo que sigue son putts, no más tiros regulares. El ancla nació
+                // justo en el punto que cerró este tiro (mismo toque) — antes de
+                // borrarla, esa posición se guarda en el tiro confirmado
+                // (landedLat/Lng), si no la chapita se queda sin dónde dibujarse y
+                // cae al pin como aproximación (reportado por Santi 22/08).
                 if (confirmar.lie === "Green" && ghostShotId) {
+                  const ghost = shots.find((s) => s.id === ghostShotId);
+                  if (ghost?.fromLat != null && ghost?.fromLng != null) {
+                    void patchShot(confirmar.id, {
+                      landedLat: ghost.fromLat,
+                      landedLng: ghost.fromLng,
+                    });
+                  }
                   void borrarShot(ghostShotId);
                 }
                 setGhostShotId(null);
