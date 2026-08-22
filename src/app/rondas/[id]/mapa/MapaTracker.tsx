@@ -607,6 +607,39 @@ export default function MapaTracker({
     }
   }
 
+  // Cerrar el ÚLTIMO tiro del hoyo (llegaste al green) sin fingir un tiro siguiente.
+  // Antes la única forma de terminarlo era registrar-y-fingir un golpe más, o editar
+  // el tiro abierto a mano — y ninguna de las dos calculaba la distancia real ni
+  // dejaba la chapita bien puesta (quedaba en el pin, no en dónde cayó de verdad).
+  // Usa la misma hoja de "confirmar" que cierra cualquier otro tiro.
+  async function cerrarUltimoTiro() {
+    if (!ultimoTiro || !origen || busy) return;
+    setBusy(true);
+    try {
+      // OJO: distanceToTargetYds NO se toca acá — es la distancia al pin ANTES de
+      // pegar este tiro (ya quedó bien guardada cuando el tiro se abrió). Lo único
+      // que cambia al cerrarlo es cuánto midió el tiro (shotLengthYds) y su desvío.
+      const res = await fetch(`/api/shots/${ultimoTiro.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          landedLat: origen.lat,
+          landedLng: origen.lng,
+        }),
+      });
+      if (!res.ok) {
+        setErrorGuardado("No se pudo cerrar el tiro. Probá de nuevo.");
+        return;
+      }
+      const { shot } = (await res.json()) as { shot: MapaShot };
+      setConfirmar(shot);
+      setPanel("confirmar");
+      await loadShots();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Acepta null para volver a la salida estándar: misma función, mismo manejo de error.
   const guardarSalida = useCallback(
     (la: number | null, ln: number | null) => {
@@ -969,6 +1002,18 @@ export default function MapaTracker({
           className="absolute z-[1000] left-2 bottom-[172px] rounded-full bg-black/60 text-white text-[10px] px-2.5 py-1 backdrop-blur"
         >
           salida: {origenManual ? "movida" : "estándar"} ▾
+        </button>
+      )}
+
+      {/* Cerrar el último tiro sin fingir uno siguiente (pedido de Santi 22/08). */}
+      {!enElTee && !enElGreen && ultimoTiro && (
+        <button
+          type="button"
+          disabled={!origen || busy || faltaPlantar}
+          onClick={() => void cerrarUltimoTiro()}
+          className="absolute z-[1000] left-2 bottom-[172px] rounded-full bg-black/60 text-white text-[10px] px-2.5 py-1 backdrop-blur disabled:opacity-40"
+        >
+          🏁 llegué al green
         </button>
       )}
 

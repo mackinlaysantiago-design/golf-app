@@ -17,6 +17,10 @@ const PatchSchema = z.object({
   lie: z.string().max(20).nullable().optional(),
   penaltyType: z.string().max(10).nullable().optional(),
   distanceToTargetYds: z.number().int().nullable().optional(),
+  // Cerrar el ÚLTIMO tiro de un hoyo (llegaste al green) sin necesitar un tiro
+  // siguiente que lo cierre: acá está parada la pelota ahora, calculá desde ahí.
+  landedLat: z.number().optional(),
+  landedLng: z.number().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = PatchSchema.parse(await req.json());
 
-    const shot = await prisma.roundShot.update({
+    let shot = await prisma.roundShot.update({
       where: { id },
       data: {
         ...(body.fromLat !== undefined && { fromLat: body.fromLat }),
@@ -39,6 +43,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }),
       },
     });
+
+    if (body.landedLat != null && body.landedLng != null && shot.fromLat != null && shot.fromLng != null) {
+      const from = { lat: shot.fromLat, lng: shot.fromLng };
+      const landed = { lat: body.landedLat, lng: body.landedLng };
+      const dev =
+        shot.targetLat != null && shot.targetLng != null
+          ? computeDeviation(from, { lat: shot.targetLat, lng: shot.targetLng }, landed)
+          : null;
+      shot = await prisma.roundShot.update({
+        where: { id },
+        data: {
+          shotLengthYds:
+            dev?.shotLengthYds ??
+            Math.round(yardsBetween(from.lat, from.lng, landed.lat, landed.lng)),
+          lateralDeviationYds: dev?.lateralYds ?? null,
+        },
+      });
+    }
 
     // Mover un tiro cambia DOS mediciones: dónde cayó el anterior (N−1 → N) y dónde
     // cayó él mismo (N → N+1). Recalcular las dos evita que el mapa muestre números
