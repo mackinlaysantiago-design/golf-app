@@ -408,6 +408,14 @@ export default function MapaHoyo({
     const placed = shots.filter((s) => s.fromLat != null && s.fromLng != null);
     if (placed.length > 0) {
       const path: L.LatLngTuple[] = placed.map((s) => [s.fromLat!, s.fromLng!]);
+      // El último tramo (de dónde salió el último tiro a dónde cayó) no lo da el
+      // origen del tiro siguiente —no hay— sino landedLat/Lng, guardado al cerrar
+      // el hoyo en el green. Sin esto la línea se cortaba antes de llegar a la
+      // chapita final (reportado por Santi 22/08: "el último trazo no aparece").
+      const ultimo = placed[placed.length - 1];
+      if (ultimo.landedLat != null && ultimo.landedLng != null) {
+        path.push([ultimo.landedLat, ultimo.landedLng]);
+      }
       if (origin && origenEsReal) path.push(origin);
       add(L.polyline(path, { color: "#4f46e5", weight: 3, opacity: 0.85, interactive: false }));
     }
