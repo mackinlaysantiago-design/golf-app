@@ -940,7 +940,7 @@ export default function MapaTracker({
               : round.noDistanceDevice
                 ? "marcá dónde está la pelota"
               : gpsEnLaCancha == null && !origenManual && !enElTee
-                ? "sin GPS de cancha · tocá el mapa donde cayó"
+                ? "sin GPS de cancha · mantené apretado donde cayó"
                 : `${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
                     ? " · pelota a mano"
