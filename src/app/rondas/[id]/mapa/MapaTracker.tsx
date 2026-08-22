@@ -851,7 +851,7 @@ export default function MapaTracker({
         userLng={lng}
         originLat={origen?.lat ?? null}
         originLng={origen?.lng ?? null}
-        origenEsReal={enElTee || origenManual != null || gpsEnLaCancha != null}
+        origenEsReal={!enElGreen && (enElTee || origenManual != null || gpsEnLaCancha != null)}
         targetLat={target?.lat ?? null}
         targetLng={target?.lng ?? null}
         shots={shots}
@@ -863,8 +863,11 @@ export default function MapaTracker({
         // El ball marker se oculta cuando origin === GPS en vivo: el punto azul
         // ya lo representa y tener dos círculos superpuestos moviéndose confundía
         // al usuario (parecía que el tiro registrado se movía con él).
-        // Se muestra solo en el tee o cuando la pelota fue puesta a mano.
-        showBallMarker={enElTee || origenManual != null || gpsEnLaCancha == null}
+        // Se muestra solo en el tee o cuando la pelota fue puesta a mano. Con la
+        // pelota ya en el green (a putts) tampoco: `origen` cae a un fallback
+        // (ultimoTarget) que ya no significa nada y quedaba un punto+línea fantasma
+        // en el mapa después de terminar el hoyo (reportado por Santi 22/08).
+        showBallMarker={!enElGreen && (enElTee || origenManual != null || gpsEnLaCancha == null)}
         onMoveShot={handleMoveShot}
         onTapShot={handleTapShot}
         onTapMap={(lat, lng) => {
