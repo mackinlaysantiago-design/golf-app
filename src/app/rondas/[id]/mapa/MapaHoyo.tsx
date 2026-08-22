@@ -410,12 +410,18 @@ export default function MapaHoyo({
       const path: L.LatLngTuple[] = placed.map((s) => [s.fromLat!, s.fromLng!]);
       // El último tramo (de dónde salió el último tiro a dónde cayó) no lo da el
       // origen del tiro siguiente —no hay— sino landedLat/Lng, guardado al cerrar
-      // el hoyo en el green. Sin esto la línea se cortaba antes de llegar a la
-      // chapita final (reportado por Santi 22/08: "el último trazo no aparece").
+      // el hoyo en el green. Mismo fallback que usa la chapita del último tiro más
+      // abajo (al pin, si es un tiro viejo sin landedLat/Lng) — si no coinciden,
+      // mover la bandera despega la chapita de la línea y queda un tramo colgado
+      // que no representa nada (reportado por Santi 22/08).
       const ultimo = placed[placed.length - 1];
-      if (ultimo.landedLat != null && ultimo.landedLng != null) {
-        path.push([ultimo.landedLat, ultimo.landedLng]);
-      }
+      const finalTramo: L.LatLngTuple | null =
+        ultimo.landedLat != null && ultimo.landedLng != null
+          ? [ultimo.landedLat, ultimo.landedLng]
+          : ultimo.lie != null && green.centerLat != null && green.centerLng != null
+            ? [green.centerLat, green.centerLng]
+            : null;
+      if (finalTramo) path.push(finalTramo);
       if (origin && origenEsReal) path.push(origin);
       add(L.polyline(path, { color: "#4f46e5", weight: 3, opacity: 0.85, interactive: false }));
     }
