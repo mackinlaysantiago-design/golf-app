@@ -56,13 +56,13 @@ const esc = (s: string) =>
 // transparente de 48 centrada en el punto, así el ícono se ve igual pero el dedo tiene
 // dónde agarrarlo.
 const AGARRE = 48;
-function conAgarre(visual: string, anclaje: "centro" | "pie" = "centro") {
+function conAgarre(visual: string, anclaje: "centro" | "pie" = "centro", agarre: number = AGARRE) {
   // "pie": la bandera se dibuja con el mástil apoyado abajo, así que el punto exacto
   // del pin es la BASE del ícono, no su centro. Centrarla desplazaría el pin ~13 px,
   // y de ese punto salen todas las distancias del hoyo.
-  const dy = anclaje === "pie" ? AGARRE : AGARRE / 2;
+  const dy = anclaje === "pie" ? agarre : agarre / 2;
   const align = anclaje === "pie" ? "flex-end" : "center";
-  return `<div style="width:${AGARRE}px;height:${AGARRE}px;transform:translate(-${AGARRE / 2}px,-${dy}px);
+  return `<div style="width:${agarre}px;height:${agarre}px;transform:translate(-${agarre / 2}px,-${dy}px);
     display:flex;align-items:${align};justify-content:center"><div class="gf-visual">${visual}</div></div>`;
 }
 
@@ -381,6 +381,10 @@ export default function MapaHoyo({
 
     // La bandera se arrastra: el pin cambia todas las semanas y de él dependen TODAS
     // las distancias del hoyo. El centro del green del mapa de la cancha es fijo.
+    // Mantener apretado (no toque simple) y área táctil más chica que el resto de
+    // los marcadores: está plantada justo donde la gente necesita tocar para marcar
+    // el último tiro del hoyo, y con el agarre grande + drag nativo se comía esos
+    // toques — un toque cerca del green movía la bandera en vez de registrar el tiro.
     if (green.centerLat != null && green.centerLng != null) {
       const bandera = add(
         L.marker([green.centerLat, green.centerLng], {
@@ -389,18 +393,14 @@ export default function MapaHoyo({
             html: conAgarre(
               `<div style="font-size:26px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))">⛳</div>`,
               "pie",
+              30,
             ),
             iconSize: [0, 0],
           }),
-          draggable: true,
           zIndexOffset: 300,
         }),
       );
-      avisarAgarre(bandera);
-      bandera.on("dragend", () => {
-        const ll = bandera.getLatLng();
-        onMovePin(ll.lat, ll.lng);
-      });
+      attachLongPressDrag(map, bandera, (lat, lng) => onMovePin(lat, lng));
     }
 
     // Recorrido de tiros ya registrados: línea AZUL (lo jugado), contra la línea
