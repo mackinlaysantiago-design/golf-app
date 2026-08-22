@@ -223,8 +223,6 @@ export default function MapaHoyo({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.Layer[]>([]);
-  const onMoveOriginRef = useRef(onMoveOrigin);
-  onMoveOriginRef.current = onMoveOrigin;
   const fittedHoleRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -244,73 +242,11 @@ export default function MapaHoyo({
     const cancelled = { current: false };
     void attachSatelliteLayer(map, cancelled);
     map.setView([-35.0129, -63.0088], 17);
-    // Mantener apretado el mapa (vacío, sin tocar un marker) = marcar ahí dónde
-    // está/cayó la pelota (pedido de Santi 22/08: sirve para corregir un GPS
-    // impreciso en cancha Y para cargar tiros de memoria estando lejos de la cancha).
-    // Con un toque SIMPLE no alcanza — un toque sin querer (pasó el 22/08, movió la
-    // salida de un hoyo ya jugado) no puede mover nada. No crea tiros: el tiro se
-    // registra con el botón.
-    const container = containerRef.current;
-    let removeLongPress: (() => void) | undefined;
-    if (container) {
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      let aplicarTimer: ReturnType<typeof setTimeout> | null = null;
-      let start: { x: number; y: number; lat: number; lng: number } | null = null;
-      let armado = false;
-      const clear = () => {
-        if (timer) clearTimeout(timer);
-        timer = null;
-        start = null;
-        armado = false;
-      };
-      const onDown = (ev: PointerEvent) => {
-        // Solo el mapa vacío: si el toque empezó sobre un marker o cualquier otro
-        // elemento interactivo de Leaflet, ese elemento ya tiene su propio gesto —
-        // no pisarlo acá.
-        if ((ev.target as HTMLElement)?.closest(".leaflet-marker-icon, .leaflet-interactive")) return;
-        const ll0 = map.mouseEventToLatLng(ev);
-        start = { x: ev.clientX, y: ev.clientY, lat: ll0.lat, lng: ll0.lng };
-        armado = false;
-        // Solo ARMA acá: aplicar el cambio con el dedo todavía apretando hace que el
-        // mapa se redibuje a mitad del gesto (todos los markers dependen de la
-        // posición) y Leaflet se cuelga tocando DOM que ya no está. Se aplica recién
-        // al soltar, como con la chapita de corregir un tiro.
-        timer = setTimeout(() => {
-          armado = true;
-          navigator.vibrate?.(40); // avisa que ya se puede soltar
-        }, LONG_PRESS_MS);
-      };
-      const onMove = (ev: PointerEvent) => {
-        if (!start || armado) return;
-        const d = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
-        if (d > LONG_PRESS_MOVE_TOLERANCE_PX) clear();
-      };
-      const onUp = () => {
-        if (armado && start) {
-          const { lat, lng } = start;
-          // Un tick después: si el estado cambia (y redibuja todos los markers) en
-          // el mismo evento en que Leaflet está terminando de procesar SU propio
-          // pointerup sobre el contenedor, Leaflet se cuelga leyendo DOM que el
-          // redibujo ya sacó (_leaflet_pos undefined).
-          aplicarTimer = setTimeout(() => onMoveOriginRef.current(lat, lng), 60);
-        }
-        clear();
-      };
-      container.addEventListener("pointerdown", onDown);
-      container.addEventListener("pointermove", onMove);
-      container.addEventListener("pointerup", onUp);
-      container.addEventListener("pointercancel", clear);
-      removeLongPress = () => {
-        clear();
-        if (aplicarTimer) clearTimeout(aplicarTimer);
-        container.removeEventListener("pointerdown", onDown);
-        container.removeEventListener("pointermove", onMove);
-        container.removeEventListener("pointerup", onUp);
-        container.removeEventListener("pointercancel", clear);
-      };
-    }
+    // Pedido de Santi (22/08): nada de "tocar cualquier parte vacía del mapa mueve
+    // la pelota" — eso terminaba moviendo cosas sin querer mientras solo estaba
+    // mirando el mapa. La pelota se mueve SOLO agarrándola a ella directamente
+    // (es arrastrable, igual que la bandera), más abajo en este mismo efecto.
     return () => {
-      removeLongPress?.();
       cancelled.current = true;
       map.remove();
       mapRef.current = null;
