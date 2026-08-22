@@ -377,6 +377,13 @@ export default function MapaTracker({
   // H19, que cambia el botón a "Añadir putts".
   const enElGreen = ultimoTiro?.lie === "Green";
 
+  // Sin GPS de cancha (lejos, o cargando de memoria) y todavía no plantaste la
+  // pelota a mano: "Registrar" NO se habilita solo. Sin esto, el botón usaba el
+  // objetivo automático (el que antes se veía como línea al green, ahora invisible)
+  // como origen — parecía que registraba "en cualquier lado" porque no había forma
+  // de saber dónde iba a caer antes de tocar.
+  const faltaPlantar = gpsEnLaCancha == null && !enElTee && !origenManual;
+
   // La distancia del tiro se mide desde ese origen, no desde el GPS.
   const dTarget =
     origen && target
@@ -922,7 +929,7 @@ export default function MapaTracker({
         ) : (
         <button
           type="button"
-          disabled={!origen || busy || !shotsListos}
+          disabled={!origen || busy || !shotsListos || faltaPlantar}
           onClick={() => void registrarGolpe()}
           className="rounded-full pl-3 pr-4 py-2 flex items-center gap-2 shadow-xl disabled:opacity-50"
           style={{ background: "#4f46e5", color: "#fff" }}
@@ -939,7 +946,7 @@ export default function MapaTracker({
                 ? "esperando señal de GPS…"
               : round.noDistanceDevice
                 ? "marcá dónde está la pelota"
-              : gpsEnLaCancha == null && !origenManual && !enElTee
+              : faltaPlantar
                 ? "sin GPS de cancha · mantené apretado donde cayó"
                 : `${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
                   origenManual
