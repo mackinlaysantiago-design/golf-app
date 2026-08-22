@@ -370,14 +370,6 @@ export default function MapaTracker({
   // en curso: en H19 ese número crece mientras caminás (64 → 115 → 225 yd) y es lo que
   // te dice cuánto pegaste. La distancia al green la tenés arriba.
   const ultimoTiro = shots[shots.length - 1];
-  const desdeElTiro =
-    ultimoTiro?.fromLat != null &&
-    ultimoTiro.fromLng != null &&
-    lat != null &&
-    lng != null &&
-    gpsEnLaCancha
-      ? Math.round(yardsBetween(ultimoTiro.fromLat, ultimoTiro.fromLng, lat, lng))
-      : null;
 
   // Con la pelota en el green ya no se registran tiros: se cargan putts. Igual que
   // H19, que cambia el botón a "Añadir putts".
@@ -996,37 +988,20 @@ export default function MapaTracker({
             </div>
           </button>
         ) : (
-        <button
-          type="button"
-          disabled={!origen || busy || !shotsListos || faltaPlantar}
-          onClick={() => void registrarGolpe()}
-          className="rounded-full pl-3 pr-4 py-2 flex items-center gap-2 shadow-xl disabled:opacity-50"
-          style={{ background: "#4f46e5", color: "#fff" }}
+        // Pedido de Santi (22/08): un solo flujo — tocar el mapa registra el tiro
+        // directo (ver onTapMap). El botón "Registrar" quedaba como un segundo
+        // camino que usaba GPS/target en vez del punto tocado, y confundía (un
+        // toque "andaba mal" cuando en realidad se estaba usando este botón).
+        <div
+          className="rounded-full pl-3 pr-4 py-2 flex items-center gap-2 shadow-xl"
+          style={{ background: "rgba(17,24,39,.75)", color: "#fff" }}
         >
           <CabezaDePalo />
           <div className="text-left leading-tight">
-            <div className="font-bold text-sm">
-              {desdeElTiro != null ? `${desdeElTiro} yd` : "Registrar"}
-            </div>
-          <div className="text-[10px] opacity-90">
-            {!shotsListos
-              ? "cargando los tiros del hoyo…"
-              : !origen
-                ? "esperando señal de GPS…"
-              : round.noDistanceDevice
-                ? "marcá dónde está la pelota"
-              : faltaPlantar
-                ? "sin GPS de cancha · mantené apretado donde cayó"
-                : `${dTarget ?? "—"} al target${sugerido ? ` · ${sugerido.club}` : ""}${
-                  origenManual
-                    ? " · pelota a mano"
-                    : sugerido?.fuente === "plan"
-                      ? " · desde el tee"
-                      : ""
-                }`}
+            <div className="font-bold text-sm">Tocá el mapa</div>
+            <div className="text-[10px] opacity-90">ahí donde cayó la pelota</div>
           </div>
-          </div>
-        </button>
+        </div>
         )}
       </div>
 
