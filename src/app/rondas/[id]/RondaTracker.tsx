@@ -7,6 +7,8 @@ import { Card, Pill } from "@/components/ui/Card";
 import { computeHoleFlags } from "@/lib/scoring-method";
 import { strokesPerHole, stablefordPoints } from "@/lib/handicap";
 import EditarSetupModal from "./EditarSetupModal";
+import DictarHoyoModal from "./DictarHoyoModal";
+import type { ParsedHole } from "@/lib/gemini-hole";
 import ScoreMark from "@/components/ui/ScoreMark";
 import { SM_KEYS } from "@/lib/sm-keys";
 import { parsePuttDistances, derivePutts } from "@/lib/putts-derive";
@@ -166,6 +168,7 @@ export default function RondaTracker({
   // Scorecard live: siempre arranca colapsada (pedido Santi 26/07 — no comerse la pantalla)
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [dictarOpen, setDictarOpen] = useState(false);
   // Toggle expand SM stats por jugador en el hoyo actual
   const [smExpanded, setSmExpanded] = useState<Record<string, boolean>>({});
   function toggleSm(rpId: string) {
@@ -270,6 +273,35 @@ export default function RondaTracker({
       return {
         ...prev,
         [rpId]: { ...prev[rpId], [hole]: updated },
+      };
+    });
+  }
+
+  // Aplica de una lo que se entendió del dictado por voz al hoyo actual del
+  // jugador principal. Solo llena el estado local (no guarda) — sigue haciendo
+  // falta tocar "Guardar", como con cualquier otro cambio manual.
+  function applyVoiceHole(parsed: ParsedHole) {
+    setData((prev) => {
+      const cur = prev[meRP.id]?.[currentHole] ?? {};
+      return {
+        ...prev,
+        [meRP.id]: {
+          ...prev[meRP.id],
+          [currentHole]: {
+            ...cur,
+            score: parsed.score ?? cur.score ?? null,
+            putts: parsed.putts ?? cur.putts ?? null,
+            penaltyStrokes: parsed.penaltyStrokes ?? cur.penaltyStrokes ?? null,
+            strokesToEnterSz: parsed.strokesToEnterSz ?? cur.strokesToEnterSz ?? null,
+            strokesInsideSz: parsed.strokesInsideSz ?? cur.strokesInsideSz ?? null,
+            distanceInRegYds: parsed.distanceInRegYds ?? cur.distanceInRegYds ?? null,
+            keysBroken: parsed.keysBroken ?? cur.keysBroken ?? null,
+            pinColor: parsed.pinColor ?? cur.pinColor ?? null,
+            dangerSide: parsed.dangerSide ?? cur.dangerSide ?? null,
+            aimedAtCenter: parsed.aimedAtCenter ?? cur.aimedAtCenter ?? null,
+            recoveryMode: parsed.recoveryMode ?? cur.recoveryMode ?? null,
+          },
+        },
       };
     });
   }
@@ -669,6 +701,17 @@ export default function RondaTracker({
 
       {setupOpen && (
         <EditarSetupModal round={round} onClose={() => setSetupOpen(false)} />
+      )}
+
+      {dictarOpen && currentHoleInfo && (
+        <DictarHoyoModal
+          roundId={round.id}
+          holeNumber={currentHole}
+          par={currentHoleInfo.par}
+          enterSzYds={round.enterSzYds}
+          onApply={applyVoiceHole}
+          onClose={() => setDictarOpen(false)}
+        />
       )}
 
       {/* 2 · Selector de hoyo — arriba de todo, sticky */}
@@ -1280,9 +1323,18 @@ export default function RondaTracker({
                   <span className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
                     Mis stats (Scoring Method)
                   </span>
-                  {cells.score != null && cells.score > 0 && currentHoleInfo && (
-                    <VsParPill score={cells.score} par={currentHoleInfo.par} />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {cells.score != null && cells.score > 0 && currentHoleInfo && (
+                      <VsParPill score={cells.score} par={currentHoleInfo.par} />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDictarOpen(true)}
+                      className="gf-pill gf-pill-accent"
+                    >
+                      🎙 Dictar hoyo
+                    </button>
+                  </div>
                 </div>
 
                 {/* Stats SM a completar (collapsable) */}
