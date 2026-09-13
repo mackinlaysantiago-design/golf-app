@@ -295,6 +295,9 @@ model RoundHole {
   holeNumber    Int // 1..18
 
   // Datos crudos cargados (todos opcionales — algunos jugadores solo cargan score)
+  // Relato completo del hoyo (dictado por voz, editable) — guarda lo que las stats
+  // estructuradas no capturan: palos usados, distancias intermedias, detalles sueltos.
+  holeNotes              String?
   teeShotResult          String? // L | CENTER | R — dónde cayó el tiro de salida
   strokesToEnterSz       Int?
   distanceInRegYds       Int? // distancia al hoyo cuando entras a SZ

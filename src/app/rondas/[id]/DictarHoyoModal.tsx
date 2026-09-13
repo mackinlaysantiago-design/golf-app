@@ -139,7 +139,17 @@ export default function DictarHoyoModal({
 
         {phase === "preview" && draft && (
           <>
-            <p className="text-xs italic text-[var(--muted)]">“{draft.transcript}”</p>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                Relato del hoyo (se guarda tal cual — corregí si Gemini entendió mal algo)
+              </div>
+              <textarea
+                className="gf-input w-full text-xs"
+                rows={4}
+                value={draft.transcript ?? ""}
+                onChange={(e) => patch({ transcript: e.target.value })}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               <NumField label="Score" value={draft.score} onChange={(v) => patch({ score: v })} />

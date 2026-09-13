@@ -33,6 +33,7 @@ type Hole = {
 type RoundHoleData = {
   id: string;
   holeNumber: number;
+  holeNotes: string | null;
   teeShotResult: string | null;
   strokesToEnterSz: number | null;
   distanceInRegYds: number | null;
@@ -135,6 +136,7 @@ export default function RondaTracker({
     aimedAtCenter?: boolean | null;
     recoveryMode?: boolean | null;
     teeShotResult?: "L" | "CENTER" | "R" | null;
+    holeNotes?: string | null;
   };
   type CellState = Record<string, Record<number, CellValues>>;
 
@@ -161,6 +163,7 @@ export default function RondaTracker({
           aimedAtCenter: h.aimedAtCenter,
           recoveryMode: h.recoveryMode,
           teeShotResult: (h.teeShotResult as "L" | "CENTER" | "R" | null) ?? null,
+          holeNotes: h.holeNotes,
         };
       }
     }
@@ -196,7 +199,8 @@ export default function RondaTracker({
       c.dangerSide != null ||
       c.aimedAtCenter != null ||
       c.recoveryMode != null ||
-      c.teeShotResult != null
+      c.teeShotResult != null ||
+      c.holeNotes != null
     );
   }
 
@@ -216,7 +220,13 @@ export default function RondaTracker({
   function setDecade(
     rpId: string,
     hole: number,
-    field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode" | "teeShotResult",
+    field:
+      | "pinColor"
+      | "dangerSide"
+      | "aimedAtCenter"
+      | "recoveryMode"
+      | "teeShotResult"
+      | "holeNotes",
     value: string | boolean | null,
   ) {
     setData((prev) => {
@@ -304,6 +314,10 @@ export default function RondaTracker({
             dangerSide: parsed.dangerSide ?? cur.dangerSide ?? null,
             aimedAtCenter: parsed.aimedAtCenter ?? cur.aimedAtCenter ?? null,
             recoveryMode: parsed.recoveryMode ?? cur.recoveryMode ?? null,
+            holeNotes:
+              parsed.transcript !== undefined
+                ? parsed.transcript || null
+                : cur.holeNotes ?? null,
           },
         },
       };
@@ -1468,6 +1482,24 @@ export default function RondaTracker({
                   keysBroken={cells.keysBroken ?? []}
                   onToggle={(keyId) => toggleKey(rp.id, currentHole, keyId)}
                 />
+
+                {/* Relato del hoyo — lo llena el dictado por voz, pero se puede editar/
+                    tipear a mano. Guarda lo que las stats no capturan: palos, distancias
+                    intermedias, detalles sueltos. */}
+                <div className="pt-2 border-t border-[var(--green-pale)]">
+                  <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                    📝 Relato del hoyo
+                  </div>
+                  <textarea
+                    className="gf-input w-full text-xs"
+                    rows={2}
+                    placeholder="Palos usados, distancias, detalles... (se llena solo con 🎙 Dictar hoyo)"
+                    value={cells.holeNotes ?? ""}
+                    onChange={(e) =>
+                      setDecade(rp.id, currentHole, "holeNotes", e.target.value || null)
+                    }
+                  />
+                </div>
               </Card>
             );
           })()}

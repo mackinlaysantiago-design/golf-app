@@ -14,6 +14,7 @@ const HoleEntrySchema = z.object({
   roundPlayerId: z.string(),
   holeNumber: z.number().int().min(1).max(18),
   teeShotResult: z.enum(["L", "CENTER", "R"]).nullable().optional(),
+  holeNotes: z.string().max(4000).nullable().optional(),
   strokesToEnterSz: z.number().int().nullable().optional(),
   distanceInRegYds: z.number().int().nullable().optional(),
   strokesInsideSz: z.number().int().nullable().optional(),
@@ -142,6 +143,7 @@ export async function PUT(
           roundPlayerId: e.roundPlayerId,
           holeNumber: e.holeNumber,
           teeShotResult: e.teeShotResult ?? null,
+          holeNotes: e.holeNotes ?? null,
           strokesToEnterSz: e.strokesToEnterSz ?? null,
           distanceInRegYds: e.distanceInRegYds ?? null,
           strokesInsideSz: e.strokesInsideSz ?? null,
@@ -168,6 +170,7 @@ export async function PUT(
         // el pin y el recovery de ese hoyo sin avisar.
         update: {
           ...(e.teeShotResult !== undefined && { teeShotResult: e.teeShotResult }),
+          ...(e.holeNotes !== undefined && { holeNotes: e.holeNotes }),
           ...(e.strokesToEnterSz !== undefined && { strokesToEnterSz: e.strokesToEnterSz }),
           ...(e.distanceInRegYds !== undefined && { distanceInRegYds: e.distanceInRegYds }),
           ...(e.strokesInsideSz !== undefined && { strokesInsideSz: e.strokesInsideSz }),

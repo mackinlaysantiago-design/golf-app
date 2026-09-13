@@ -33,7 +33,10 @@ sin penalidad, bandera al centro, y no rusheé nada" o simplemente "birdie, un p
 
 Tu trabajo es ENTENDER y devolver SOLO este JSON (sin markdown):
 {
-  "transcript": "lo que dijo, limpio y breve",
+  "transcript": "transcripción COMPLETA de lo que dijo, palabra por palabra salvo muletillas — este
+    texto se guarda como el relato del hoyo, así que NO resumas ni acortes: si menciona palos
+    usados, distancias intermedias, el clima, cómo le pegó a un tiro puntual o cualquier detalle
+    que no entra en los campos de abajo, tiene que quedar acá",
   "score": <golpes totales del hoyo o null>,
   "putts": <cantidad de putts o null>,
   "penaltyStrokes": <golpes de penalidad (OB, agua) o null — 0 si dice explícitamente que no hubo>,
