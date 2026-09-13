@@ -295,6 +295,7 @@ model RoundHole {
   holeNumber    Int // 1..18
 
   // Datos crudos cargados (todos opcionales — algunos jugadores solo cargan score)
+  teeShotResult          String? // L | CENTER | R — dónde cayó el tiro de salida
   strokesToEnterSz       Int?
   distanceInRegYds       Int? // distancia al hoyo cuando entras a SZ
   strokesInsideSz        Int?

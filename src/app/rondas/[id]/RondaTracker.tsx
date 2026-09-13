@@ -33,6 +33,7 @@ type Hole = {
 type RoundHoleData = {
   id: string;
   holeNumber: number;
+  teeShotResult: string | null;
   strokesToEnterSz: number | null;
   distanceInRegYds: number | null;
   strokesInsideSz: number | null;
@@ -133,6 +134,7 @@ export default function RondaTracker({
     dangerSide?: "L" | "R" | "NONE" | null;
     aimedAtCenter?: boolean | null;
     recoveryMode?: boolean | null;
+    teeShotResult?: "L" | "CENTER" | "R" | null;
   };
   type CellState = Record<string, Record<number, CellValues>>;
 
@@ -158,6 +160,7 @@ export default function RondaTracker({
           dangerSide: (h.dangerSide as "L" | "R" | "NONE" | null) ?? null,
           aimedAtCenter: h.aimedAtCenter,
           recoveryMode: h.recoveryMode,
+          teeShotResult: (h.teeShotResult as "L" | "CENTER" | "R" | null) ?? null,
         };
       }
     }
@@ -192,7 +195,8 @@ export default function RondaTracker({
       c.pinColor != null ||
       c.dangerSide != null ||
       c.aimedAtCenter != null ||
-      c.recoveryMode != null
+      c.recoveryMode != null ||
+      c.teeShotResult != null
     );
   }
 
@@ -212,7 +216,7 @@ export default function RondaTracker({
   function setDecade(
     rpId: string,
     hole: number,
-    field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode",
+    field: "pinColor" | "dangerSide" | "aimedAtCenter" | "recoveryMode" | "teeShotResult",
     value: string | boolean | null,
   ) {
     setData((prev) => {
@@ -1340,6 +1344,38 @@ export default function RondaTracker({
                 {/* Stats SM a completar (collapsable) */}
                 {showSm ? (
                   <>
+                    <div className="flex items-center gap-2 pt-2 border-t border-[var(--green-pale)]">
+                      <span className="text-[10px] text-[var(--muted)] gf-mono w-20">
+                        Tiro salida
+                      </span>
+                      {(
+                        [
+                          { v: "L", label: "Izq" },
+                          { v: "CENTER", label: "Centro" },
+                          { v: "R", label: "Der" },
+                        ] as const
+                      ).map((o) => {
+                        const active = cells.teeShotResult === o.v;
+                        return (
+                          <button
+                            key={o.v}
+                            type="button"
+                            onClick={() =>
+                              setDecade(rp.id, currentHole, "teeShotResult", active ? null : o.v)
+                            }
+                            className="text-[10px] px-2 py-1 rounded gf-mono"
+                            style={{
+                              background: active ? "var(--accent)" : "var(--green-pale)",
+                              color: active ? "white" : "var(--fairway)",
+                              fontWeight: active ? 700 : 500,
+                            }}
+                            title={`Tiro de salida: ${o.label}`}
+                          >
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--green-pale)]">
                       <NumField
                         label="Strokes to Enter SZ"
