@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // Diagnóstico de sesiones range — para detectar shots mal taggeados o outliers
 export async function GET() {
   const sessions = await prisma.rangeSession.findMany({
