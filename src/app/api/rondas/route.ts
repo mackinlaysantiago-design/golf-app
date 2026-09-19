@@ -64,7 +64,12 @@ export async function POST(req: NextRequest) {
         });
         if (range) chs[mod] = range.courseHcp;
       }
-      return { ...p, modalityHcps: Object.keys(chs).length > 0 ? chs : null };
+      // courseHcp siempre sale del cálculo fresco para la modalidad de la ronda, no de
+      // lo que mandó el cliente: el front puede llegar con un valor stale (ej. quedó
+      // calculado para 9 hoyos y después se cambió a 18) y courseHcp es el fallback que
+      // usa toda la app cuando no hay hcp de modalidad específica.
+      const courseHcp = chs[parsed.modality] ?? p.courseHcp ?? null;
+      return { ...p, courseHcp, modalityHcps: Object.keys(chs).length > 0 ? chs : null };
     }),
   );
 
