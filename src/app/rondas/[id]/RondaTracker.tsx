@@ -431,7 +431,9 @@ export default function RondaTracker({
     const sectionHoles = holesForSection(sec);
     return round.players.map((rp) => {
       const { medalCh, stblCh } = chForRpSection(rp, sec);
-      const medalStrokes = strokesPerHole(medalCh, courseHcpMap);
+      // medalCh es el CH de la sección jugada (9 hoyos en IDA/VUELTA) — hay que
+      // rankear los golpes de ventaja solo entre esos hoyos, no contra los 18.
+      const medalStrokes = strokesPerHole(medalCh, sectionHoles);
       const stblStrokes = strokesPerHole(stblCh, courseHcpMap);
       let bruto = 0;
       let neto = 0;
@@ -507,7 +509,7 @@ export default function RondaTracker({
                   const sc = data[rp.id]?.[h.number]?.score;
                   if (sc == null || sc === 0) return null;
                   const { medalCh } = chForRpSection(rp, lbSection);
-                  const strokes = strokesPerHole(medalCh, courseHcpMap)[h.number] ?? 0;
+                  const strokes = strokesPerHole(medalCh, sectionHoles)[h.number] ?? 0;
                   return sc - strokes;
                 })
                 .filter((n): n is number => n != null);

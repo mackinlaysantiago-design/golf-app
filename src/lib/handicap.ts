@@ -26,17 +26,29 @@ export function strokesPerHole(
 
   if (hcp === 0 || isNaN(hcp)) return result;
 
+  const n = courseHoles.length;
+  // Rankear por dificultad DENTRO del set de hoyos recibido (1..n), no comparar
+  // el hcpHoyo crudo de la cancha. Para los 18 hoyos completos da lo mismo (el
+  // hcpHoyo ya es una permutación de 1..18, así que rank === hcpHoyo), pero para
+  // una sola vuelta de 9 el hcpHoyo salta de a 2 (impares en la ida, pares en la
+  // vuelta) — comparar un CH de 9 hoyos contra esos valores crudos le daba la
+  // mitad de los golpes de ventaja que le correspondían.
+  const ranked = [...courseHoles].sort((a, b) => a.hcpHoyo - b.hcpHoyo);
+  const rankByNumber = new Map(ranked.map((h, i) => [h.number, i + 1]));
+
   if (hcp > 0) {
-    const base = Math.floor(hcp / 18);
-    const extra = hcp % 18;
+    const base = Math.floor(hcp / n);
+    const extra = hcp % n;
     for (const h of courseHoles) {
-      result[h.number] = base + (h.hcpHoyo <= extra ? 1 : 0);
+      const rank = rankByNumber.get(h.number)!;
+      result[h.number] = base + (rank <= extra ? 1 : 0);
     }
   } else {
     // plus handicap (jugador da golpes)
     const give = Math.abs(hcp);
     for (const h of courseHoles) {
-      result[h.number] = h.hcpHoyo > 18 - give ? -1 : 0;
+      const rank = rankByNumber.get(h.number)!;
+      result[h.number] = rank > n - give ? -1 : 0;
     }
   }
 
