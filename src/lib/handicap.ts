@@ -12,6 +12,23 @@ export type CourseHoleHcp = {
   hcpHoyo: number; // 1..18
 };
 
+// Course Handicap de ida/vuelta a partir del CH total (18 hoyos).
+// Las tablas de club (ej Golfistics) traen columnas separadas para ida/vuelta
+// pero son una guía redondeada, no la fórmula oficial: con índices finos (ej
+// 13.8) pueden dar un split erróneo (6/6 en vez de 5/6). La regla correcta,
+// confirmada con Ale Massa (AAG) el 19/09/2026: CH total ÷ 2, y si es impar
+// el golpe extra va a la IDA — porque el hoyo hcp 1 (el más difícil) siempre
+// es impar y cae en la ida, nunca en la vuelta.
+export function splitCourseHcpIdaVuelta(courseHcpTotal: number): {
+  ida: number;
+  vuelta: number;
+} {
+  return {
+    ida: Math.ceil(courseHcpTotal / 2),
+    vuelta: Math.floor(courseHcpTotal / 2),
+  };
+}
+
 // Devuelve un map de holeNumber → golpes de ventaja para un jugador.
 // Reglas:
 //  - Si HCP del jugador <= 18: recibe 1 golpe en los hoyos con hcpHoyo <= HCP.

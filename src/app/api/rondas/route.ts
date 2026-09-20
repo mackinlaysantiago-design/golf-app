@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { splitCourseHcpIdaVuelta } from "@/lib/handicap";
 
 const RoundSchema = z.object({
   courseId: z.string().min(1),
@@ -46,13 +47,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const parsed = RoundSchema.parse(body);
 
-  // Lookup CH por modalidad para cada jugador (Medal Total, Stableford, Ida/Vuelta, etc)
-  const MODALITIES = ["MEDAL", "STABLEFORD", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD_IDA", "STABLEFORD_VUELTA", "MATCH", "MATCH_IDA", "MATCH_VUELTA"];
+  // Lookup CH por modalidad para cada jugador. Solo se busca en la tabla la modalidad TOTAL
+  // (Medal/Stableford/Match); ida y vuelta se derivan con splitCourseHcpIdaVuelta (÷2, impar
+  // a la ida) en vez de leer las columnas _IDA/_VUELTA de la tabla, que son una guía redondeada
+  // y con índices finos dan splits erróneos (confirmado con Ale Massa/AAG, 19/09/2026).
+  const TOTAL_MODALITIES = ["MEDAL", "STABLEFORD", "MATCH"];
   const playersWithChs = await Promise.all(
     parsed.players.map(async (p) => {
       if (p.hcpIndex == null) return { ...p, modalityHcps: null };
       const chs: Record<string, number> = {};
-      for (const mod of MODALITIES) {
+      for (const mod of TOTAL_MODALITIES) {
         const range = await prisma.courseHcpRange.findFirst({
           where: {
             courseId: parsed.courseId,
@@ -62,7 +66,12 @@ export async function POST(req: NextRequest) {
             indexTo: { gte: p.hcpIndex },
           },
         });
-        if (range) chs[mod] = range.courseHcp;
+        if (range) {
+          chs[mod] = range.courseHcp;
+          const { ida, vuelta } = splitCourseHcpIdaVuelta(range.courseHcp);
+          chs[`${mod}_IDA`] = ida;
+          chs[`${mod}_VUELTA`] = vuelta;
+        }
       }
       // courseHcp siempre sale del cálculo fresco para la modalidad de la ronda, no de
       // lo que mandó el cliente: el front puede llegar con un valor stale (ej. quedó

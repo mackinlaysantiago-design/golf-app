@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { splitCourseHcpIdaVuelta } from "@/lib/handicap";
 
-const MODALITIES = ["MEDAL", "MEDAL_IDA", "MEDAL_VUELTA", "STABLEFORD", "STABLEFORD_IDA", "STABLEFORD_VUELTA", "MATCH", "MATCH_IDA", "MATCH_VUELTA"];
+const TOTAL_MODALITIES = ["MEDAL", "STABLEFORD", "MATCH"];
 
 // POST: para cada RoundPlayer existente, recompute modalityHcps via lookup en CourseHcpRange
 // Útil para rondas creadas antes de la feature, o cuando los HCPs cambiaron y hay que actualizar.
+// Solo se busca en la tabla la modalidad TOTAL; ida/vuelta se derivan con
+// splitCourseHcpIdaVuelta (÷2, impar a la ida) — ver nota en /api/rondas.
 export async function POST() {
   const rounds = await prisma.round.findMany({
     include: { players: true },
@@ -22,7 +25,7 @@ export async function POST() {
           continue;
         }
         const chs: Record<string, number> = {};
-        for (const mod of MODALITIES) {
+        for (const mod of TOTAL_MODALITIES) {
           const range = await prisma.courseHcpRange.findFirst({
             where: {
               courseId: round.courseId,
@@ -32,7 +35,12 @@ export async function POST() {
               indexTo: { gte: rp.hcpIndex },
             },
           });
-          if (range) chs[mod] = range.courseHcp;
+          if (range) {
+            chs[mod] = range.courseHcp;
+            const { ida, vuelta } = splitCourseHcpIdaVuelta(range.courseHcp);
+            chs[`${mod}_IDA`] = ida;
+            chs[`${mod}_VUELTA`] = vuelta;
+          }
         }
         if (Object.keys(chs).length === 0) {
           skipped++;
