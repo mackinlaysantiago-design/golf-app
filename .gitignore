@@ -51,3 +51,7 @@ scoring-method-analysis/
 
 # credenciales Lucila hardcodeadas — mover a env antes de trackear
 scripts/sync-lucila.ts
+
+# artefactos del bridge de Discord (no son parte del repo)
+/.discord_media/
+/SESSION.md
