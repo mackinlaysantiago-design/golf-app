@@ -161,6 +161,12 @@ Estas features mejoran la experiencia general y la utilidad de la app, pero no s
     *   **Modelo de Datos**: extender `Player` con `auditModeEnabled: Boolean` (auto-true después de 10 rondas). Nuevo enum value `GOT_AWAY_WITH_IT` en `RoundHole.keysBroken`.
     *   **Esfuerzo**: S
 
+*   **9. Skill Test Suite ("The Combine")** *(competidor TSM Caddie, sin equivalente en golf-app)*
+    *   **Descripción UX**: Protocolo fijo de 5 tests de habilidad (short putts, lag putts, chipping, wedges, driver dispersion), cada uno con el mismo número de intentos y scoring consistente, para medir nivel en un momento puntual y compararlo en el tiempo — distinto de una `PracticeSession` suelta, que no tiene protocolo fijo ni puntaje comparable. Resumen final tipo score card. Sin leaderboard (no aplica a un jugador único).
+    *   **Modelo de Datos**: nuevo modelo `CombineSession` (date, playerId) + `CombineTestResult` (sessionId, testType enum [SHORT_PUTTS, LAG_PUTTS, CHIPPING, WEDGES, DRIVER], attemptsJson, score). Reusa los targets ya definidos en `Player` (`onePuttCircleFt`, `twoPuttCircleYds`, etc.) como referencia de scoring.
+    *   **Esfuerzo**: M
+    *   **Referencia**: `14_tsm_caddie_competitor_analysis.md` §3 y §10 (gap real 2).
+
 
 
 Aquí tienes la lista exhaustiva de cada drill y protocolo del Scoring Method, con sus parámetros exactos y el modelo Prisma sugerido para su digitalización en tu aplicación.

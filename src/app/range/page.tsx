@@ -82,6 +82,22 @@ export default async function RangePage() {
         </Card>
       </Link>
 
+      {/* 3b. The Combine */}
+      <SectionHeader>The Combine</SectionHeader>
+      <Link href="/combine" className="block">
+        <Card className="!p-4 flex items-center justify-between hover:shadow-lg transition-shadow" style={{ borderLeft: "4px solid var(--fairway)" }}>
+          <div>
+            <div className="font-bold text-base text-[var(--fairway)]">
+              🏁 Skill Test Suite
+            </div>
+            <div className="text-xs text-[var(--muted)] mt-0.5">
+              5 tests fijos · mismo protocolo · comparalo en el tiempo
+            </div>
+          </div>
+          <span className="text-[var(--fairway)] text-2xl">›</span>
+        </Card>
+      </Link>
+
       {/* 4. Purposeful Practice — botón prominente al final */}
       <SectionHeader>Purposeful Practice</SectionHeader>
       <Link href="/range/pp" className="block">

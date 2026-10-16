@@ -136,6 +136,7 @@ model Player {
   calibrationSessions         CalibrationSession[]
   wedgeMatrixSessions         WedgeMatrixSession[]
   bagGapSessions              BagGapSession[]
+  combineSessions             CombineSession[]
 }
 
 // Notas mentales — creencias, self-talk, emociones (Mental Mastery del SM)
@@ -764,6 +765,42 @@ model WedgeCourseSession {
   notes              String?
 
   @@index([playerId])
+}
+
+// ============ THE COMBINE (Skill Test Suite, ver 04_roadmap.md P2#9) ============
+// Protocolo fijo de 5 tests de habilidad, mismo # de intentos y scoring consistente
+// (successes/10) en los 5 — para medir nivel puntual y comparar en el tiempo.
+// Distinto de PracticeDrill: acá no hay progresión libre, es el mismo protocolo
+// siempre. Sin leaderboard (un solo jugador). Ver src/lib/combine.ts.
+enum CombineTestType {
+  SHORT_PUTTS
+  LAG_PUTTS
+  CHIPPING
+  WEDGES
+  DRIVER
+}
+
+model CombineSession {
+  id        String              @id @default(cuid())
+  player    Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  String
+  date      DateTime            @default(now())
+  notes     String?
+  createdAt DateTime            @default(now())
+  results   CombineTestResult[]
+
+  @@index([playerId])
+}
+
+model CombineTestResult {
+  id           String          @id @default(cuid())
+  session      CombineSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId    String
+  testType     CombineTestType
+  attemptsJson Json // boolean[10] — éxito/fallo de cada intento, mismo formato en los 5 tests
+  score        Int // # de éxitos (0-10)
+
+  @@unique([sessionId, testType])
 }
 
 // Test #32 — 10 Bunker Shots (Bunker Play, points-based)
