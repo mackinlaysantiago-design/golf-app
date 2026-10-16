@@ -166,14 +166,17 @@ export default async function StatsPage() {
     POOR_LAG_PUTT: "Mal lag putt",
     OTHER: "Otro",
   };
-  const reasonTally: Record<string, number> = {};
+  const zoneReasonTally: Record<string, number> = {};
+  const holeoutReasonTally: Record<string, number> = {};
   for (const s of last5Completed) {
     for (const h of s.round.players[0].holes) {
-      if (h.zoneReason) reasonTally[h.zoneReason] = (reasonTally[h.zoneReason] ?? 0) + 1;
-      if (h.holeoutReason) reasonTally[h.holeoutReason] = (reasonTally[h.holeoutReason] ?? 0) + 1;
+      if (h.zoneReason) zoneReasonTally[h.zoneReason] = (zoneReasonTally[h.zoneReason] ?? 0) + 1;
+      if (h.holeoutReason)
+        holeoutReasonTally[h.holeoutReason] = (holeoutReasonTally[h.holeoutReason] ?? 0) + 1;
     }
   }
-  const totalReasonsLast5 = Object.values(reasonTally).reduce((s, v) => s + v, 0);
+  const totalZoneReasonsLast5 = Object.values(zoneReasonTally).reduce((s, v) => s + v, 0);
+  const totalHoleoutReasonsLast5 = Object.values(holeoutReasonTally).reduce((s, v) => s + v, 0);
 
   // Patrones cross-rondas — problemArea + emoción + commitment
   const problemAreaCounts: Record<string, number> = {};
@@ -598,21 +601,45 @@ export default async function StatsPage() {
         </>
       )}
 
-      {/* Motivo de falla Row A/B cross-rondas (#332) */}
-      {totalReasonsLast5 > 0 && (
+      {/* Motivo de falla Row A/B cross-rondas (#332) — separados: A = Enter SZ, B = Down in SZ */}
+      {(totalZoneReasonsLast5 > 0 || totalHoleoutReasonsLast5 > 0) && (
         <>
           <SectionHeader>❓ Por qué falló Row A/B · últimas {last5Completed.length} rondas</SectionHeader>
-          <Card className="!p-3">
-            <div className="space-y-1 gf-mono text-[11px]">
-              {Object.entries(reasonTally)
-                .sort(([, a], [, b]) => b - a)
-                .map(([reason, count]) => (
-                  <div key={reason} className="flex justify-between">
-                    <span>{REASON_LABEL[reason] ?? reason}</span>
-                    <span>{count}×</span>
-                  </div>
-                ))}
-            </div>
+          <Card className="!p-3 space-y-3">
+            {totalZoneReasonsLast5 > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Row A · Enter SZ
+                </div>
+                <div className="space-y-1 gf-mono text-[11px]">
+                  {Object.entries(zoneReasonTally)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([reason, count]) => (
+                      <div key={reason} className="flex justify-between">
+                        <span>{REASON_LABEL[reason] ?? reason}</span>
+                        <span>{count}×</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            {totalHoleoutReasonsLast5 > 0 && (
+              <div className={totalZoneReasonsLast5 > 0 ? "border-t border-[var(--green-pale)] pt-2" : ""}>
+                <div className="text-[10px] uppercase tracking-wider text-[var(--muted)] mb-1">
+                  Row B · Down in SZ
+                </div>
+                <div className="space-y-1 gf-mono text-[11px]">
+                  {Object.entries(holeoutReasonTally)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([reason, count]) => (
+                      <div key={reason} className="flex justify-between">
+                        <span>{REASON_LABEL[reason] ?? reason}</span>
+                        <span>{count}×</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </Card>
         </>
       )}

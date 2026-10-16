@@ -1849,7 +1849,7 @@ function ReasonChips<T extends string>({
             onClick={() => onSet(active ? null : o.v)}
             className="text-[10px] px-2 py-1 rounded gf-mono"
             style={{
-              background: active ? "var(--red)" : "var(--green-pale)",
+              background: active ? "var(--accent)" : "var(--green-pale)",
               color: active ? "white" : "var(--fairway)",
               fontWeight: active ? 700 : 500,
             }}
