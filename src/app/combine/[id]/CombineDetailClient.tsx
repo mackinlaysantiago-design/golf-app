@@ -2,15 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { Card, SectionHeader } from "@/components/ui/Card";
-import { COMBINE_TESTS, type CombineTestType } from "@/lib/combine";
+import {
+  COMBINE_NOMINAL_TOTAL,
+  lagPuttDistanceFt,
+  wedgeTargetYds,
+  type ChipStrokes,
+  type CombineTestType,
+  type LagPuttOutcome,
+} from "@/lib/combine";
 
 type TestDetail = {
   type: CombineTestType;
   label: string;
   icon: string;
-  protocol: string;
-  successCriteria: string;
-  attempts: boolean[];
+  setup: string;
+  data: unknown;
   score: number;
 };
 
@@ -22,8 +28,6 @@ type Detail = {
   tests: TestDetail[];
   totalScore: number;
 };
-
-const MAX_TOTAL = COMBINE_TESTS.length * 10;
 
 export default function CombineDetailClient({ id }: { id: string }) {
   const [data, setData] = useState<Detail | null>(null);
@@ -49,7 +53,7 @@ export default function CombineDetailClient({ id }: { id: string }) {
           {new Date(data.date).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })}
         </div>
         <div className="gf-display text-5xl text-white mt-1">{data.totalScore}</div>
-        <div className="text-xs text-white/70 gf-mono">de {MAX_TOTAL}</div>
+        <div className="text-xs text-white/70 gf-mono">de {COMBINE_NOMINAL_TOTAL}</div>
       </Card>
 
       <SectionHeader>Por test</SectionHeader>
@@ -60,27 +64,10 @@ export default function CombineDetailClient({ id }: { id: string }) {
               <div className="text-sm font-semibold text-[var(--fairway)]">
                 {t.icon} {t.label}
               </div>
-              <div className="gf-display text-2xl text-[var(--ink)]">
-                {t.score}
-                <span className="text-xs text-[var(--muted)] gf-mono"> /10</span>
-              </div>
+              <div className="gf-display text-2xl text-[var(--ink)]">{t.score}</div>
             </div>
-            <div className="text-[11px] text-[var(--muted)]">{t.successCriteria}</div>
-            <div className="flex gap-1">
-              {t.attempts.map((hit, i) => (
-                <span
-                  key={i}
-                  className="flex-1 rounded-md text-center text-[10px] py-1 font-bold"
-                  style={
-                    hit
-                      ? { background: "var(--green-pale)", color: "var(--green)" }
-                      : { background: "var(--sand)", color: "var(--muted)" }
-                  }
-                >
-                  {hit ? "✓" : "✕"}
-                </span>
-              ))}
-            </div>
+            <div className="text-[11px] text-[var(--muted)]">{t.setup}</div>
+            <TestAttempts type={t.type} data={t.data} />
           </Card>
         ))}
       </div>
@@ -93,4 +80,75 @@ export default function CombineDetailClient({ id }: { id: string }) {
       )}
     </div>
   );
+}
+
+function pill(label: string, ok: boolean | null) {
+  return (
+    <span
+      className="flex-1 rounded-md text-center text-[10px] py-1 font-bold"
+      style={
+        ok == null
+          ? { background: "var(--sand)", color: "var(--muted)" }
+          : ok
+          ? { background: "var(--green-pale)", color: "var(--green)" }
+          : { background: "var(--sand)", color: "var(--muted)" }
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
+function TestAttempts({ type, data }: { type: CombineTestType; data: unknown }) {
+  if (!data) return null;
+
+  if (type === "SHORT_PUTTS") {
+    const hits = (data as { hits: boolean[] }).hits;
+    return <div className="flex gap-1">{hits.map((h, i) => <span key={i}>{pill(h ? "✓" : "✕", h)}</span>)}</div>;
+  }
+
+  if (type === "DRIVER") {
+    const hits = (data as { hits: boolean[]; carryYds: number }).hits;
+    return <div className="flex gap-1">{hits.map((h, i) => <span key={i}>{pill(h ? "✓" : "✕", h)}</span>)}</div>;
+  }
+
+  if (type === "WEDGES") {
+    const d = data as { hits: boolean[]; customDistanceYds: number };
+    return (
+      <div className="flex gap-1">
+        {d.hits.map((h, i) => (
+          <span key={i} className="flex-1 flex flex-col items-center">
+            {pill(`${wedgeTargetYds(i, d.customDistanceYds)}y`, h)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "LAG_PUTTS") {
+    const outcomes = (data as { outcomes: LagPuttOutcome[] }).outcomes;
+    const LABEL: Record<LagPuttOutcome, string> = { HOLED: "●", CIRCLE: "○", OUT: "✕" };
+    return (
+      <div className="flex gap-1">
+        {outcomes.map((o, i) => (
+          <span key={i} title={`${lagPuttDistanceFt(i)}ft`}>
+            {pill(LABEL[o], o === "OUT" ? false : true)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "CHIPPING") {
+    const strokes = (data as { strokes: ChipStrokes[] }).strokes;
+    return (
+      <div className="flex gap-1">
+        {strokes.map((n, i) => (
+          <span key={i}>{pill(n === 4 ? "4+" : String(n), n <= 2)}</span>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }

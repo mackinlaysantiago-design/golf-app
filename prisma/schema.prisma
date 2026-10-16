@@ -800,8 +800,11 @@ model CombineTestResult {
   session      CombineSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId    String
   testType     CombineTestType
-  attemptsJson Json // boolean[10] — éxito/fallo de cada intento, mismo formato en los 5 tests
-  score        Int // # de éxitos (0-10)
+  // Forma por testType (ver src/lib/combine.ts): SHORT_PUTTS/DRIVER/WEDGES = { hits:
+  // boolean[10], ... }; LAG_PUTTS = { outcomes: ("HOLED"|"CIRCLE"|"OUT")[10] };
+  // CHIPPING = { strokes: (1|2|3|4)[10] }. Protocolo oficial Circle.so (05/10/2026).
+  attemptsJson Json
+  score        Float // puntos del test — puede tener 0.5 (chipping) y superar 10 (lag/chip)
 
   @@unique([sessionId, testType])
 }

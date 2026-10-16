@@ -1,103 +1,175 @@
-// "The Combine" — Skill Test Suite (ver docs/knowledge-base/04_roadmap.md P2#9 y
-// docs/knowledge-base/14_tsm_caddie_competitor_analysis.md §3/§10).
-// Protocolo FIJO de 5 tests, todos con el mismo # de intentos (10) y el mismo
-// scoring (# de éxitos de 10) — a diferencia de PracticeDrill, que es práctica
-// suelta sin protocolo comparable. Los targets de cada test salen de Player
-// (onePuttCircleFt, twoPuttCircleYds, enterSzYds) para que el criterio de "éxito"
-// sea el mismo que ya usa el resto de la app (scoring-method.ts).
+// "The Combine" — Skill Test Suite oficial de The Scoring Method (Circle.so,
+// curso "The Scoring Method Combine" → lección "The Full Combine Instructions").
+// Protocolo FIJO, no configurable por Player — a diferencia de PracticeDrill.
+// Texto literal de la lección (05/10/2026):
+//
+// "Five tests. Ten points each. 50 points in total."
+// 1. Short Putts: 5 posiciones a 4 ft del hoyo, pendiente 1°. 2 vueltas = 10 putts.
+//    Score: embocó = 1, falló = 0.
+// 2. Lag Putting: arranca a 15 ft, retrocede 3 ft cada vez (15,18,21,24,28ft...).
+//    Target = círculo de 4 ft alrededor del hoyo (mismo de Short Putts).
+//    Score: embocó = 2, adentro del círculo = 1, afuera = 0.
+// 3. Chipping: 10 chips desde distintos puntos, adentro de 25 pasos, jugados
+//    hasta embocar. Score: chip-in = 2, down-in-2 = 1, down-in-3 = 0.5, down-in-4+ = 0.
+// 4. Wedges: 3 tiros desde 50/75/100 yds + 1 a distancia libre (shot 10).
+//    Target: dentro del 10% de esa distancia. Score: adentro = 1, afuera = 0.
+// 5. Driver ("Go To Club Test" en el índice del curso): 10 tiros. Fairway = 10%
+//    de TU carry real, a cada lado. Score: en fairway = 1, afuera = 0.
 
 export type CombineTestType = "SHORT_PUTTS" | "LAG_PUTTS" | "CHIPPING" | "WEDGES" | "DRIVER";
 
 export const COMBINE_ATTEMPTS = 10;
 
-// Sin target de fairway en Player todavía — ancho fijo del protocolo (±half width).
-export const DRIVER_TARGET_HALF_WIDTH_YDS = 15;
+export const COMBINE_TEST_ORDER: CombineTestType[] = [
+  "SHORT_PUTTS",
+  "LAG_PUTTS",
+  "CHIPPING",
+  "WEDGES",
+  "DRIVER",
+];
 
-export type PlayerTargets = {
-  onePuttCircleFt: number;
-  twoPuttCircleYds: number;
-  enterSzYds: number;
-};
-
-export type CombineTestDef = {
-  type: CombineTestType;
-  order: number;
-  label: string;
-  icon: string;
-  /** Descripción de cómo ejecutar el test (instrucciones fijas del protocolo). */
-  protocol: string;
-  /** Criterio de éxito por intento, ya resuelto con los targets del Player. */
-  successCriteria: (targets: PlayerTargets) => string;
-};
-
-export const COMBINE_TESTS: CombineTestDef[] = [
-  {
-    type: "SHORT_PUTTS",
+export const COMBINE_TEST_META: Record<
+  CombineTestType,
+  { order: number; label: string; icon: string; setup: string }
+> = {
+  SHORT_PUTTS: {
     order: 1,
     label: "Short Putts",
     icon: "⛳",
-    protocol: `${COMBINE_ATTEMPTS} putts cortos, misma distancia, uno por intento.`,
-    successCriteria: (t) => `Embocar desde ${t.onePuttCircleFt} ft (1-Putt Circle)`,
+    setup: "5 posiciones a 4 ft del hoyo, pendiente 1°. 2 vueltas = 10 putts.",
   },
-  {
-    type: "LAG_PUTTS",
+  LAG_PUTTS: {
     order: 2,
-    label: "Lag Putts",
+    label: "Lag Putting",
     icon: "🎯",
-    protocol: `${COMBINE_ATTEMPTS} lag putts largos, uno por intento.`,
-    successCriteria: (t) =>
-      `Dejarlo dentro del 1-Putt Circle (${t.onePuttCircleFt} ft) desde ${t.twoPuttCircleYds} yds`,
+    setup: "Arranca a 15 ft, retrocede 3 ft cada putt (15, 18, 21, 24, 28ft...).",
   },
-  {
-    type: "CHIPPING",
+  CHIPPING: {
     order: 3,
     label: "Chipping",
     icon: "🪶",
-    protocol: `${COMBINE_ATTEMPTS} chips desde afuera del green, uno por intento.`,
-    successCriteria: (t) => `Dejarlo dentro del 1-Putt Circle (${t.onePuttCircleFt} ft)`,
+    setup: "10 chips desde puntos distintos, adentro de 25 pasos. Jugá cada uno hasta embocar.",
   },
-  {
-    type: "WEDGES",
+  WEDGES: {
     order: 4,
     label: "Wedges",
     icon: "🏌️",
-    protocol: `${COMBINE_ATTEMPTS} wedges desde adentro de la Scoring Zone, uno por intento.`,
-    successCriteria: (t) =>
-      `Dejarlo dentro del 2-Putt Circle (${t.twoPuttCircleYds} yds) desde ~${t.enterSzYds} yds`,
+    setup: "3 tiros desde 50, 75 y 100 yds. Shot 10 a una distancia que elijas.",
   },
-  {
-    type: "DRIVER",
+  DRIVER: {
     order: 5,
     label: "Driver",
     icon: "🚀",
-    protocol: `${COMBINE_ATTEMPTS} drives al fairway, uno por intento.`,
-    successCriteria: () =>
-      `Aterrizar dentro de ±${DRIVER_TARGET_HALF_WIDTH_YDS} yds del centro del fairway`,
+    setup: "10 drives. Fairway = 10% de tu carry real, a cada lado.",
   },
-];
+};
 
-export const COMBINE_TEST_BY_TYPE: Record<CombineTestType, CombineTestDef> = Object.fromEntries(
-  COMBINE_TESTS.map((t) => [t.type, t]),
-) as Record<CombineTestType, CombineTestDef>;
+// ---------- 1. Short Putts ----------
+export const SHORT_PUTT_DISTANCE_FT = 4;
 
-export function playerTargets(player: {
-  onePuttCircleFt: number;
-  twoPuttCircleYds: number;
-  enterSzYds: number;
-}): PlayerTargets {
-  return {
-    onePuttCircleFt: player.onePuttCircleFt,
-    twoPuttCircleYds: player.twoPuttCircleYds,
-    enterSzYds: player.enterSzYds,
-  };
+export type ShortPuttsData = { hits: boolean[] };
+
+export function shortPuttsScore(d: ShortPuttsData): number {
+  return d.hits.filter(Boolean).length;
 }
 
-/** Score de un test = # de intentos exitosos (0-10). */
-export function scoreAttempts(attempts: boolean[]): number {
-  return attempts.filter(Boolean).length;
+// ---------- 2. Lag Putting ----------
+export const LAG_PUTT_CIRCLE_FT = 4;
+export const LAG_PUTT_START_FT = 15;
+export const LAG_PUTT_STEP_FT = 3;
+
+export type LagPuttOutcome = "HOLED" | "CIRCLE" | "OUT";
+export type LagPuttsData = { outcomes: LagPuttOutcome[] };
+
+export function lagPuttDistanceFt(attemptIndex: number): number {
+  return LAG_PUTT_START_FT + attemptIndex * LAG_PUTT_STEP_FT;
 }
 
-/** Score total del Combine = suma de los 5 tests (0-50). */
+export function lagPuttOutcomePoints(o: LagPuttOutcome): number {
+  return o === "HOLED" ? 2 : o === "CIRCLE" ? 1 : 0;
+}
+
+export function lagPuttsScore(d: LagPuttsData): number {
+  return d.outcomes.reduce((s, o) => s + lagPuttOutcomePoints(o), 0);
+}
+
+// ---------- 3. Chipping ----------
+export const CHIPPING_MAX_PACES = 25;
+// 4 = "down in 4 or peor"
+export type ChipStrokes = 1 | 2 | 3 | 4;
+export type ChippingData = { strokes: ChipStrokes[] };
+
+export function chipStrokesPoints(n: ChipStrokes): number {
+  return n === 1 ? 2 : n === 2 ? 1 : n === 3 ? 0.5 : 0;
+}
+
+export function chippingScore(d: ChippingData): number {
+  return d.strokes.reduce((s, n) => s + chipStrokesPoints(n), 0);
+}
+
+// ---------- 4. Wedges ----------
+// Shots 1-3 @ 50yds, 4-6 @ 75yds, 7-9 @ 100yds, shot 10 (índice 9) = distancia libre.
+export const WEDGE_FIXED_DISTANCES_YDS = [50, 50, 50, 75, 75, 75, 100, 100, 100];
+
+export type WedgesData = { hits: boolean[]; customDistanceYds: number };
+
+export function wedgeTargetYds(attemptIndex: number, customDistanceYds: number): number {
+  return attemptIndex < 9 ? WEDGE_FIXED_DISTANCES_YDS[attemptIndex] : customDistanceYds;
+}
+
+export function wedgeWindowYds(targetYds: number): number {
+  return targetYds * 0.1;
+}
+
+export function wedgesScore(d: WedgesData): number {
+  return d.hits.filter(Boolean).length;
+}
+
+// ---------- 5. Driver ----------
+export type DriverData = { hits: boolean[]; carryYds: number };
+
+export function driverFairwayHalfWidthYds(carryYds: number): number {
+  return carryYds * 0.1;
+}
+
+export function driverScore(d: DriverData): number {
+  return d.hits.filter(Boolean).length;
+}
+
+// ---------- Unión discriminada por test ----------
+export type CombineAttemptsByType = {
+  SHORT_PUTTS: ShortPuttsData;
+  LAG_PUTTS: LagPuttsData;
+  CHIPPING: ChippingData;
+  WEDGES: WedgesData;
+  DRIVER: DriverData;
+};
+
+export function scoreForTest<T extends CombineTestType>(
+  type: T,
+  data: CombineAttemptsByType[T],
+): number {
+  switch (type) {
+    case "SHORT_PUTTS":
+      return shortPuttsScore(data as ShortPuttsData);
+    case "LAG_PUTTS":
+      return lagPuttsScore(data as LagPuttsData);
+    case "CHIPPING":
+      return chippingScore(data as ChippingData);
+    case "WEDGES":
+      return wedgesScore(data as WedgesData);
+    case "DRIVER":
+      return driverScore(data as DriverData);
+  }
+  // unreachable — CombineTestType está cerrado
+  return 0;
+}
+
+/** Score total del Combine = suma de los 5 tests. "50 points in total" es el nominal
+ * de la lección (10 por test); Lag Putting y Chipping pueden superarlo si el jugador
+ * embocó mucho — no hay cap, así lo puntúa el protocolo oficial. */
 export function totalScore(scores: Record<CombineTestType, number>): number {
-  return COMBINE_TESTS.reduce((sum, t) => sum + (scores[t.type] ?? 0), 0);
+  return COMBINE_TEST_ORDER.reduce((sum, t) => sum + (scores[t] ?? 0), 0);
 }
+
+export const COMBINE_NOMINAL_TOTAL = COMBINE_TEST_ORDER.length * 10;

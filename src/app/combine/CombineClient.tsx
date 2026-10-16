@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, SectionHeader } from "@/components/ui/Card";
-import { COMBINE_TESTS, type CombineTestType } from "@/lib/combine";
+import { COMBINE_NOMINAL_TOTAL, COMBINE_TEST_META, COMBINE_TEST_ORDER, type CombineTestType } from "@/lib/combine";
 
 type SessionSummary = {
   id: string;
@@ -12,8 +12,6 @@ type SessionSummary = {
   scores: Record<CombineTestType, number>;
   totalScore: number;
 };
-
-const MAX_TOTAL = COMBINE_TESTS.length * 10;
 
 export default function CombineClient() {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -34,7 +32,7 @@ export default function CombineClient() {
           <div>
             <div className="font-bold text-base text-[var(--fairway)]">🏁 Correr el Combine</div>
             <div className="text-xs text-[var(--muted)] mt-0.5">
-              {COMBINE_TESTS.length} tests · {COMBINE_TESTS[0].protocol.match(/\d+/)?.[0] ?? 10} intentos cada uno
+              {COMBINE_TEST_ORDER.length} tests · 10 intentos cada uno
             </div>
           </div>
           <span className="text-[var(--accent)] text-2xl">›</span>
@@ -58,13 +56,13 @@ export default function CombineClient() {
                 </div>
                 <div className="gf-display text-2xl text-[var(--ink)]">
                   {s.totalScore}
-                  <span className="text-xs text-[var(--muted)] gf-mono"> /{MAX_TOTAL}</span>
+                  <span className="text-xs text-[var(--muted)] gf-mono"> /{COMBINE_NOMINAL_TOTAL}</span>
                 </div>
               </div>
               <div className="flex gap-2 mt-1.5 text-[11px] text-[var(--muted)]">
-                {COMBINE_TESTS.map((t) => (
-                  <span key={t.type}>
-                    {t.icon} {s.scores[t.type] ?? 0}
+                {COMBINE_TEST_ORDER.map((t) => (
+                  <span key={t}>
+                    {COMBINE_TEST_META[t].icon} {s.scores[t] ?? 0}
                   </span>
                 ))}
               </div>
