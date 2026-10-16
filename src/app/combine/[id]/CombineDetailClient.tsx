@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import { Card, SectionHeader } from "@/components/ui/Card";
 import {
   COMBINE_NOMINAL_TOTAL,
-  lagPuttDistanceFt,
+  LAG_FEET,
   wedgeTargetYds,
   type ChipStrokes,
   type CombineTestType,
+  type IntroCopy,
   type LagPuttOutcome,
 } from "@/lib/combine";
 
 type TestDetail = {
   type: CombineTestType;
-  label: string;
-  icon: string;
-  setup: string;
+  intro: IntroCopy;
+  lessonUrl: string;
   data: unknown;
   score: number;
 };
@@ -61,13 +61,19 @@ export default function CombineDetailClient({ id }: { id: string }) {
         {data.tests.map((t) => (
           <Card key={t.type} className="!p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-[var(--fairway)]">
-                {t.icon} {t.label}
-              </div>
+              <div className="text-sm font-semibold text-[var(--fairway)]">{t.intro.label}</div>
               <div className="gf-display text-2xl text-[var(--ink)]">{t.score}</div>
             </div>
-            <div className="text-[11px] text-[var(--muted)]">{t.setup}</div>
+            <div className="text-[11px] text-[var(--muted)]">{t.intro.setup}</div>
             <TestAttempts type={t.type} data={t.data} />
+            <a
+              href={t.lessonUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-[var(--accent)] underline inline-block"
+            >
+              Watch the lesson ↗
+            </a>
           </Card>
         ))}
       </div>
@@ -82,14 +88,12 @@ export default function CombineDetailClient({ id }: { id: string }) {
   );
 }
 
-function pill(label: string, ok: boolean | null) {
+function pill(label: string, ok: boolean) {
   return (
     <span
       className="flex-1 rounded-md text-center text-[10px] py-1 font-bold"
       style={
-        ok == null
-          ? { background: "var(--sand)", color: "var(--muted)" }
-          : ok
+        ok
           ? { background: "var(--green-pale)", color: "var(--green)" }
           : { background: "var(--sand)", color: "var(--muted)" }
       }
@@ -102,23 +106,18 @@ function pill(label: string, ok: boolean | null) {
 function TestAttempts({ type, data }: { type: CombineTestType; data: unknown }) {
   if (!data) return null;
 
-  if (type === "SHORT_PUTTS") {
+  if (type === "SHORT_PUTTS" || type === "DRIVER") {
     const hits = (data as { hits: boolean[] }).hits;
     return <div className="flex gap-1">{hits.map((h, i) => <span key={i}>{pill(h ? "✓" : "✕", h)}</span>)}</div>;
   }
 
-  if (type === "DRIVER") {
-    const hits = (data as { hits: boolean[]; carryYds: number }).hits;
-    return <div className="flex gap-1">{hits.map((h, i) => <span key={i}>{pill(h ? "✓" : "✕", h)}</span>)}</div>;
-  }
-
   if (type === "WEDGES") {
-    const d = data as { hits: boolean[]; customDistanceYds: number };
+    const d = data as { hits: boolean[]; shot10Distance: 50 | 75 | 100 };
     return (
       <div className="flex gap-1">
         {d.hits.map((h, i) => (
           <span key={i} className="flex-1 flex flex-col items-center">
-            {pill(`${wedgeTargetYds(i, d.customDistanceYds)}y`, h)}
+            {pill(`${wedgeTargetYds(i, d.shot10Distance)}y`, h)}
           </span>
         ))}
       </div>
@@ -127,12 +126,12 @@ function TestAttempts({ type, data }: { type: CombineTestType; data: unknown }) 
 
   if (type === "LAG_PUTTS") {
     const outcomes = (data as { outcomes: LagPuttOutcome[] }).outcomes;
-    const LABEL: Record<LagPuttOutcome, string> = { HOLED: "●", CIRCLE: "○", OUT: "✕" };
+    const LABEL: Record<LagPuttOutcome, string> = { HOLED: "●", INSIDE: "○", OUTSIDE: "✕" };
     return (
       <div className="flex gap-1">
         {outcomes.map((o, i) => (
-          <span key={i} title={`${lagPuttDistanceFt(i)}ft`}>
-            {pill(LABEL[o], o === "OUT" ? false : true)}
+          <span key={i} title={`${LAG_FEET[i]}ft`}>
+            {pill(LABEL[o], o !== "OUTSIDE")}
           </span>
         ))}
       </div>

@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { COMBINE_TEST_META, COMBINE_TEST_ORDER, totalScore, type CombineTestType } from "@/lib/combine";
+import {
+  COMBINE_INTRO,
+  COMBINE_LESSON_URL,
+  COMBINE_TEST_ORDER,
+  DRIVER_YARDS_DEFAULT,
+  driverIntro,
+  totalScore,
+  type CombineTestType,
+  type DriverData,
+} from "@/lib/combine";
 
 // GET → detalle de una sesión (score card): los 5 tests con los datos crudos de
-// cada intento (forma distinta por testType, ver lib/combine.ts).
+// cada intento (forma distinta por testType, ver lib/combine.ts) + el copy exacto
+// de CombineIntro, resuelto con los valores reales de esta sesión (shot10/carry).
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await prisma.combineSession.findUnique({
@@ -18,14 +28,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   >;
 
   const tests = COMBINE_TEST_ORDER.map((type) => {
-    const meta = COMBINE_TEST_META[type];
     const result = session.results.find((r) => r.testType === type);
+    const data = result?.attemptsJson ?? null;
+    const intro =
+      type === "DRIVER"
+        ? driverIntro((data as DriverData | null)?.carryYds ?? DRIVER_YARDS_DEFAULT)
+        : COMBINE_INTRO[type];
     return {
       type,
-      label: meta.label,
-      icon: meta.icon,
-      setup: meta.setup,
-      data: result?.attemptsJson ?? null,
+      intro,
+      lessonUrl: COMBINE_LESSON_URL[type],
+      data,
       score: result?.score ?? 0,
     };
   });

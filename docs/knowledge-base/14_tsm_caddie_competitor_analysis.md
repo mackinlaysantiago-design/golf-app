@@ -135,6 +135,58 @@ El test de driver mide dispersión lateral ("yds each side") y feeds del juego d
 registran `{yards, miss: result !== 'in'}` por tiro — coincide con la lógica de Wedge
 Matrix / Clock System que ya tenías mapeada en `13_wedge_distance_mastery.md`.
 
+### 3.1 Datos exactos de scoring (extraídos del bundle JS, 16/10/2026)
+
+Constantes reales (no inferidas del video de Circle, que da la progresión del lag putt
+de forma imprecisa — "15, 18, 21, 24, 28ft and onwards" hablado ≠ el array real):
+
+```
+REPS = 10            // intentos por test
+PUTT_FEET = 4         // short putts: distancia fija, 5 posiciones, 2 vueltas
+LAG_CIRCLE_FEET = 4   // círculo target del lag putt
+LAG_FEET = [15,20,25,30,35,40,45,50,55,60]   // progresión REAL: paso de 5ft, no 3ft
+CHIP_PACES = 25       // chipping: adentro de 25 pasos
+WEDGE_ROUND = [50,75,100]   // 3 distancias × 3 vueltas = 9 shots; shot 10 = tu ELECCIÓN
+                              // entre esas 3 (no una distancia libre)
+WEDGE_WINDOW = 0.1     // ±10% de la distancia target
+DRIVER_FAIRWAY = 0.1   // fairway = 10% del carry real, cada lado
+DriverStepper: min=150, max=350, step=5 yds — persistido (getDriverYards/
+  saveDriverYards, AsyncStorage), NO se retipea cada sesión
+```
+
+Scoring por test (función pura, confirmado en el bundle):
+- `putts`: made→1, miss→0
+- `lag`: holed→2, inside(circle)→1, else→0
+- `chip`: 1 golpe→2, 2→1, 3→0.5, 4+→0
+- `wedges`: inside window→1, else→0
+- `driver`: fairway→1, else→0
+
+Texto exacto de la pantalla `CombineIntro` (3 secciones: Setup / Play-o-Target / Score
+con badges de puntos, + diagrama SVG propio por test + link "Watch the lesson" a Circle):
+
+- **putts** — Setup: *"Five spots around the hole, each 4 feet away, on a slight slope
+  (about 1°)."* Play: *"Go round the five spots twice. 10 putts."* Score: Made=1,
+  Missed=0.
+- **lag** — Setup: *"The same 4-foot circle around the hole is your target."* Play:
+  *"First putt from 15 feet. For each putt after, move round the hole and step back 5
+  feet, so the putts spiral out: 15, 20, 25, 30, 35 and on. 10 putts."* Score: Holed=2,
+  Inside 4 ft=1, Outside=0.
+- **chip** — Setup: *"One ball, any club. Simple chips from around the green, all inside
+  25 paces."* Play: *"10 chips from different spots. Play each one out until it's in the
+  hole."* Score: Chip-in=2, Down in 2=1, Down in 3=½, 4 or more=0.
+- **wedges** — Setup: *"50, 75, 100, then round again, three times. Shot 10 is your pick
+  of the three."* Target: *"Finish within 10% of the distance. From 50 yards, that's
+  45.0 to 55.0."* Score: Inside the window=1, Outside=0.
+- **driver** — Setup: *"Driver only. 10 shots."* Target: *"A fairway 10% of your distance
+  either side of your line. Hit it {yards} and you have {half} yards left and {half}
+  right."* Score: Fairway=1, Missed=0.
+
+La pantalla de ejecución (`CombineTest`) usa interacción táctil nativa elaborada (zonas
+expandibles, haptics, animaciones `pop`/`ring`/`bump`/`roll`, confetti) — no se replicó
+1:1 en golf-app (desproporcionado para una app personal); sí se copió el contenido
+textual exacto, los valores numéricos, el layout Setup/Play/Score con badges, el
+stepper del driver y el link a la lección.
+
 ## 4. Leaderboard (feature nueva no documentada antes)
 
 Tabla de posiciones global, opt-in, basada en las sesiones completadas del Combine

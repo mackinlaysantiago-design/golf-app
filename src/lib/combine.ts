@@ -1,20 +1,7 @@
-// "The Combine" — Skill Test Suite oficial de The Scoring Method (Circle.so,
-// curso "The Scoring Method Combine" → lección "The Full Combine Instructions").
-// Protocolo FIJO, no configurable por Player — a diferencia de PracticeDrill.
-// Texto literal de la lección (05/10/2026):
-//
-// "Five tests. Ten points each. 50 points in total."
-// 1. Short Putts: 5 posiciones a 4 ft del hoyo, pendiente 1°. 2 vueltas = 10 putts.
-//    Score: embocó = 1, falló = 0.
-// 2. Lag Putting: arranca a 15 ft, retrocede 3 ft cada vez (15,18,21,24,28ft...).
-//    Target = círculo de 4 ft alrededor del hoyo (mismo de Short Putts).
-//    Score: embocó = 2, adentro del círculo = 1, afuera = 0.
-// 3. Chipping: 10 chips desde distintos puntos, adentro de 25 pasos, jugados
-//    hasta embocar. Score: chip-in = 2, down-in-2 = 1, down-in-3 = 0.5, down-in-4+ = 0.
-// 4. Wedges: 3 tiros desde 50/75/100 yds + 1 a distancia libre (shot 10).
-//    Target: dentro del 10% de esa distancia. Score: adentro = 1, afuera = 0.
-// 5. Driver ("Go To Club Test" en el índice del curso): 10 tiros. Fairway = 10%
-//    de TU carry real, a cada lado. Score: en fairway = 1, afuera = 0.
+// "The Combine" — Skill Test Suite oficial de The Scoring Method.
+// Constantes y scoring extraídos del bundle JS real de tsmcaddie.com (16/10/2026,
+// ver docs/knowledge-base/14_tsm_caddie_competitor_analysis.md §3.1) — no del video
+// de Circle.so, que describe la progresión del lag putt de forma imprecisa.
 
 export type CombineTestType = "SHORT_PUTTS" | "LAG_PUTTS" | "CHIPPING" | "WEDGES" | "DRIVER";
 
@@ -28,44 +15,17 @@ export const COMBINE_TEST_ORDER: CombineTestType[] = [
   "DRIVER",
 ];
 
-export const COMBINE_TEST_META: Record<
-  CombineTestType,
-  { order: number; label: string; icon: string; setup: string }
-> = {
-  SHORT_PUTTS: {
-    order: 1,
-    label: "Short Putts",
-    icon: "⛳",
-    setup: "5 posiciones a 4 ft del hoyo, pendiente 1°. 2 vueltas = 10 putts.",
-  },
-  LAG_PUTTS: {
-    order: 2,
-    label: "Lag Putting",
-    icon: "🎯",
-    setup: "Arranca a 15 ft, retrocede 3 ft cada putt (15, 18, 21, 24, 28ft...).",
-  },
-  CHIPPING: {
-    order: 3,
-    label: "Chipping",
-    icon: "🪶",
-    setup: "10 chips desde puntos distintos, adentro de 25 pasos. Jugá cada uno hasta embocar.",
-  },
-  WEDGES: {
-    order: 4,
-    label: "Wedges",
-    icon: "🏌️",
-    setup: "3 tiros desde 50, 75 y 100 yds. Shot 10 a una distancia que elijas.",
-  },
-  DRIVER: {
-    order: 5,
-    label: "Driver",
-    icon: "🚀",
-    setup: "10 drives. Fairway = 10% de tu carry real, a cada lado.",
-  },
+export const COMBINE_LESSON_URL: Record<CombineTestType, string> = {
+  SHORT_PUTTS: "https://the-scoring-method.circle.so/c/the-scoring-method-combine/sections/1205562/lessons/4635462",
+  LAG_PUTTS: "https://the-scoring-method.circle.so/c/the-scoring-method-combine/sections/1205562/lessons/4635511",
+  CHIPPING: "https://the-scoring-method.circle.so/c/the-scoring-method-combine/sections/1205562/lessons/4635515",
+  WEDGES: "https://the-scoring-method.circle.so/c/the-scoring-method-combine/sections/1205562/lessons/4635520",
+  DRIVER: "https://the-scoring-method.circle.so/c/the-scoring-method-combine/sections/1205562/lessons/4635522",
 };
 
 // ---------- 1. Short Putts ----------
-export const SHORT_PUTT_DISTANCE_FT = 4;
+export const PUTT_FEET = 4;
+export const PUTT_POSITIONS = 5; // 5 posiciones, 2 vueltas = 10 putts
 
 export type ShortPuttsData = { hits: boolean[] };
 
@@ -74,19 +34,15 @@ export function shortPuttsScore(d: ShortPuttsData): number {
 }
 
 // ---------- 2. Lag Putting ----------
-export const LAG_PUTT_CIRCLE_FT = 4;
-export const LAG_PUTT_START_FT = 15;
-export const LAG_PUTT_STEP_FT = 3;
+export const LAG_CIRCLE_FEET = 4;
+// Progresión real (confirmada en el bundle) — paso de 5ft, arranca en 15ft.
+export const LAG_FEET = [15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
-export type LagPuttOutcome = "HOLED" | "CIRCLE" | "OUT";
+export type LagPuttOutcome = "HOLED" | "INSIDE" | "OUTSIDE";
 export type LagPuttsData = { outcomes: LagPuttOutcome[] };
 
-export function lagPuttDistanceFt(attemptIndex: number): number {
-  return LAG_PUTT_START_FT + attemptIndex * LAG_PUTT_STEP_FT;
-}
-
 export function lagPuttOutcomePoints(o: LagPuttOutcome): number {
-  return o === "HOLED" ? 2 : o === "CIRCLE" ? 1 : 0;
+  return o === "HOLED" ? 2 : o === "INSIDE" ? 1 : 0;
 }
 
 export function lagPuttsScore(d: LagPuttsData): number {
@@ -94,9 +50,8 @@ export function lagPuttsScore(d: LagPuttsData): number {
 }
 
 // ---------- 3. Chipping ----------
-export const CHIPPING_MAX_PACES = 25;
-// 4 = "down in 4 or peor"
-export type ChipStrokes = 1 | 2 | 3 | 4;
+export const CHIP_PACES = 25;
+export type ChipStrokes = 1 | 2 | 3 | 4; // 4 = "4 or more"
 export type ChippingData = { strokes: ChipStrokes[] };
 
 export function chipStrokesPoints(n: ChipStrokes): number {
@@ -108,17 +63,19 @@ export function chippingScore(d: ChippingData): number {
 }
 
 // ---------- 4. Wedges ----------
-// Shots 1-3 @ 50yds, 4-6 @ 75yds, 7-9 @ 100yds, shot 10 (índice 9) = distancia libre.
-export const WEDGE_FIXED_DISTANCES_YDS = [50, 50, 50, 75, 75, 75, 100, 100, 100];
+// 50/75/100 × 3 vueltas = 9 shots. Shot 10 (índice 9) = elección del jugador entre
+// esas 3 distancias — NO una distancia libre.
+export const WEDGE_ROUND = [50, 75, 100];
+export const WEDGE_WINDOW = 0.1;
 
-export type WedgesData = { hits: boolean[]; customDistanceYds: number };
+export type WedgesData = { hits: boolean[]; shot10Distance: 50 | 75 | 100 };
 
-export function wedgeTargetYds(attemptIndex: number, customDistanceYds: number): number {
-  return attemptIndex < 9 ? WEDGE_FIXED_DISTANCES_YDS[attemptIndex] : customDistanceYds;
+export function wedgeTargetYds(attemptIndex: number, shot10Distance: 50 | 75 | 100): number {
+  return attemptIndex < 9 ? WEDGE_ROUND[attemptIndex % 3] : shot10Distance;
 }
 
-export function wedgeWindowYds(targetYds: number): number {
-  return targetYds * 0.1;
+export function wedgeWindow(targetYds: number): { lo: number; hi: number } {
+  return { lo: targetYds * (1 - WEDGE_WINDOW), hi: targetYds * (1 + WEDGE_WINDOW) };
 }
 
 export function wedgesScore(d: WedgesData): number {
@@ -126,10 +83,16 @@ export function wedgesScore(d: WedgesData): number {
 }
 
 // ---------- 5. Driver ----------
+export const DRIVER_FAIRWAY = 0.1;
+export const DRIVER_YARDS_MIN = 150;
+export const DRIVER_YARDS_MAX = 350;
+export const DRIVER_YARDS_STEP = 5;
+export const DRIVER_YARDS_DEFAULT = 250;
+
 export type DriverData = { hits: boolean[]; carryYds: number };
 
-export function driverFairwayHalfWidthYds(carryYds: number): number {
-  return carryYds * 0.1;
+export function fairwayHalfWidth(carryYds: number): number {
+  return Math.round(carryYds * DRIVER_FAIRWAY);
 }
 
 export function driverScore(d: DriverData): number {
@@ -161,15 +124,102 @@ export function scoreForTest<T extends CombineTestType>(
     case "DRIVER":
       return driverScore(data as DriverData);
   }
-  // unreachable — CombineTestType está cerrado
   return 0;
 }
 
-/** Score total del Combine = suma de los 5 tests. "50 points in total" es el nominal
- * de la lección (10 por test); Lag Putting y Chipping pueden superarlo si el jugador
- * embocó mucho — no hay cap, así lo puntúa el protocolo oficial. */
+/** "50 points in total" nominal — Lag Putting y Chipping pueden superar su nominal de
+ * 10 si el jugador embocó mucho; no hay cap, así puntúa el protocolo oficial. */
 export function totalScore(scores: Record<CombineTestType, number>): number {
   return COMBINE_TEST_ORDER.reduce((sum, t) => sum + (scores[t] ?? 0), 0);
 }
 
 export const COMBINE_NOMINAL_TOTAL = COMBINE_TEST_ORDER.length * 10;
+
+// ---------- Copy de la pantalla CombineIntro (texto exacto del bundle real) ----------
+export type ScoreBadge = { points: string; label: string };
+
+export type IntroCopy = {
+  label: string; // "Short Putts", "Lag Putting", ...
+  reps: string; // "Putts", "Chips", "Shots", "Drives"
+  setup: string;
+  secondLabel: string; // "Play" | "Target"
+  second: string;
+  score: ScoreBadge[];
+};
+
+// El texto "Target" de la lección original siempre ejemplifica con la 1ra distancia
+// de la ronda (50yds), sin importar qué eligió el jugador para el shot 10.
+function wedgesIntro(): IntroCopy {
+  const target = WEDGE_ROUND[0];
+  const { lo, hi } = wedgeWindow(target);
+  return {
+    label: "Wedges",
+    reps: "Shots",
+    setup: `${WEDGE_ROUND.join(", ")}, then round again, three times. Shot 10 es tu elección entre las tres.`,
+    secondLabel: "Target",
+    second: `Adentro del 10% de la distancia. Desde ${target} yds, eso es ${lo.toFixed(1)} a ${hi.toFixed(1)}.`,
+    score: [
+      { points: "1", label: "Adentro de la ventana" },
+      { points: "0", label: "Afuera" },
+    ],
+  };
+}
+
+function driverIntro(carryYds: number): IntroCopy {
+  const half = fairwayHalfWidth(carryYds);
+  return {
+    label: "Driver",
+    reps: "Drives",
+    setup: "Solo driver. 10 tiros.",
+    secondLabel: "Target",
+    second: `Fairway = 10% de tu distancia a cada lado de tu línea. Pegándola ${carryYds}, tenés ${half} yds a la izquierda y ${half} a la derecha.`,
+    score: [
+      { points: "1", label: "Fairway" },
+      { points: "0", label: "Afuera" },
+    ],
+  };
+}
+
+export const COMBINE_INTRO: Record<CombineTestType, IntroCopy> = {
+  SHORT_PUTTS: {
+    label: "Short Putts",
+    reps: "Putts",
+    setup: `5 posiciones alrededor del hoyo, cada una a ${PUTT_FEET} ft, en una pendiente leve (~1°).`,
+    secondLabel: "Play",
+    second: `Dale la vuelta a las 5 posiciones dos veces. ${COMBINE_ATTEMPTS} putts.`,
+    score: [
+      { points: "1", label: "Embocó" },
+      { points: "0", label: "Falló" },
+    ],
+  },
+  LAG_PUTTS: {
+    label: "Lag Putting",
+    reps: "Putts",
+    setup: `El mismo círculo de ${LAG_CIRCLE_FEET} ft alrededor del hoyo es tu target.`,
+    secondLabel: "Play",
+    second: `Primer putt desde ${LAG_FEET[0]} ft. Cada putt siguiente retrocedé 5 ft: ${LAG_FEET.slice(0, 5).join(", ")} y así. ${COMBINE_ATTEMPTS} putts.`,
+    score: [
+      { points: "2", label: "Embocó" },
+      { points: "1", label: `Adentro de ${LAG_CIRCLE_FEET} ft` },
+      { points: "0", label: "Afuera" },
+    ],
+  },
+  CHIPPING: {
+    label: "Chipping",
+    reps: "Chips",
+    setup: `Una pelota, el palo que quieras. Chips simples desde alrededor del green, todos adentro de ${CHIP_PACES} pasos.`,
+    secondLabel: "Play",
+    second: `${COMBINE_ATTEMPTS} chips desde puntos distintos. Jugá cada uno hasta embocar.`,
+    score: [
+      { points: "2", label: "Chip-in" },
+      { points: "1", label: "Down in 2" },
+      { points: "½", label: "Down in 3" },
+      { points: "0", label: "4 o más" },
+    ],
+  },
+  // Placeholders — se resuelven con shot10Distance/carryYds reales al render.
+  WEDGES: wedgesIntro(),
+  DRIVER: driverIntro(DRIVER_YARDS_DEFAULT),
+};
+
+export { driverIntro };

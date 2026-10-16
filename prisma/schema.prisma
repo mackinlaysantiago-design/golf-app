@@ -800,9 +800,10 @@ model CombineTestResult {
   session      CombineSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId    String
   testType     CombineTestType
-  // Forma por testType (ver src/lib/combine.ts): SHORT_PUTTS/DRIVER/WEDGES = { hits:
-  // boolean[10], ... }; LAG_PUTTS = { outcomes: ("HOLED"|"CIRCLE"|"OUT")[10] };
-  // CHIPPING = { strokes: (1|2|3|4)[10] }. Protocolo oficial Circle.so (05/10/2026).
+  // Forma por testType (ver src/lib/combine.ts): SHORT_PUTTS/DRIVER = { hits:
+  // boolean[10], ... }; LAG_PUTTS = { outcomes: ("HOLED"|"INSIDE"|"OUTSIDE")[10] };
+  // CHIPPING = { strokes: (1|2|3|4)[10] }; WEDGES = { hits: boolean[10], shot10Distance:
+  // 50|75|100 }. Protocolo real extraído del bundle JS de tsmcaddie.com (16/10/2026).
   attemptsJson Json
   score        Float // puntos del test — puede tener 0.5 (chipping) y superar 10 (lag/chip)
 

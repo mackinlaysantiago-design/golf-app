@@ -51,7 +51,7 @@ const ResultSchema = z.discriminatedUnion("testType", [
   z.object({
     testType: z.literal("LAG_PUTTS"),
     data: z.object({
-      outcomes: z.array(z.enum(["HOLED", "CIRCLE", "OUT"])).length(COMBINE_ATTEMPTS),
+      outcomes: z.array(z.enum(["HOLED", "INSIDE", "OUTSIDE"])).length(COMBINE_ATTEMPTS),
     }),
   }),
   z.object({
@@ -66,7 +66,7 @@ const ResultSchema = z.discriminatedUnion("testType", [
     testType: z.literal("WEDGES"),
     data: z.object({
       hits: z.array(z.boolean()).length(COMBINE_ATTEMPTS),
-      customDistanceYds: z.number().positive(),
+      shot10Distance: z.union([z.literal(50), z.literal(75), z.literal(100)]),
     }),
   }),
   z.object({

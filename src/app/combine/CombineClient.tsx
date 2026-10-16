@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, SectionHeader } from "@/components/ui/Card";
-import { COMBINE_NOMINAL_TOTAL, COMBINE_TEST_META, COMBINE_TEST_ORDER, type CombineTestType } from "@/lib/combine";
+import { COMBINE_NOMINAL_TOTAL, COMBINE_TEST_ORDER, type CombineTestType } from "@/lib/combine";
+
+const SHORT_LABEL: Record<CombineTestType, string> = {
+  SHORT_PUTTS: "Putts",
+  LAG_PUTTS: "Lag",
+  CHIPPING: "Chip",
+  WEDGES: "Wedges",
+  DRIVER: "Driver",
+};
 
 type SessionSummary = {
   id: string;
@@ -59,10 +67,10 @@ export default function CombineClient() {
                   <span className="text-xs text-[var(--muted)] gf-mono"> /{COMBINE_NOMINAL_TOTAL}</span>
                 </div>
               </div>
-              <div className="flex gap-2 mt-1.5 text-[11px] text-[var(--muted)]">
+              <div className="flex gap-3 mt-1.5 text-[11px] text-[var(--muted)]">
                 {COMBINE_TEST_ORDER.map((t) => (
                   <span key={t}>
-                    {COMBINE_TEST_META[t].icon} {s.scores[t] ?? 0}
+                    {SHORT_LABEL[t]} {s.scores[t] ?? 0}
                   </span>
                 ))}
               </div>
