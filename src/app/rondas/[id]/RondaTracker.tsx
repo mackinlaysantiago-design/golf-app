@@ -51,6 +51,8 @@ type RoundHoleData = {
   dangerSide: string | null;
   aimedAtCenter: boolean | null;
   recoveryMode: boolean | null;
+  zoneReason: string | null;
+  holeoutReason: string | null;
 };
 
 type RoundPlayer = {
@@ -137,6 +139,14 @@ export default function RondaTracker({
     recoveryMode?: boolean | null;
     teeShotResult?: "L" | "CENTER" | "R" | null;
     holeNotes?: string | null;
+    zoneReason?: "LOST_BALL_PENALTY" | "POOR_CONTACT" | "OTHER" | null;
+    holeoutReason?:
+      | "POOR_WEDGE"
+      | "POOR_CHIP"
+      | "POOR_LAG_PUTT"
+      | "LOST_BALL_PENALTY"
+      | "OTHER"
+      | null;
   };
   type CellState = Record<string, Record<number, CellValues>>;
 
@@ -164,6 +174,16 @@ export default function RondaTracker({
           recoveryMode: h.recoveryMode,
           teeShotResult: (h.teeShotResult as "L" | "CENTER" | "R" | null) ?? null,
           holeNotes: h.holeNotes,
+          zoneReason:
+            (h.zoneReason as "LOST_BALL_PENALTY" | "POOR_CONTACT" | "OTHER" | null) ?? null,
+          holeoutReason:
+            (h.holeoutReason as
+              | "POOR_WEDGE"
+              | "POOR_CHIP"
+              | "POOR_LAG_PUTT"
+              | "LOST_BALL_PENALTY"
+              | "OTHER"
+              | null) ?? null,
         };
       }
     }
@@ -200,7 +220,9 @@ export default function RondaTracker({
       c.aimedAtCenter != null ||
       c.recoveryMode != null ||
       c.teeShotResult != null ||
-      c.holeNotes != null
+      c.holeNotes != null ||
+      c.zoneReason != null ||
+      c.holeoutReason != null
     );
   }
 
@@ -226,7 +248,9 @@ export default function RondaTracker({
       | "aimedAtCenter"
       | "recoveryMode"
       | "teeShotResult"
-      | "holeNotes",
+      | "holeNotes"
+      | "zoneReason"
+      | "holeoutReason",
     value: string | boolean | null,
   ) {
     setData((prev) => {
@@ -1446,6 +1470,9 @@ export default function RondaTracker({
                       }}
                       par={currentHoleInfo.par}
                       holeNumber={currentHole}
+                      zoneReason={cells.zoneReason ?? null}
+                      holeoutReason={cells.holeoutReason ?? null}
+                      onSetReason={(field, value) => setDecade(rp.id, currentHole, field, value)}
                     />
                     {!hasSmData && (
                       <button
@@ -1780,16 +1807,77 @@ function PuttsField({
   );
 }
 
+const ZONE_REASON_OPTS: { v: "LOST_BALL_PENALTY" | "POOR_CONTACT" | "OTHER"; label: string }[] = [
+  { v: "LOST_BALL_PENALTY", label: "Pelota perdida/penal" },
+  { v: "POOR_CONTACT", label: "Mal contacto" },
+  { v: "OTHER", label: "Otro" },
+];
+
+const HOLEOUT_REASON_OPTS: {
+  v: "POOR_WEDGE" | "POOR_CHIP" | "POOR_LAG_PUTT" | "LOST_BALL_PENALTY" | "OTHER";
+  label: string;
+}[] = [
+  { v: "POOR_WEDGE", label: "Mal wedge" },
+  { v: "POOR_CHIP", label: "Mal chip" },
+  { v: "POOR_LAG_PUTT", label: "Mal lag putt" },
+  { v: "LOST_BALL_PENALTY", label: "Pelota perdida/penal" },
+  { v: "OTHER", label: "Otro" },
+];
+
+// Chip-select de "¿por qué falló?" — aparece solo cuando el flag correspondiente
+// (mismo criterio enterSz/downInSz que ya se ve en pantalla, #332 Opción A) es ❌.
+function ReasonChips<T extends string>({
+  label,
+  value,
+  options,
+  onSet,
+}: {
+  label: string;
+  value: T | null;
+  options: { v: T; label: string }[];
+  onSet: (value: T | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] text-[var(--muted)] gf-mono">{label}</span>
+      {options.map((o) => {
+        const active = value === o.v;
+        return (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => onSet(active ? null : o.v)}
+            className="text-[10px] px-2 py-1 rounded gf-mono"
+            style={{
+              background: active ? "var(--red)" : "var(--green-pale)",
+              color: active ? "white" : "var(--fairway)",
+              fontWeight: active ? 700 : 500,
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function FlagRow({
   cells,
   config,
   par,
   holeNumber,
+  zoneReason,
+  holeoutReason,
+  onSetReason,
 }: {
   cells: Partial<Record<FieldKey, number | null>>;
   config: { enterSzYds: number; downInSzStrokes: number; onePuttCircleFt: number; twoPuttCircleYds: number };
   par: number;
   holeNumber: number;
+  zoneReason: "LOST_BALL_PENALTY" | "POOR_CONTACT" | "OTHER" | null;
+  holeoutReason: "POOR_WEDGE" | "POOR_CHIP" | "POOR_LAG_PUTT" | "LOST_BALL_PENALTY" | "OTHER" | null;
+  onSetReason: (field: "zoneReason" | "holeoutReason", value: string | null) => void;
 }) {
   const flags = computeHoleFlags(
     {
@@ -1817,11 +1905,29 @@ function FlagRow({
   }
 
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-[var(--green-pale)]">
-      {f("Enter SZ", flags.enterSz)}
-      {f("Down in SZ", flags.downInSz)}
-      {f("3 putts", flags.threePutts)}
-      {f("1PC", flags.missedIn1PuttCircle)}
+    <div className="pt-1 border-t border-[var(--green-pale)] space-y-1.5">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {f("Enter SZ", flags.enterSz)}
+        {f("Down in SZ", flags.downInSz)}
+        {f("3 putts", flags.threePutts)}
+        {f("1PC", flags.missedIn1PuttCircle)}
+      </div>
+      {flags.enterSz === false && (
+        <ReasonChips
+          label="¿Por qué falló Enter SZ?"
+          value={zoneReason}
+          options={ZONE_REASON_OPTS}
+          onSet={(v) => onSetReason("zoneReason", v)}
+        />
+      )}
+      {flags.downInSz === false && (
+        <ReasonChips
+          label="¿Por qué falló Down in SZ?"
+          value={holeoutReason}
+          options={HOLEOUT_REASON_OPTS}
+          onSet={(v) => onSetReason("holeoutReason", v)}
+        />
+      )}
     </div>
   );
 }

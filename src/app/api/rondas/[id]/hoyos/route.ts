@@ -37,6 +37,11 @@ const HoleEntrySchema = z.object({
   dangerSide: z.enum(["L", "R", "NONE"]).nullable().optional(),
   aimedAtCenter: z.boolean().nullable().optional(),
   recoveryMode: z.boolean().nullable().optional(),
+  zoneReason: z.enum(["LOST_BALL_PENALTY", "POOR_CONTACT", "OTHER"]).nullable().optional(),
+  holeoutReason: z
+    .enum(["POOR_WEDGE", "POOR_CHIP", "POOR_LAG_PUTT", "LOST_BALL_PENALTY", "OTHER"])
+    .nullable()
+    .optional(),
 });
 
 const PutSchema = z.object({
@@ -164,6 +169,8 @@ export async function PUT(
           dangerSide: e.dangerSide ?? null,
           aimedAtCenter: e.aimedAtCenter ?? null,
           recoveryMode: e.recoveryMode ?? null,
+          zoneReason: e.zoneReason ?? null,
+          holeoutReason: e.holeoutReason ?? null,
         },
         // `undefined` = no lo toques. Antes se ponía `?? null` en todo, así que un
         // guardado parcial (por ejemplo solo la cantidad de putts) borraba el score,
@@ -197,6 +204,8 @@ export async function PUT(
           ...(e.dangerSide !== undefined && { dangerSide: e.dangerSide }),
           ...(e.aimedAtCenter !== undefined && { aimedAtCenter: e.aimedAtCenter }),
           ...(e.recoveryMode !== undefined && { recoveryMode: e.recoveryMode }),
+          ...(e.zoneReason !== undefined && { zoneReason: e.zoneReason }),
+          ...(e.holeoutReason !== undefined && { holeoutReason: e.holeoutReason }),
         },
       }),
     ),

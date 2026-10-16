@@ -157,6 +157,24 @@ export default async function StatsPage() {
   const keysTop3 = topKeys(keysCount, 3);
   const totalKeysLast5 = Object.values(keysCount).reduce((s, v) => s + v, 0);
 
+  // Motivo de falla Row A/B cross-rondas — últimas 5 rondas (#332)
+  const REASON_LABEL: Record<string, string> = {
+    LOST_BALL_PENALTY: "Pelota perdida/penal",
+    POOR_CONTACT: "Mal contacto",
+    POOR_WEDGE: "Mal wedge",
+    POOR_CHIP: "Mal chip",
+    POOR_LAG_PUTT: "Mal lag putt",
+    OTHER: "Otro",
+  };
+  const reasonTally: Record<string, number> = {};
+  for (const s of last5Completed) {
+    for (const h of s.round.players[0].holes) {
+      if (h.zoneReason) reasonTally[h.zoneReason] = (reasonTally[h.zoneReason] ?? 0) + 1;
+      if (h.holeoutReason) reasonTally[h.holeoutReason] = (reasonTally[h.holeoutReason] ?? 0) + 1;
+    }
+  }
+  const totalReasonsLast5 = Object.values(reasonTally).reduce((s, v) => s + v, 0);
+
   // Patrones cross-rondas — problemArea + emoción + commitment
   const problemAreaCounts: Record<string, number> = {};
   const emotionCounts: Record<string, number> = {};
@@ -577,6 +595,25 @@ export default async function StatsPage() {
               </div>
             </details>
           </div>
+        </>
+      )}
+
+      {/* Motivo de falla Row A/B cross-rondas (#332) */}
+      {totalReasonsLast5 > 0 && (
+        <>
+          <SectionHeader>❓ Por qué falló Row A/B · últimas {last5Completed.length} rondas</SectionHeader>
+          <Card className="!p-3">
+            <div className="space-y-1 gf-mono text-[11px]">
+              {Object.entries(reasonTally)
+                .sort(([, a], [, b]) => b - a)
+                .map(([reason, count]) => (
+                  <div key={reason} className="flex justify-between">
+                    <span>{REASON_LABEL[reason] ?? reason}</span>
+                    <span>{count}×</span>
+                  </div>
+                ))}
+            </div>
+          </Card>
         </>
       )}
 
